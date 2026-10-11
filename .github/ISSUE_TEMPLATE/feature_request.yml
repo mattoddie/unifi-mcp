@@ -1,0 +1,28 @@
+name: ✨ Feature request
+description: Suggest a new tool or improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Describe what you'd like to ask your assistant to do, or what's missing today.
+      placeholder: e.g. "I'd like to manage WireGuard peers so I can add a new phone without opening the UI."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: New tool(s), arguments or behaviour. If you know the controller API endpoint (e.g. from your browser's dev tools), include it. It helps a lot.
+  - type: input
+    id: controller
+    attributes:
+      label: Controller and UniFi Network version
+      placeholder: e.g. UCG Ultra, Network 9.3.45
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd be willing to open a pull request for this

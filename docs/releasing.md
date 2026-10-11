@@ -1,0 +1,79 @@
+# Releasing
+
+Releases are driven by **GitHub releases**. Publishing a release with a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/unifi-mcp`. Nothing is published by merging to `main` alone.
+
+- [Versioning](#versioning)
+- [Release checklist](#release-checklist)
+- [Pre-releases](#pre-releases)
+- [What the workflow does](#what-the-workflow-does)
+- [If something goes wrong](#if-something-goes-wrong)
+- [One-time repository setup](#one-time-repository-setup)
+
+## Versioning
+
+The project follows [Semantic Versioning](https://semver.org). Its public API is the set of **tool names, their arguments and the environment variables**:
+
+| Change | Bump | Examples |
+|---|---|---|
+| Breaking | **major** (`2.0.0`) | Renaming or removing a tool, argument or variable; changing a default so that more is allowed |
+| New features | **minor** (`1.3.0`) | New tools, toolsets, arguments or prompts |
+| Fixes | **patch** (`1.2.4`) | Bug fixes, compatibility fixes, docs, dependency updates |
+
+While the version is `0.x`, minor bumps may contain breaking changes. Call them out in the release notes.
+
+The version comes **from the tag**. `package.json` stays at `0.0.0-dev` in the repository, and release builds stamp the tag's version into the image. The server reports it to MCP clients and prints it on its first log line.
+
+## Release checklist
+
+1. **Check `main` is green** on [CI](https://github.com/mattoddie/unifi-mcp/actions/workflows/ci.yml).
+2. **Update the changelog.** In a small PR, move the **Unreleased** entries in [`CHANGELOG.md`](../CHANGELOG.md) under a new heading, `## [1.2.0] - YYYY-MM-DD`, and update the comparison links at the bottom. Merge it.
+3. **Publish the release.** Use either the CLI or the web UI.
+
+   With the CLI:
+
+   ```sh
+   gh release create v1.2.0 --target main --title "v1.2.0" --generate-notes
+   ```
+
+   Or in the web UI: **Releases → Draft a new release → Choose a tag → type `v1.2.0` → Create new tag on publish**, target `main`. Click **Generate release notes**, edit them as needed, then **Publish release**.
+
+4. **Watch the workflow.** Open **Actions → Release**. It takes a few minutes. When it finishes, the release notes gain a *Container image* section with the pull command, digest and tags.
+5. **Check the image:** `docker pull ghcr.io/mattoddie/unifi-mcp:1.2.0`.
+
+Release notes are generated from merged PR titles and grouped by label. The groups are set in [`.github/release.yml`](../.github/release.yml). Label PRs `breaking`, `enhancement`, `new-tool`, `bug`, `compatibility`, `documentation` or `dependencies` to sort them, or `skip-changelog` to leave a PR out.
+
+## Pre-releases
+
+To test a release candidate, use a pre-release tag and tick **Set as a pre-release**:
+
+```sh
+gh release create v1.3.0-rc.1 --target main --prerelease --generate-notes
+```
+
+Pre-releases are published only under their exact version (`ghcr.io/mattoddie/unifi-mcp:1.3.0-rc.1`). They never move `latest`, `1` or `1.3`.
+
+## What the workflow does
+
+| Step | Detail |
+|---|---|
+| Validate the tag | Must match `vMAJOR.MINOR.PATCH` with an optional `-prerelease` suffix, otherwise the workflow fails before building. |
+| Build | `docker buildx` for `linux/amd64` and `linux/arm64`. The test suite runs inside the build, so failing tests mean no image. |
+| Tag | `X.Y.Z` always. For stable releases also `X.Y`, `X` (from `1.0.0` on) and `latest`. |
+| Push | To `ghcr.io/mattoddie/unifi-mcp` using the workflow's `GITHUB_TOKEN`. No personal tokens are needed. |
+| Supply chain | Attaches an SBOM and SLSA provenance to the image, and pushes a signed build provenance attestation (`gh attestation verify`). |
+| Release notes | Appends the pull command, digest and tags. |
+
+## If something goes wrong
+
+- **The workflow failed** for a transient reason: re-run it from the Actions tab. It's safe to re-run, and it pushes the same tags again.
+- **The release was wrong** (bad code or wrong tag): don't move or reuse a published tag, because people may already have pulled it. Fix the problem on `main` and publish the next patch version. You can delete the bad GitHub release and mark it as such in the changelog, but leave the image tag alone.
+- **Wrong tag format** (e.g. `1.2.0` without the `v`): delete the release and tag (`gh release delete 1.2.0 --cleanup-tag`) and publish again with the right tag.
+
+## One-time repository setup
+
+These settings are done once by a maintainer:
+
+- **Make the container package public.** After the first release, open the package page (**Your profile → Packages → unifi-mcp → Package settings**). Under **Danger Zone**, choose **Change visibility → Public**. New GHCR packages start private, and GitHub doesn't offer an API to change this.
+- **Link the package to the repository.** This happens automatically through the image's `org.opencontainers.image.source` label, which makes the package show in the repository sidebar.
+- **Protect release tags** (recommended): **Settings → Rules → Rulesets → New tag ruleset**, targeting `v*`, restricting creation, update and deletion to maintainers.
+- **Protect `main`** (recommended): require pull requests and the CI checks *Test (Node 22)*, *Test (Node 24)* and *Docker image*.

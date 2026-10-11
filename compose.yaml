@@ -1,0 +1,11 @@
+# Copy example.env to .env and fill it in, then: docker compose up -d
+services:
+  unifi-mcp:
+    image: ghcr.io/mattoddie/unifi-mcp:latest
+    # To build from source instead of pulling, replace the line above with:
+    # build: .
+    container_name: unifi-mcp
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:8080"

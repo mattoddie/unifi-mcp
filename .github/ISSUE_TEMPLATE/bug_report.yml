@@ -1,0 +1,62 @@
+name: 🐛 Bug report
+description: Something doesn't work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please check [Troubleshooting](https://github.com/mattoddie/unifi-mcp/blob/main/docs/troubleshooting.md) first.
+        **Remove credentials, tokens, public IP addresses and other private details** from anything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: tool
+    attributes:
+      label: Tool(s) involved
+      placeholder: e.g. unifi_save_wlan
+  - type: textarea
+    id: error
+    attributes:
+      label: Error message or logs
+      description: The tool error text and/or `docker compose logs unifi-mcp` output.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: unifi-mcp version
+      description: Shown on the first log line, or the image tag you run.
+      placeholder: e.g. 1.2.0
+    validations:
+      required: true
+  - type: input
+    id: controller
+    attributes:
+      label: Controller and UniFi Network version
+      placeholder: e.g. UDM Pro, UniFi OS 4.3.6, Network 9.3.45
+    validations:
+      required: true
+  - type: dropdown
+    id: auth
+    attributes:
+      label: Authentication
+      options:
+        - API key
+        - Local username/password
+    validations:
+      required: true
+  - type: dropdown
+    id: transport
+    attributes:
+      label: Transport and client
+      options:
+        - HTTP — Claude Code
+        - HTTP — other client
+        - stdio — Claude Desktop
+        - stdio — other client
+    validations:
+      required: true

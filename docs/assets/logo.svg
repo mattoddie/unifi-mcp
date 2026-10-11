@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="unifi-mcp logo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <circle cx="64" cy="68" r="34" fill="url(#glow)"/>
+  <circle cx="64" cy="68" r="38" fill="none" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="2" stroke-dasharray="4 6"/>
+  <g stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-opacity="0.9">
+    <line x1="64" y1="68" x2="64" y2="34"/>
+    <line x1="64" y1="68" x2="35" y2="86"/>
+    <line x1="64" y1="68" x2="93" y2="86"/>
+  </g>
+  <g fill="#FFFFFF">
+    <circle cx="64" cy="68" r="12"/>
+    <circle cx="64" cy="31" r="9"/>
+    <circle cx="32" cy="88" r="9"/>
+    <circle cx="96" cy="88" r="9"/>
+  </g>
+  <circle cx="64" cy="68" r="5" fill="#4F46E5"/>
+  <path d="M100 18 L103 27 L112 30 L103 33 L100 42 L97 33 L88 30 L97 27 Z" fill="#FFFFFF"/>
+</svg>

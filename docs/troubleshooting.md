@@ -1,0 +1,105 @@
+# Troubleshooting
+
+Start with the logs: `docker compose logs unifi-mcp`. Configuration errors stop the server at startup with a clear message. Controller errors show up in the tool results the assistant sees, and you can usually ask it *"what error did you get?"*.
+
+- [The container keeps restarting](#the-container-keeps-restarting)
+- [The client can't connect to the server](#the-client-cant-connect-to-the-server)
+- [Login and permission errors](#login-and-permission-errors)
+- [Certificate and connection errors](#certificate-and-connection-errors)
+- ["Redirected" errors](#redirected-errors)
+- ["Endpoint not found"](#endpoint-not-found)
+- [Site errors](#site-errors)
+- [A change didn't take effect](#a-change-didnt-take-effect)
+- [Tools are missing](#tools-are-missing)
+- [Slow or timing-out tools](#slow-or-timing-out-tools)
+- [Still stuck?](#still-stuck)
+
+## The container keeps restarting
+
+Run `docker compose logs unifi-mcp`. The last line names the problem, for example:
+
+| Message | Fix |
+|---|---|
+| `UNIFI_URL is required` | Set `UNIFI_URL` in `.env`, and check that `env_file: .env` is in `compose.yaml`. |
+| `Set either UNIFI_API_KEY or both UNIFI_USERNAME and UNIFI_PASSWORD` | Add credentials. |
+| `API keys are only supported by UniFi OS consoles` | You set `UNIFI_CONTROLLER_TYPE=legacy` with an API key. Use a local account instead. |
+| `UNIFI_ALLOW_DELETES=true also requires UNIFI_ALLOW_WRITES=true` | Turn on writes too, or turn deletes off. |
+| `Unknown toolset "x" in UNIFI_TOOLSETS` | Fix the typo. The message lists the valid names. |
+| `Could not read UNIFI_API_KEY_FILE (…)` | The secret file isn't mounted where the variable points. |
+
+## The client can't connect to the server
+
+1. **Is it running?** `curl http://<docker-host>:8080/health` should return `{"status":"ok"}`.
+2. **Right host?** The port is published on the machine running Docker. If Docker runs on another machine (for example with `DOCKER_HOST`), `localhost` won't work.
+3. **Right path?** The endpoint is `/mcp`, so the URL is `http://<docker-host>:8080/mcp`.
+4. **`401 Unauthorized`:** the client isn't sending `Authorization: Bearer <MCP_AUTH_TOKEN>`, or the token doesn't match. Watch for stray quotes or spaces in `.env`.
+5. **`403 Host … is not allowed`:** add the hostname the client uses to `MCP_ALLOWED_HOSTS`, or unset it.
+6. **`405 Method not allowed`:** the client tried to open an SSE stream with `GET`. The server is stateless and only accepts `POST`. Make sure the client is set to *Streamable HTTP* (often called `http`), not `sse`.
+
+## Login and permission errors
+
+**`Login to UniFi controller failed (HTTP 401)` / `api.err.Invalid`**
+
+- Check the username and password by logging in to the UniFi web UI with them.
+- The account must be **local**. Ubiquiti cloud and SSO accounts, especially with MFA, can't log in through the API.
+- On UniFi OS, too many failed logins temporarily lock the account. Wait a few minutes.
+
+**`… failed with HTTP 401/403 … (check credentials and that the account/API key has sufficient permissions)`**
+
+- With an API key: check it was copied completely and hasn't been deleted in **Settings → Control Plane → Integrations**.
+- A *View Only* account can read but not change anything. A write fails with this error even when `UNIFI_ALLOW_WRITES=true`.
+
+## Certificate and connection errors
+
+**`Could not reach UniFi controller at https://…: ECONNREFUSED / ETIMEDOUT / ENOTFOUND`**
+
+- Test from the Docker host: `curl -k https://192.168.1.1`. The container uses the Docker host's network path.
+- Check the port: UniFi OS uses `443`, legacy controllers usually `8443`, and UniFi OS Server `11443`.
+- Hostnames must resolve **inside the container**. If local DNS names don't resolve there, use an IP address.
+
+**`… self-signed certificate … (set UNIFI_VERIFY_SSL=false)`**
+
+The controller uses its default self-signed certificate. Set `UNIFI_VERIFY_SSL=false`, which is the default, or install a trusted certificate on the controller.
+
+## "Redirected" errors
+
+**`… was redirected (HTTP 302) to …; check UNIFI_URL and UNIFI_CONTROLLER_TYPE`**
+
+- `UNIFI_URL` should be the bare console URL, such as `https://192.168.1.1`, without `/network` or `/manage`.
+- If the controller type was detected wrongly, for example behind a reverse proxy, set `UNIFI_CONTROLLER_TYPE=unifi-os` or `legacy`.
+
+## "Endpoint not found"
+
+**`… failed with HTTP 404 … (endpoint not found; it may not exist on this Network application version)`**
+
+The feature isn't available on your Network version or hardware, or your site uses the other firewall model. For example, legacy firewall rule tools don't apply after migrating to zone-based firewall, and the other way round. See [Compatibility](compatibility.md).
+
+## Site errors
+
+**`api.err.NoSiteContext` or `api.err.NoPermission` for a site**
+
+Tools need the site's **API name**, not its display name. Ask *"list my UniFi sites"* and use the `name` field (for example `default` or `x7k2pq9d`) for `UNIFI_SITE` or in your questions.
+
+## A change didn't take effect
+
+- The tool returns as soon as the controller accepts a change. Devices then need a few seconds to provision, and clients may reconnect.
+- Some field names vary between Network versions. Ask the assistant to fetch the object with `raw: true`, compare it with what you expected, and set the right field via `extra`. See [Compatibility → fields that couldn't be verified](compatibility.md#fields-that-couldnt-be-verified).
+- If the controller rejected the change, the tool result contains the controller's message, such as `api.err.InvalidPayload`.
+
+## Tools are missing
+
+Tools are only registered when they're allowed:
+
+- Write tools need `UNIFI_ALLOW_WRITES=true`, and delete tools also need `UNIFI_ALLOW_DELETES=true`.
+- Each tool's toolset must be listed in `UNIFI_TOOLSETS`.
+- Restart the container after changing `.env` with `docker compose up -d`, and reconnect or restart your MCP client so it fetches the new tool list.
+
+## Slow or timing-out tools
+
+- Some operations are slow by nature: backups, RF scans, large statistics reports and big client lists. Raise `UNIFI_TIMEOUT_MS`, for example to `120000`.
+- Behind a reverse proxy, raise the proxy's read timeout too.
+- Use `limit`, `search` and toolset filtering to keep responses small.
+
+## Still stuck?
+
+Search the [existing issues](https://github.com/mattoddie/unifi-mcp/issues) or [open a bug report](https://github.com/mattoddie/unifi-mcp/issues/new?template=bug_report.yml). Include your controller model, Network version, unifi-mcp version (the first log line) and the exact error. **Remove any credentials, tokens and public IPs first.**
