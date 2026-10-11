@@ -13,7 +13,9 @@ An open-source [Model Context Protocol](https://modelcontextprotocol.io) server 
 [![Container image](https://img.shields.io/badge/ghcr.io-mattoddie%2Funifi--mcp-2496ED?logo=docker&logoColor=white)](https://github.com/mattoddie/unifi-mcp/pkgs/container/unifi-mcp)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-[Quick start](#quick-start) · [Documentation](docs/README.md) · [Tool reference](docs/tools.md) · [Contributing](CONTRIBUTING.md)
+**[unifi-mcp.mattoddie.dev](https://unifi-mcp.mattoddie.dev)**
+
+[Quick start](#quick-start) · [Documentation](https://unifi-mcp.mattoddie.dev/docs/) · [Tool reference](docs/tools.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -101,6 +103,8 @@ Read [Security](docs/security.md) before turning on writes for a production netw
 See the **[tool reference](docs/tools.md)** for every tool and argument. Ready-made prompts like `network_health_check`, `troubleshoot_client` and `security_review` chain the tools together for common jobs.
 
 ## Documentation
+
+The docs are also published at **[unifi-mcp.mattoddie.dev/docs](https://unifi-mcp.mattoddie.dev/docs/)**, with search.
 
 | | |
 |---|---|
