@@ -8,6 +8,14 @@ updates:
       dev-dependencies:
         dependency-type: development
     labels: [dependencies]
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+    groups:
+      website:
+        patterns: ["*"]
+    labels: [dependencies]
   - package-ecosystem: github-actions
     directory: /
     schedule:

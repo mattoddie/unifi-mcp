@@ -1,0 +1,47 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@700&display=block">
+<style>
+*{margin:0;box-sizing:border-box}
+body{width:1200px;height:630px;background:#07080f;color:#e7e9f3;font-family:Inter,sans-serif;overflow:hidden;position:relative}
+.bg{position:absolute;inset:0;background:radial-gradient(50% 60% at 15% 20%,rgba(99,102,241,.38),transparent 70%),radial-gradient(45% 55% at 90% 80%,rgba(34,211,238,.25),transparent 70%)}
+.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(70% 70% at 40% 40%,#000 30%,transparent 85%)}
+.c{position:absolute;inset:0;padding:64px 90px;display:flex;flex-direction:column;justify-content:center}
+.row{display:flex;align-items:center;gap:28px}
+.name{font:700 64px 'Space Grotesk';letter-spacing:-.02em}
+h1{font:700 80px/1.02 'Space Grotesk';letter-spacing:-.03em;margin-top:36px}
+h1 span{background:linear-gradient(100deg,#a5b4fc,#818cf8 30%,#22d3ee);-webkit-background-clip:text;color:transparent}
+p{font-size:28px;color:#aab0c8;margin-top:26px}
+.tags{display:flex;gap:12px;margin-top:34px}
+.tags b{font:500 20px 'JetBrains Mono';padding:8px 16px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.05);color:#c7d2fe}
+</style></head><body><div class="bg"></div><div class="grid"></div>
+<div class="c"><div class="row"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="168" height="168" role="img" aria-label="unifi-mcp logo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="168" height="168" rx="28" fill="url(#bg)"/>
+  <circle cx="64" cy="68" r="34" fill="url(#glow)"/>
+  <circle cx="64" cy="68" r="38" fill="none" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="2" stroke-dasharray="4 6"/>
+  <g stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-opacity="0.9">
+    <line x1="64" y1="68" x2="64" y2="34"/>
+    <line x1="64" y1="68" x2="35" y2="86"/>
+    <line x1="64" y1="68" x2="93" y2="86"/>
+  </g>
+  <g fill="#FFFFFF">
+    <circle cx="64" cy="68" r="12"/>
+    <circle cx="64" cy="31" r="9"/>
+    <circle cx="32" cy="88" r="9"/>
+    <circle cx="96" cy="88" r="9"/>
+  </g>
+  <circle cx="64" cy="68" r="5" fill="#4F46E5"/>
+  <path d="M100 18 L103 27 L112 30 L103 33 L100 42 L97 33 L88 30 L97 27 Z" fill="#FFFFFF"/>
+</svg><div class="name">unifi-mcp</div></div>
+<h1>Talk to your <span>UniFi network.</span></h1>
+<p>An open-source MCP server for Claude and other AI assistants.</p>
+<div class="tags"><b>132 tools</b><b>Docker</b><b>Read-only by default</b><b>MIT</b></div></div></body></html>
