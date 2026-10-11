@@ -89,19 +89,6 @@ Two rulesets protect the repository. You can view and edit them under **Settings
 > [!NOTE]
 > Required checks are matched by job name. If you rename a job in [`ci.yml`](../.github/workflows/ci.yml), update the *Protect main* ruleset in the same change. Otherwise pull requests wait forever for a check that never reports.
 
-### CI and fork safety
-
-Anyone can fork the repository and open a pull request, so the pipeline treats pull request code as untrusted:
-
-- **No secrets.** The workflows use only the built-in `GITHUB_TOKEN`. There are no repository or environment secrets for a pull request to steal.
-- **Read-only tokens for pull requests.** Workflows run on `pull_request`, never `pull_request_target`. A fork's pull request gets a read-only token and can't push code, images or releases. The default workflow token is read-only too, and workflows can't approve pull requests.
-- **Approval before fork runs.** Workflows from contributors outside the repository don't run until a maintainer clicks **Approve and run** on the pull request. Read the diff first, especially any changes under `.github/`.
-- **Publishing needs a maintainer.** Only the Release workflow can push images, and it runs only when a release is published. Version tags are admin-only (see the rulesets above), so only a maintainer can publish one. Release images are built without a build cache, so nothing cached by another run can end up in them.
-- **Pinned, allow-listed actions.** Actions are pinned to full commit SHAs, and Dependabot keeps those pins up to date. The repository only allows actions from GitHub (`actions/*`) and Docker (`docker/*`), and rejects any action that isn't pinned to a SHA. To use a new action, add its owner to the allow-list under **Settings → Actions → General**.
-- **Checkout doesn't keep credentials.** `actions/checkout` runs with `persist-credentials: false`, so later steps can't reuse the token through git.
-- **Website previews.** Cloudflare Pages doesn't build preview deployments for pull requests from forks, only for branches in this repository.
-- **Security features.** Secret scanning with push protection, Dependabot alerts and security updates, and private vulnerability reporting are all turned on.
-
 ### Container package visibility
 
 New GHCR packages normally start private, and GitHub doesn't offer an API to change this. This package became public automatically because it's linked to this public repository. If a new package ever starts private, open the package page (**Your profile → Packages → unifi-mcp → Package settings**) and choose **Change visibility → Public** under **Danger Zone**.
