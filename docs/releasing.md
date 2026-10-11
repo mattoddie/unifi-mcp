@@ -7,7 +7,7 @@ Releases are driven by **GitHub releases**. Publishing a release with a tag like
 - [Pre-releases](#pre-releases)
 - [What the workflow does](#what-the-workflow-does)
 - [If something goes wrong](#if-something-goes-wrong)
-- [One-time repository setup](#one-time-repository-setup)
+- [Repository setup](#repository-setup)
 
 ## Versioning
 
@@ -69,11 +69,28 @@ Pre-releases are published only under their exact version (`ghcr.io/mattoddie/un
 - **The release was wrong** (bad code or wrong tag): don't move or reuse a published tag, because people may already have pulled it. Fix the problem on `main` and publish the next patch version. You can delete the bad GitHub release and mark it as such in the changelog, but leave the image tag alone.
 - **Wrong tag format** (e.g. `1.2.0` without the `v`): delete the release and tag (`gh release delete 1.2.0 --cleanup-tag`) and publish again with the right tag.
 
-## One-time repository setup
+## Repository setup
 
-These settings are done once by a maintainer:
+### Rulesets (in place)
 
-- **Make the container package public.** After the first release, open the package page (**Your profile → Packages → unifi-mcp → Package settings**). Under **Danger Zone**, choose **Change visibility → Public**. New GHCR packages start private, and GitHub doesn't offer an API to change this.
-- **Link the package to the repository.** This happens automatically through the image's `org.opencontainers.image.source` label, which makes the package show in the repository sidebar.
-- **Protect release tags** (recommended): **Settings → Rules → Rulesets → New tag ruleset**, targeting `v*`, restricting creation, update and deletion to maintainers.
-- **Protect `main`** (recommended): require pull requests and the CI checks *Test (Node 22)*, *Test (Node 24)* and *Docker image*.
+Two rulesets protect the repository. You can view and edit them under **Settings → Rules → Rulesets**.
+
+**Protect main** (the default branch):
+
+- Changes land only through pull requests. Nobody can push directly, force-push or delete the branch, and there are no bypasses.
+- The CI checks *Test (Node 22)*, *Test (Node 24)* and *Docker image* must pass, and the branch must be up to date with `main`.
+- Review threads must be resolved before merging. The only merge method is squash.
+- No approving review is required yet, because GitHub doesn't let authors approve their own pull requests and the project has a single maintainer. Raise this when there are more maintainers.
+
+**Protect release tags** (`v*`):
+
+- Only repository admins can create, move or delete version tags, so only maintainers can publish releases. Published versions can't be re-pointed.
+
+> [!NOTE]
+> Required checks are matched by job name. If you rename a job in [`ci.yml`](../.github/workflows/ci.yml), update the *Protect main* ruleset in the same change. Otherwise pull requests wait forever for a check that never reports.
+
+### Container package visibility (one-time)
+
+New GHCR packages start private, and GitHub doesn't offer an API to change this. After the first release, open the package page (**Your profile → Packages → unifi-mcp → Package settings**) and choose **Change visibility → Public** under **Danger Zone**.
+
+The package links to the repository automatically through the image's `org.opencontainers.image.source` label, which makes it show in the repository sidebar.
