@@ -89,8 +89,8 @@ Two rulesets protect the repository. You can view and edit them under **Settings
 > [!NOTE]
 > Required checks are matched by job name. If you rename a job in [`ci.yml`](../.github/workflows/ci.yml), update the *Protect main* ruleset in the same change. Otherwise pull requests wait forever for a check that never reports.
 
-### Container package visibility (one-time)
+### Container package visibility
 
-New GHCR packages start private, and GitHub doesn't offer an API to change this. After the first release, open the package page (**Your profile → Packages → unifi-mcp → Package settings**) and choose **Change visibility → Public** under **Danger Zone**.
+New GHCR packages normally start private, and GitHub doesn't offer an API to change this. This package became public automatically because it's linked to this public repository. If a new package ever starts private, open the package page (**Your profile → Packages → unifi-mcp → Package settings**) and choose **Change visibility → Public** under **Danger Zone**.
 
 The package links to the repository automatically through the image's `org.opencontainers.image.source` label, which makes it show in the repository sidebar.
