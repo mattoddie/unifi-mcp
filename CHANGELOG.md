@@ -6,6 +6,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-15
+
 ### Security
 
 - **Breaking:** the HTTP transport now refuses to start without `MCP_AUTH_TOKEN`. Set `MCP_ALLOW_UNAUTHENTICATED=true` only when something in front of the server already authenticates requests.
@@ -39,5 +41,6 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mattoddie/unifi-mcp/releases/tag/v0.1.0
