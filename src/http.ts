@@ -47,12 +47,27 @@ function tokenMatches(header: string | undefined, token: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/** True when the Origin's host (with or without port) is in the allow-list. "null" and malformed origins are rejected. */
+function originAllowed(origin: string, allowedHosts: string[]): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  return allowedHosts.includes(parsed.host.toLowerCase()) || allowedHosts.includes(parsed.hostname.toLowerCase());
+}
+
 /**
  * Stateless Streamable HTTP transport: every POST to /mcp gets a fresh
  * server + transport, so the container can be restarted or scaled freely.
  */
 export function startHttpServer(cfg: Config, makeServer: () => McpServer): Promise<Server> {
-  const { host, port, authToken, allowedHosts } = cfg.http;
+  const { host, port, authToken, allowUnauthenticated, allowedHosts } = cfg.http;
+  if (!authToken && !allowUnauthenticated) {
+    return Promise.reject(new Error("MCP_AUTH_TOKEN is required for the http transport (or set MCP_ALLOW_UNAUTHENTICATED=true)"));
+  }
 
   const httpServer = createHttpServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -69,6 +84,11 @@ export function startHttpServer(cfg: Config, makeServer: () => McpServer): Promi
       const hostname = hostHeader.replace(/:\d+$/, "");
       if (!allowedHosts.includes(hostHeader) && !allowedHosts.includes(hostname)) {
         return rpcError(res, 403, `Host ${hostHeader} is not allowed`);
+      }
+      // Browsers send Origin on cross-site requests; non-browser clients usually don't.
+      const origin = req.headers.origin;
+      if (origin !== undefined && !originAllowed(origin, allowedHosts)) {
+        return rpcError(res, 403, `Origin ${origin} is not allowed`);
       }
     }
     if (authToken && !tokenMatches(req.headers.authorization, authToken)) {
@@ -105,7 +125,7 @@ export function startHttpServer(cfg: Config, makeServer: () => McpServer): Promi
   return new Promise((resolve, reject) => {
     httpServer.once("error", reject);
     httpServer.listen(port, host, () => {
-      console.error(`unifi-mcp listening on http://${host}:${port}/mcp${authToken ? " (bearer auth enabled)" : ""}`);
+      console.error(`unifi-mcp listening on http://${host}:${port}/mcp${authToken ? " (bearer auth enabled)" : " (WARNING: no authentication, MCP_ALLOW_UNAUTHENTICATED=true)"}`);
       resolve(httpServer);
     });
   });

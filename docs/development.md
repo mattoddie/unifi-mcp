@@ -127,6 +127,7 @@ Tests use Node's built-in test runner against `MockController` (`src/test/mock-c
 - A generic in-memory CRUD store for `rest/<collection>` and `v2/<collection>`, which you fill with `seed()`
 - `on(method, regex, handler)` to add custom routes, which take priority over the built-in ones
 - `requestsTo(prefix)` to check what the server sent
+- `delay(regex, ms)` to slow down responses (for concurrency tests), and a `tls` option to serve HTTPS with the throwaway certificate in `src/test/tls-fixture.ts`
 
 A typical test:
 

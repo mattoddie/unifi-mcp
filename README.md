@@ -54,7 +54,8 @@ You need Docker, a UniFi controller and an MCP client such as [Claude Code](http
 mkdir unifi-mcp && cd unifi-mcp
 curl -fsSLO https://raw.githubusercontent.com/mattoddie/unifi-mcp/main/compose.yaml
 curl -fsSL https://raw.githubusercontent.com/mattoddie/unifi-mcp/main/example.env -o .env
-# Edit .env: set UNIFI_URL, UNIFI_API_KEY and a random MCP_AUTH_TOKEN (e.g. `openssl rand -hex 32`)
+# Edit .env: set UNIFI_URL, UNIFI_API_KEY and a random MCP_AUTH_TOKEN (required; e.g. `openssl rand -hex 32`).
+# Recommended: pin the console's certificate with UNIFI_TLS_FINGERPRINT (see docs/security.md).
 docker compose up -d
 ```
 
@@ -75,7 +76,7 @@ Out of the box the assistant can look but not touch. To let it make changes, add
 
 ```sh
 UNIFI_ALLOW_WRITES=true      # restart devices, block clients, edit WiFi/firewall/networks…
-UNIFI_ALLOW_DELETES=true     # also allow deleting configuration (needs writes too)
+UNIFI_ALLOW_DELETES=true     # also allow deleting configuration, forgetting clients… (needs writes too)
 UNIFI_TOOLSETS=overview,devices,clients,wifi,monitoring   # optional: expose fewer tools
 ```
 

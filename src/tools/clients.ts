@@ -143,8 +143,7 @@ export function registerClientsTools(ctx: ToolContext): void {
     toolset: "clients",
     title: "Forget clients",
     description: "Remove clients and their history (alias, note, fixed IP, statistics) from the controller.",
-    write: true,
-    destructive: true,
+    delete: true,
     input: { ...siteArg, macs: z.array(z.string()).min(1).describe("MAC addresses to forget") },
     handler: async (a) => {
       const macs = a.macs.map(normalizeMac);

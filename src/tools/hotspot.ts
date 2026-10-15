@@ -83,8 +83,7 @@ export function registerHotspotTools(ctx: ToolContext): void {
     toolset: "hotspot",
     title: "Revoke hotspot voucher",
     description: "Delete/revoke a hotspot voucher.",
-    write: true,
-    destructive: true,
+    delete: true,
     input: { ...siteArg, id: idArg("Voucher") },
     handler: async (a) => {
       await client.cmd(site(a.site), "hotspot", "delete-voucher", { _id: a.id });

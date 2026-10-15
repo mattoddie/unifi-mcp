@@ -26,6 +26,9 @@ Run `docker compose logs unifi-mcp`. The last line names the problem, for exampl
 | `UNIFI_ALLOW_DELETES=true also requires UNIFI_ALLOW_WRITES=true` | Turn on writes too, or turn deletes off. |
 | `Unknown toolset "x" in UNIFI_TOOLSETS` | Fix the typo. The message lists the valid names. |
 | `Could not read UNIFI_API_KEY_FILE (…)` | The secret file isn't mounted where the variable points. |
+| `MCP_AUTH_TOKEN is required for the http transport …` | Set `MCP_AUTH_TOKEN` (generate one with `openssl rand -hex 32`) and send it from your client. Only if something else in front of the server authenticates requests, set `MCP_ALLOW_UNAUTHENTICATED=true` instead. |
+| `UNIFI_TLS_FINGERPRINT: … is not a SHA-256 certificate fingerprint` | Use the 64-hex-digit SHA-256 fingerprint, with or without colons. SHA-1 fingerprints are too short. |
+| `Could not read UNIFI_CA_FILE (…)` | The CA file isn't mounted where the variable points. |
 
 ## The client can't connect to the server
 
@@ -33,8 +36,9 @@ Run `docker compose logs unifi-mcp`. The last line names the problem, for exampl
 2. **Right host?** The port is published on the machine running Docker. If Docker runs on another machine (for example with `DOCKER_HOST`), `localhost` won't work.
 3. **Right path?** The endpoint is `/mcp`, so the URL is `http://<docker-host>:8080/mcp`.
 4. **`401 Unauthorized`:** the client isn't sending `Authorization: Bearer <MCP_AUTH_TOKEN>`, or the token doesn't match. Watch for stray quotes or spaces in `.env`.
-5. **`403 Host … is not allowed`:** add the hostname the client uses to `MCP_ALLOWED_HOSTS`, or unset it.
+5. **`403 Host … is not allowed` or `403 Origin … is not allowed`:** add the hostname the client uses to `MCP_ALLOWED_HOSTS`, or unset it. Browser-based clients send an `Origin` header, which must also name an allowed host.
 6. **`405 Method not allowed`:** the client tried to open an SSE stream with `GET`. The server is stateless and only accepts `POST`. Make sure the client is set to *Streamable HTTP* (often called `http`), not `sse`.
+7. **Connection refused without Docker:** run with Node directly, the server listens on `127.0.0.1` only. Set `MCP_HTTP_HOST=0.0.0.0` (and keep `MCP_AUTH_TOKEN` set) to accept connections from other machines.
 
 ## Login and permission errors
 
@@ -57,9 +61,13 @@ Run `docker compose logs unifi-mcp`. The last line names the problem, for exampl
 - Check the port: UniFi OS uses `443`, legacy controllers usually `8443`, and UniFi OS Server `11443`.
 - Hostnames must resolve **inside the container**. If local DNS names don't resolve there, use an IP address.
 
-**`… self-signed certificate … (set UNIFI_VERIFY_SSL=false)`**
+**`… self-signed certificate … (the controller's certificate isn't trusted …; pin it with UNIFI_TLS_FINGERPRINT …)`**
 
-The controller uses its default self-signed certificate. Set `UNIFI_VERIFY_SSL=false`, which is the default, or install a trusted certificate on the controller.
+Certificate verification is on (`UNIFI_VERIFY_SSL=true` or `UNIFI_CA_FILE`), but the controller uses its default self-signed certificate. Turn verification off and pin the certificate instead with `UNIFI_TLS_FINGERPRINT`, as described in [Security: TLS to the controller](security.md#about-tls-to-the-controller). Or install a trusted certificate on the controller. If the error mentions `ALTNAME`, the certificate doesn't cover the host name or IP in `UNIFI_URL`; a pin works around that too.
+
+**`TLS certificate fingerprint mismatch: the controller presented SHA-256 …`**
+
+The controller's certificate isn't the one in `UNIFI_TLS_FINGERPRINT`. That's expected after the console renews or regenerates its certificate, for example after an update or a reset. Check the new fingerprint against the console itself (see the `openssl` command in [Security](security.md#about-tls-to-the-controller)) before you update the variable. If you didn't expect a change, treat it as a possible interception.
 
 ## "Redirected" errors
 

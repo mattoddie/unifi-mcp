@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { UnifiClient } from "../unifi/client.js";
+import { pathSegment, type UnifiClient } from "../unifi/client.js";
 import { compact, normalizeMac, redactSecrets } from "../unifi/format.js";
 import { restDelete, restGet, restList, restSave, v2Delete, v2Get, v2List, v2Save } from "./rest.js";
 import { defined, defineTool, extraArg, idArg, siteArg, type ToolContext } from "./util.js";
@@ -561,7 +561,7 @@ export function registerFirewallTools(ctx: ToolContext): void {
         if (a.source) patch.source = { ...current.source, ...normalizeEndpoint(a.source) };
         if (a.destination) patch.destination = { ...current.destination, ...normalizeEndpoint(a.destination) };
         const merged = { ...current, ...patch, ...a.extra };
-        const saved = await client.v2<Obj>("PUT", s, `firewall-policies/${encodeURIComponent(a.id)}`, merged);
+        const saved = await client.v2<Obj>("PUT", s, `firewall-policies/${pathSegment(a.id)}`, merged);
         return summarizePolicy(saved && typeof saved === "object" && !Array.isArray(saved) ? saved : merged);
       }
       if (!a.name || !a.action || !a.source || !a.destination) {
@@ -806,7 +806,7 @@ export function registerFirewallTools(ctx: ToolContext): void {
 
       if (current) {
         const merged = { ...current, ...patch, ...a.extra };
-        const saved = await client.v2<Obj>("PUT", s, `trafficrules/${encodeURIComponent(a.id!)}`, merged);
+        const saved = await client.v2<Obj>("PUT", s, `trafficrules/${pathSegment(a.id!)}`, merged);
         return summarizeTrafficRule(saved && typeof saved === "object" && !Array.isArray(saved) ? saved : merged);
       }
       if (!a.action || !a.matching_target) throw new Error("action and matching_target are required to create a traffic rule");

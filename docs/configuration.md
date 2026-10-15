@@ -20,7 +20,9 @@ The server checks the configuration at startup. If something is wrong, it exits 
 | `UNIFI_USERNAME` | | Local account username, used when no API key is set. |
 | `UNIFI_PASSWORD` | | Local account password. |
 | `UNIFI_SITE` | `default` | Site to use when a tool call doesn't name one. Use the site's **API name**, which is the `name` field from `unifi_list_sites` (e.g. `default`, `x7k2pq9d`), not its display name. |
-| `UNIFI_VERIFY_SSL` | `false` | Verify the controller's TLS certificate. Leave it `false` for the self-signed certificate that consoles ship with. Set it to `true` if you've installed a trusted certificate. |
+| `UNIFI_VERIFY_SSL` | `false` (`true` when `UNIFI_CA_FILE` is set) | Verify the controller's TLS certificate against trusted CAs. Leave it `false` for the self-signed certificate that consoles ship with, and pin that certificate with `UNIFI_TLS_FINGERPRINT` instead. Set it to `true` if you've installed a trusted certificate. |
+| `UNIFI_TLS_FINGERPRINT` | | SHA-256 fingerprint of the controller's certificate, as `AA:BB:…` or plain hex. Connections to any other certificate are refused, even with verification off. Comma-separate several to allow for a certificate change. See [Security: TLS to the controller](security.md#about-tls-to-the-controller). |
+| `UNIFI_CA_FILE` | | PEM file with the CA certificate(s) that signed the controller's certificate, for a private CA. Turns verification on. The certificate's name must match `UNIFI_URL`, unless `UNIFI_TLS_FINGERPRINT` is also set. |
 | `UNIFI_CONTROLLER_TYPE` | `auto` | `auto`, `unifi-os` or `legacy`. With `auto`, the server detects the type on first use. Set it explicitly if detection fails, for example behind an unusual reverse proxy. |
 | `UNIFI_TIMEOUT_MS` | `30000` | Timeout for each controller request, in milliseconds. |
 
@@ -36,7 +38,7 @@ Boolean variables accept `true`/`false`, `1`/`0`, `yes`/`no` and `on`/`off`.
 | Variable | Default | Description |
 |---|---|---|
 | `UNIFI_ALLOW_WRITES` | `false` | Register tools that change state: restarting devices, blocking clients, editing WiFi, firewall, networks and so on. |
-| `UNIFI_ALLOW_DELETES` | `false` | Also register tools that delete configuration, such as networks, WLANs, firewall rules or sites. Requires `UNIFI_ALLOW_WRITES=true`. |
+| `UNIFI_ALLOW_DELETES` | `false` | Also register tools that delete or forget things, such as networks, WLANs, firewall rules, sites, clients' history or hotspot vouchers. Requires `UNIFI_ALLOW_WRITES=true`. |
 | `UNIFI_TOOLSETS` | `all` | Comma-separated list of [toolsets](#choosing-toolsets) to expose. |
 
 Tools that aren't allowed are **not registered at all**. The assistant can't see them, so it can't call them or be talked into calling them.
@@ -46,10 +48,11 @@ Tools that aren't allowed are **not registered at all**. The assistant can't see
 | Variable | Default | Description |
 |---|---|---|
 | `MCP_TRANSPORT` | `http` in the Docker image (`stdio` when run with Node directly) | `http` for Streamable HTTP, or `stdio`. |
-| `MCP_HTTP_HOST` | `0.0.0.0` | Address to listen on (HTTP only). |
+| `MCP_HTTP_HOST` | `0.0.0.0` in the Docker image (`127.0.0.1` when run with Node directly) | Address to listen on (HTTP only). |
 | `MCP_HTTP_PORT` | `8080` | Port to listen on (HTTP only). |
-| `MCP_AUTH_TOKEN` | | When set, every request to `/mcp` must send `Authorization: Bearer <token>`. **Set this whenever anything other than you can reach the port.** |
-| `MCP_ALLOWED_HOSTS` | | Comma-separated allow-list of `Host` header values, such as `unifi-mcp.lan,unifi-mcp.lan:8080`. Requests with any other `Host` are rejected, which protects against DNS-rebinding attacks from web pages in your browser. |
+| `MCP_AUTH_TOKEN` | **required for HTTP** | Every request to `/mcp` must send `Authorization: Bearer <token>`. Generate one with `openssl rand -hex 32`. The server refuses to start in HTTP mode without it. |
+| `MCP_ALLOW_UNAUTHENTICATED` | `false` | Start the HTTP transport without `MCP_AUTH_TOKEN`. Only set this when something in front of the server, such as an authenticating reverse proxy, already checks every request. |
+| `MCP_ALLOWED_HOSTS` | | Comma-separated allow-list of host names, such as `unifi-mcp.lan,unifi-mcp.lan:8080` (case-insensitive). Requests with any other `Host` header, or with an `Origin` header for another host, are rejected. This protects against DNS-rebinding and cross-site attacks from web pages in your browser. |
 
 The HTTP server exposes these endpoints:
 

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { normalizeFingerprint } from "./unifi/client.js";
 
 export type ControllerType = "auto" | "unifi-os" | "legacy";
 export type TransportType = "stdio" | "http";
@@ -10,6 +11,10 @@ export interface UnifiConfig {
   password?: string;
   site: string;
   verifySsl: boolean;
+  /** PEM file with CA certificates to trust for the controller (UNIFI_CA_FILE). */
+  caFile?: string;
+  /** Accepted SHA-256 fingerprints of the controller's certificate (UNIFI_TLS_FINGERPRINT). */
+  tlsFingerprints?: string[];
   controllerType: ControllerType;
   timeoutMs: number;
 }
@@ -47,6 +52,8 @@ export interface Config {
     host: string;
     port: number;
     authToken?: string;
+    /** Serve /mcp without a bearer token (MCP_ALLOW_UNAUTHENTICATED). */
+    allowUnauthenticated: boolean;
     allowedHosts?: string[];
   };
 }
@@ -130,8 +137,42 @@ export function loadConfig(env: Env = process.env): Config {
 
   const allowedHosts = read(env, "MCP_ALLOWED_HOSTS")
     ?.split(",")
-    .map((h) => h.trim())
+    .map((h) => h.trim().toLowerCase())
     .filter(Boolean);
+
+  const authToken = read(env, "MCP_AUTH_TOKEN");
+  const allowUnauthenticated = bool(read(env, "MCP_ALLOW_UNAUTHENTICATED"), false);
+  if (transport === "http" && !authToken && !allowUnauthenticated) {
+    throw new Error(
+      "MCP_AUTH_TOKEN is required for the http transport (generate one with: openssl rand -hex 32); set MCP_ALLOW_UNAUTHENTICATED=true only behind something else that authenticates",
+    );
+  }
+
+  const caFile = read(env, "UNIFI_CA_FILE");
+  if (caFile) {
+    try {
+      readFileSync(caFile);
+    } catch (err) {
+      throw new Error(`Could not read UNIFI_CA_FILE (${caFile}): ${(err as Error).message}`);
+    }
+  }
+  const verifySslSetting = read(env, "UNIFI_VERIFY_SSL");
+  // A custom CA only makes sense with verification on, so it switches it on by default.
+  const verifySsl = bool(verifySslSetting, Boolean(caFile));
+  if (caFile && !verifySsl) {
+    throw new Error("UNIFI_CA_FILE needs certificate verification; remove UNIFI_VERIFY_SSL=false");
+  }
+  const tlsFingerprints = read(env, "UNIFI_TLS_FINGERPRINT")
+    ?.split(",")
+    .map((f) => f.trim())
+    .filter(Boolean)
+    .map((f) => {
+      try {
+        return normalizeFingerprint(f);
+      } catch (err) {
+        throw new Error(`UNIFI_TLS_FINGERPRINT: ${(err as Error).message}`);
+      }
+    });
 
   return {
     unifi: {
@@ -140,17 +181,29 @@ export function loadConfig(env: Env = process.env): Config {
       username,
       password,
       site: read(env, "UNIFI_SITE") ?? "default",
-      verifySsl: bool(read(env, "UNIFI_VERIFY_SSL"), false),
+      verifySsl,
+      caFile,
+      tlsFingerprints: tlsFingerprints?.length ? tlsFingerprints : undefined,
       controllerType,
       timeoutMs: int("UNIFI_TIMEOUT_MS", read(env, "UNIFI_TIMEOUT_MS"), 30000),
     },
     tools: { allowWrites, allowDeletes, toolsets },
     transport,
     http: {
-      host: read(env, "MCP_HTTP_HOST") ?? "0.0.0.0",
+      host: read(env, "MCP_HTTP_HOST") ?? "127.0.0.1",
       port: int("MCP_HTTP_PORT", read(env, "MCP_HTTP_PORT"), 8080),
-      authToken: read(env, "MCP_AUTH_TOKEN"),
+      authToken,
+      allowUnauthenticated,
       allowedHosts: allowedHosts?.length ? allowedHosts : undefined,
     },
   };
+}
+
+/**
+ * Startup warning for an https controller whose certificate is neither verified
+ * nor pinned, so anyone on the path could impersonate it and capture credentials.
+ */
+export function insecureTlsWarning(cfg: UnifiConfig): string | undefined {
+  if (cfg.verifySsl || cfg.tlsFingerprints?.length || !cfg.url.toLowerCase().startsWith("https:")) return undefined;
+  return "the controller's TLS certificate is not verified (UNIFI_VERIFY_SSL=false) and not pinned. Set UNIFI_TLS_FINGERPRINT to pin it (see docs/security.md).";
 }

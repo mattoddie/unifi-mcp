@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pathSegment } from "../unifi/client.js";
 import { compact } from "../unifi/format.js";
 import { domainEntries, ipEntries, summarizeTrafficMatch, targetArgs, targetDevices } from "./firewall.js";
 import { restDelete, restList, restSave, v2Delete, v2Get, v2List } from "./rest.js";
@@ -171,7 +172,7 @@ export function registerRoutingTools(ctx: ToolContext): void {
       if (a.id) {
         const current = await v2Get(client, s, "trafficroutes", a.id);
         const merged = { ...current, ...patch, ...a.extra };
-        const saved = await client.v2<Obj>("PUT", s, `trafficroutes/${encodeURIComponent(a.id)}`, merged);
+        const saved = await client.v2<Obj>("PUT", s, `trafficroutes/${pathSegment(a.id)}`, merged);
         return summarizeTrafficRoute(saved && typeof saved === "object" && !Array.isArray(saved) ? saved : merged);
       }
       if (!a.description || !a.matching_target || !a.network_id) {

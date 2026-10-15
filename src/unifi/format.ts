@@ -207,13 +207,30 @@ export function summarizeWlan(w: Obj, includeSecrets: boolean): Obj {
   });
 }
 
-/** Strip secret-looking fields from arbitrary objects (x_passphrase, x_password, ...). */
+/**
+ * Field names that hold secrets even without the controller's x_ prefix: SNMP
+ * communities, RADIUS/PPPoE/DDNS passwords, WireGuard private keys, OpenVPN
+ * configuration files, API tokens and so on. Objects nested under other names
+ * (e.g. private_preshared_keys[].password) are caught by recursion.
+ */
+const SECRET_FIELD = /password|passphrase|secret|token|private_?key|_key$|configuration_file|config_file|^psk$|^community$/i;
+/** Names that match SECRET_FIELD but are identifiers, not secrets. */
+const NOT_SECRET = new Set(["zone_key"]);
+
+function isSecretField(name: string): boolean {
+  return name.startsWith("x_") || (SECRET_FIELD.test(name) && !NOT_SECRET.has(name));
+}
+
+/** Strip secret fields (x_passphrase, x_password, community, private_key, ...) from arbitrary objects. */
 export function redactSecrets<T>(value: T): T {
   if (Array.isArray(value)) return value.map(redactSecrets) as T;
   if (value && typeof value === "object") {
     const out: Obj = {};
     for (const [k, v] of Object.entries(value)) {
-      out[k] = k.startsWith("x_") && typeof v === "string" && v ? "[redacted]" : redactSecrets(v);
+      const secret = isSecretField(k);
+      if (secret && typeof v === "string" && v) out[k] = "[redacted]";
+      else if (secret && Array.isArray(v) && v.length && v.every((x) => typeof x === "string")) out[k] = v.map(() => "[redacted]");
+      else out[k] = redactSecrets(v);
     }
     return out as T;
   }

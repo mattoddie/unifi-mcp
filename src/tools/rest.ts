@@ -1,4 +1,4 @@
-import type { UnifiClient } from "../unifi/client.js";
+import { pathSegment, type UnifiClient } from "../unifi/client.js";
 
 /**
  * CRUD helpers for the two configuration API styles:
@@ -11,7 +11,7 @@ import type { UnifiClient } from "../unifi/client.js";
 
 type Obj = Record<string, any>;
 
-const enc = encodeURIComponent;
+const enc = (value: string) => pathSegment(value);
 
 export async function restList(client: UnifiClient, site: string, collection: string): Promise<Obj[]> {
   return client.siteGet<Obj[]>(site, `rest/${collection}`);

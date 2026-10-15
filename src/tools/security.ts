@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { pathSegment } from "../unifi/client.js";
 import { compact, isoTime } from "../unifi/format.js";
 import { updateSetting, v2List } from "./rest.js";
 import { defineTool, defined, extraArg, idArg, limitArg, siteArg, type ToolContext } from "./util.js";
@@ -235,7 +236,7 @@ export function registerSecurityTools(ctx: ToolContext): void {
       if (a.id) {
         const current = (await v2List(client, s, "content-filtering")).find((f) => (f._id ?? f.id) === a.id);
         if (!current) throw new Error(`No content filter with id ${a.id} on site ${s}`);
-        const updated = await client.v2("PUT", s, `content-filtering/${encodeURIComponent(a.id)}`, { ...current, ...fields });
+        const updated = await client.v2("PUT", s, `content-filtering/${pathSegment(a.id)}`, { ...current, ...fields });
         return summarizeContentFilter(updated ?? { ...current, ...fields });
       }
       if (!a.name) throw new Error("name is required when creating a content filter");
@@ -260,7 +261,7 @@ export function registerSecurityTools(ctx: ToolContext): void {
     delete: true,
     input: { ...siteArg, id: idArg("Content filter") },
     handler: async (a) => {
-      await client.v2("DELETE", site(a.site), `content-filtering/${encodeURIComponent(a.id)}`);
+      await client.v2("DELETE", site(a.site), `content-filtering/${pathSegment(a.id)}`);
       return { deleted: a.id };
     },
   });
