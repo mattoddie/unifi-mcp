@@ -26,7 +26,7 @@ To change the social preview, edit `scripts/og.html`, screenshot it at 1200×630
 
 ## Deployment
 
-Cloudflare Pages builds the site from this folder on every push. Pushes to `main` deploy to production, and pull requests get a preview URL. It only rebuilds when `website/` or `docs/` changes.
+Cloudflare Pages builds the site from this folder on every push. Pushes to `main` deploy to production, and pull requests get a preview URL. It only rebuilds when `website/`, `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md` or `SECURITY.md` changes, because the site publishes those root files too.
 
 | Setting | Value |
 |---|---|
