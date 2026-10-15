@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { loadConfig } from "./config.js";
+import { insecureTlsWarning, loadConfig } from "./config.js";
 import { startHttpServer } from "./http.js";
 import { createServer, SERVER_VERSION } from "./server.js";
 import { UnifiClient } from "./unifi/client.js";
@@ -13,6 +13,8 @@ async function main(): Promise<void> {
     `unifi-mcp ${SERVER_VERSION}: controller ${cfg.unifi.url}, site "${cfg.unifi.site}", auth ${cfg.unifi.apiKey ? "API key" : "username/password"}, ` +
       `writes ${cfg.tools.allowWrites ? "ENABLED" : "disabled"}${cfg.tools.allowDeletes ? " (with deletes)" : ""}, transport ${cfg.transport}`,
   );
+  const tlsWarning = insecureTlsWarning(cfg.unifi);
+  if (tlsWarning) console.error(`unifi-mcp: WARNING: ${tlsWarning}`);
 
   let shutdown: () => Promise<void>;
   if (cfg.transport === "http") {

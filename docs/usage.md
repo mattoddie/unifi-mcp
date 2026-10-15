@@ -83,7 +83,7 @@ So *"turn off the guest WiFi"* becomes `unifi_save_wlan {id: "…", enabled: fal
 
 ### Deleting
 
-Deleting needs `UNIFI_ALLOW_DELETES=true` as well. With it off, the delete tools don't exist and the raw API tool refuses `DELETE` requests. You can still *disable* most objects with `enabled: false`, which is easy to undo.
+Deleting needs `UNIFI_ALLOW_DELETES=true` as well. This covers forgetting clients and revoking hotspot vouchers too. With it off, the delete tools don't exist, and the raw API tool refuses `DELETE` requests and commands that delete, forget, revoke, remove, destroy or reset something. You can still *disable* most objects with `enabled: false`, which is easy to undo.
 
 ### Actions
 
@@ -114,8 +114,10 @@ To find the right field names, ask the assistant to fetch the object with `raw: 
 | Settings | Allowed methods |
 |---|---|
 | Default (read-only) | `GET` |
-| `UNIFI_ALLOW_WRITES=true` | `GET`, `POST`, `PUT`, `PATCH` |
+| `UNIFI_ALLOW_WRITES=true` | `GET`, `POST`, `PUT`, `PATCH`, except delete-like commands such as `{"cmd": "delete-site"}` or `forget-sta` |
 | `+ UNIFI_ALLOW_DELETES=true` | All, including `DELETE` |
+
+Paths must stay inside the Network application: `.` and `..` segments (also percent-encoded), backslashes and query strings in the path are refused. Pass query parameters with the `query` argument.
 
 Leave `raw` out of `UNIFI_TOOLSETS` if you want the assistant limited to the curated tools.
 

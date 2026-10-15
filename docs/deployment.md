@@ -147,5 +147,7 @@ git clone https://github.com/mattoddie/unifi-mcp.git
 cd unifi-mcp
 npm ci && npm run build
 UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... node dist/index.js   # stdio by default
-MCP_TRANSPORT=http UNIFI_URL=... UNIFI_API_KEY=... node dist/index.js
+MCP_TRANSPORT=http MCP_AUTH_TOKEN=... UNIFI_URL=... UNIFI_API_KEY=... node dist/index.js
 ```
+
+In HTTP mode, `MCP_AUTH_TOKEN` is required, and outside Docker the server listens on `127.0.0.1` only. Set `MCP_HTTP_HOST=0.0.0.0` to accept connections from other machines.

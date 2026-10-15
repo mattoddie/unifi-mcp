@@ -1,4 +1,4 @@
-# Copy example.env to .env and fill it in, then: docker compose up -d
+# Copy example.env to .env and fill it in (MCP_AUTH_TOKEN is required), then: docker compose up -d
 services:
   unifi-mcp:
     image: ghcr.io/mattoddie/unifi-mcp:latest
@@ -8,4 +8,6 @@ services:
     restart: unless-stopped
     env_file: .env
     ports:
+      # Reachable from other machines. If only this machine (or a reverse proxy on it)
+      # needs access, publish on localhost instead: "127.0.0.1:8080:8080"
       - "8080:8080"

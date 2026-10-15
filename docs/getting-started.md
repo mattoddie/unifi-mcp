@@ -65,8 +65,10 @@ Edit `.env` and set at least:
 ```sh
 UNIFI_URL=https://192.168.1.1
 UNIFI_API_KEY=your-api-key          # or UNIFI_USERNAME + UNIFI_PASSWORD
-MCP_AUTH_TOKEN=a-long-random-string # generate one with: openssl rand -hex 32
+MCP_AUTH_TOKEN=a-long-random-string # required; generate one with: openssl rand -hex 32
 ```
+
+The server won't start without `MCP_AUTH_TOKEN`. It's also worth pinning the console's self-signed certificate with `UNIFI_TLS_FINGERPRINT`, so nobody on the network can impersonate the controller. [Security](security.md#about-tls-to-the-controller) shows how to get the fingerprint.
 
 Start it:
 
@@ -75,12 +77,14 @@ docker compose up -d
 docker compose logs -f unifi-mcp
 ```
 
-You should see a line like this:
+You should see lines like these:
 
 ```text
 unifi-mcp 1.0.0: controller https://192.168.1.1, site "default", auth API key, writes disabled, transport http
 unifi-mcp listening on http://0.0.0.0:8080/mcp (bearer auth enabled)
 ```
+
+A `WARNING: the controller's TLS certificate is not verified … and not pinned` line means `UNIFI_TLS_FINGERPRINT` isn't set yet. Everything works, but setting it is recommended.
 
 Check that it's up from another machine:
 

@@ -121,15 +121,21 @@ export function registerDevicesTools(ctx: ToolContext): void {
     toolset: "devices",
     title: "Get firmware status",
     description:
-      "Show each device's current firmware and whether an upgrade is available. Optionally ask the controller to refresh its firmware cache first, and/or list the firmware images it knows about.",
+      "Show each device's current firmware and whether an upgrade is available. Optionally ask the controller to refresh its firmware cache first (requires writes enabled), and/or list the firmware images it knows about.",
     input: {
       ...siteArg,
-      refresh: z.boolean().optional().describe("Ask the controller to check for new device firmware first (cmd/productinfo)"),
+      refresh: z
+        .boolean()
+        .optional()
+        .describe("Ask the controller to check for new device firmware first (cmd/productinfo; requires UNIFI_ALLOW_WRITES=true)"),
       include_available: z.boolean().optional().describe("Also list firmware images available to the controller (cmd/firmware list-available)"),
     },
     handler: async (a) => {
       const s = site(a.site);
-      if (a.refresh) await client.sitePost(s, "cmd/productinfo", { cmd: "check-firmware-update" });
+      if (a.refresh) {
+        if (!ctx.allowWrites) throw new Error("refresh requires UNIFI_ALLOW_WRITES=true");
+        await client.sitePost(s, "cmd/productinfo", { cmd: "check-firmware-update" });
+      }
       const devices: Obj[] = await client.siteGet(s, "stat/device");
       const available = a.include_available
         ? await client.cmd<Obj[]>(s, "firmware", "list-available").catch((err: Error) => ({ error: err.message }))

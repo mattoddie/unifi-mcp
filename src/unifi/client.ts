@@ -1,4 +1,6 @@
-import { Agent, fetch, type Response } from "undici";
+import { readFileSync } from "node:fs";
+import type { PeerCertificate, TLSSocket } from "node:tls";
+import { Agent, buildConnector, fetch, type Response } from "undici";
 import type { UnifiConfig } from "../config.js";
 
 export class UnifiError extends Error {
@@ -18,6 +20,55 @@ interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined>;
 }
 
+/** Prefix of the Network application on UniFi OS consoles. */
+const UNIFI_OS_PREFIX = "/proxy/network";
+
+/**
+ * Rejects request paths that could be normalised to somewhere else once turned
+ * into a URL: dot segments (also percent-encoded, e.g. %2e%2e), backslashes,
+ * control characters and embedded query strings or fragments. Without this,
+ * /%2e%2e/api/system would resolve outside the Network application.
+ */
+export function assertSafePath(path: string): void {
+  if (!path.startsWith("/")) throw new UnifiError(`Invalid API path "${path}": it must start with /`);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(path);
+  } catch {
+    throw new UnifiError(`Invalid API path "${path}": malformed percent-encoding`);
+  }
+  for (const p of [path, decoded]) {
+    if (/[\\\x00-\x1f\x7f]/.test(p)) throw new UnifiError(`Invalid API path "${path}": backslashes and control characters are not allowed`);
+    if (/[?#]/.test(p)) throw new UnifiError(`Invalid API path "${path}": pass query parameters separately, not in the path`);
+    if (/%2e/i.test(p)) throw new UnifiError(`Invalid API path "${path}": encoded dots (%2e) are not allowed`);
+    if (p.split("/").some((seg) => seg === "." || seg === "..")) {
+      throw new UnifiError(`Invalid API path "${path}": "." and ".." segments are not allowed`);
+    }
+  }
+}
+
+/**
+ * Encodes one path segment (site name, object ID, ...), refusing values that
+ * would be read as a relative path.
+ */
+export function pathSegment(value: string, what = "path segment"): string {
+  if (value === "" || value === "." || value === "..") throw new UnifiError(`Invalid ${what} "${value}"`);
+  return encodeURIComponent(value);
+}
+
+/** Normalises a SHA-256 fingerprint (AA:BB:..., aabb..., optionally prefixed "sha256:") to AA:BB:... form. */
+export function normalizeFingerprint(value: string): string {
+  const hex = value
+    .trim()
+    .replace(/^sha-?256[:=/ ]?/i, "")
+    .replace(/[:\s-]/g, "")
+    .toUpperCase();
+  if (!/^[0-9A-F]{64}$/.test(hex)) {
+    throw new Error(`"${value}" is not a SHA-256 certificate fingerprint (64 hex digits, optionally colon-separated)`);
+  }
+  return hex.match(/.{2}/g)!.join(":");
+}
+
 /**
  * Minimal client for the UniFi Network application.
  *
@@ -32,13 +83,18 @@ export class UnifiClient {
   private cookies = new Map<string, string>();
   private csrfToken?: string;
   private loginPromise?: Promise<void>;
+  /** Incremented on every successful login, so a request can tell whether its session is still the current one. */
+  private sessionGeneration = 0;
+  /** Path component of UNIFI_URL (normally empty). */
+  private readonly basePath: string;
 
   constructor(private readonly cfg: UnifiConfig) {
     this.dispatcher = new Agent({
-      connect: { rejectUnauthorized: cfg.verifySsl },
+      connect: tlsConnector(cfg),
       headersTimeout: cfg.timeoutMs,
       bodyTimeout: cfg.timeoutMs,
     });
+    this.basePath = new URL(cfg.url).pathname.replace(/\/+$/, "");
     if (cfg.apiKey || cfg.controllerType === "unifi-os") this.unifiOs = true;
     else if (cfg.controllerType === "legacy") this.unifiOs = false;
   }
@@ -52,16 +108,16 @@ export class UnifiClient {
   }
 
   /** GET a site-scoped classic API endpoint, e.g. siteGet("default", "stat/device"). */
-  siteGet<T = any>(site: string, path: string, query?: RequestOptions["query"]): Promise<T> {
-    return this.request<T>("GET", `/api/s/${encodeURIComponent(site)}/${path}`, { query });
+  async siteGet<T = any>(site: string, path: string, query?: RequestOptions["query"]): Promise<T> {
+    return this.request<T>("GET", `/api/s/${pathSegment(site, "site")}/${path}`, { query });
   }
 
-  sitePost<T = any>(site: string, path: string, body?: unknown): Promise<T> {
-    return this.request<T>("POST", `/api/s/${encodeURIComponent(site)}/${path}`, { body: body ?? {} });
+  async sitePost<T = any>(site: string, path: string, body?: unknown): Promise<T> {
+    return this.request<T>("POST", `/api/s/${pathSegment(site, "site")}/${path}`, { body: body ?? {} });
   }
 
-  sitePut<T = any>(site: string, path: string, body: unknown): Promise<T> {
-    return this.request<T>("PUT", `/api/s/${encodeURIComponent(site)}/${path}`, { body });
+  async sitePut<T = any>(site: string, path: string, body: unknown): Promise<T> {
+    return this.request<T>("PUT", `/api/s/${pathSegment(site, "site")}/${path}`, { body });
   }
 
   /** Issue a command to one of the classic API managers (stamgr, devmgr, hotspot, evtmgr...). */
@@ -70,8 +126,8 @@ export class UnifiClient {
   }
 
   /** Request against the v2 API (/v2/api/site/<site>/...), used by newer features. */
-  v2<T = any>(method: HttpMethod, site: string, path: string, body?: unknown): Promise<T> {
-    return this.request<T>(method, `/v2/api/site/${encodeURIComponent(site)}/${path}`, { body });
+  async v2<T = any>(method: HttpMethod, site: string, path: string, body?: unknown): Promise<T> {
+    return this.request<T>(method, `/v2/api/site/${pathSegment(site, "site")}/${path}`, { body });
   }
 
   /**
@@ -79,25 +135,38 @@ export class UnifiClient {
    * (e.g. /api/s/default/stat/health, /v2/api/site/default/trafficrules,
    * /integration/v1/sites); the /proxy/network prefix is added on UniFi OS.
    * Classic API envelopes ({meta, data}) are unwrapped to `data`.
+   * Paths with dot segments (plain or percent-encoded) are rejected, so a
+   * request can't escape the Network application.
    */
   async request<T = any>(method: HttpMethod, path: string, opts: RequestOptions = {}): Promise<T> {
     if (!path.startsWith("/")) path = `/${path}`;
+    assertSafePath(path);
     await this.ensureReady();
 
-    let res = await this.send(method, this.networkPath(path), opts);
+    const prefix = this.unifiOs ? UNIFI_OS_PREFIX : "";
+    const generation = this.sessionGeneration;
+    let res = await this.send(method, prefix + path, opts, prefix);
     if ((res.status === 401 || res.status === 403) && !this.cfg.apiKey) {
       // Session expired: log in again and retry once.
       await res.body?.cancel();
-      this.cookies.clear();
-      this.csrfToken = undefined;
-      await this.login();
-      res = await this.send(method, this.networkPath(path), opts);
+      await this.reauthenticate(generation);
+      res = await this.send(method, prefix + path, opts, prefix);
     }
     return this.parse<T>(res, method, path);
   }
 
-  private networkPath(path: string): string {
-    return this.unifiOs ? `/proxy/network${path}` : path;
+  /**
+   * Replaces a session the controller rejected. `generation` is the session the
+   * failed request was sent with: if another request has logged in since, the
+   * fresh session is kept instead of being thrown away. Concurrent callers share
+   * one login.
+   */
+  private async reauthenticate(generation: number): Promise<void> {
+    if (this.loginPromise) return this.loginPromise;
+    if (generation !== this.sessionGeneration) return;
+    this.cookies.clear();
+    this.csrfToken = undefined;
+    return this.login();
   }
 
   private async ensureReady(): Promise<void> {
@@ -145,10 +214,20 @@ export class UnifiClient {
     if (this.cookies.size === 0) {
       throw new UnifiError("Login succeeded but the controller did not return a session cookie");
     }
+    this.sessionGeneration++;
   }
 
-  private async send(method: HttpMethod, path: string, opts: RequestOptions): Promise<Response> {
+  /**
+   * Sends a request to `path` (relative to UNIFI_URL). As a second line of
+   * defence, refuses to send anything whose URL, after normalisation, isn't
+   * exactly `path` under `requiredPrefix`.
+   */
+  private async send(method: HttpMethod, path: string, opts: RequestOptions, requiredPrefix = ""): Promise<Response> {
+    assertSafePath(path);
     const url = new URL(this.cfg.url + path);
+    if (url.pathname !== this.basePath + path || !url.pathname.startsWith(`${this.basePath}${requiredPrefix}/`)) {
+      throw new UnifiError(`Refusing to send ${method} ${path}: it resolves to ${url.pathname}. Percent-encode special characters in the path.`);
+    }
     for (const [k, v] of Object.entries(opts.query ?? {})) {
       if (v !== undefined) url.searchParams.set(k, String(v));
     }
@@ -238,10 +317,52 @@ export class UnifiClient {
     if (e.name === "TimeoutError" || e.name === "AbortError") {
       return new UnifiError(`Timed out after ${this.cfg.timeoutMs}ms talking to ${this.cfg.url}`);
     }
+    if (e.cause instanceof TlsPinError) return new UnifiError(`Could not reach UniFi controller at ${this.cfg.url}: ${e.cause.message}`);
     const cause = e.cause?.code ?? e.cause?.message ?? e.message;
-    const tlsHint = /CERT|SELF_SIGNED|UNABLE_TO_VERIFY/i.test(String(cause))
-      ? " (the controller uses a self-signed certificate; set UNIFI_VERIFY_SSL=false)"
+    const tlsHint = /CERT|SELF_SIGNED|UNABLE_TO_VERIFY|ALTNAME/i.test(String(cause))
+      ? " (the controller's certificate isn't trusted, usually because it's self-signed; pin it with UNIFI_TLS_FINGERPRINT or trust its CA with UNIFI_CA_FILE, see docs/security.md)"
       : "";
     return new UnifiError(`Could not reach UniFi controller at ${this.cfg.url}: ${cause}${tlsHint}`);
   }
+}
+
+class TlsPinError extends Error {
+  constructor(presented: string | undefined) {
+    super(`TLS certificate fingerprint mismatch: the controller presented SHA-256 ${presented ?? "(none)"}, which is not in UNIFI_TLS_FINGERPRINT`);
+    this.name = "TlsPinError";
+  }
+}
+
+/**
+ * Builds the undici connector for controller connections.
+ *  - UNIFI_VERIFY_SSL and UNIFI_CA_FILE control normal certificate verification.
+ *  - UNIFI_TLS_FINGERPRINT pins the SHA-256 fingerprint of the controller's
+ *    certificate. The pin is checked on the connected socket rather than in
+ *    checkServerIdentity, because Node skips checkServerIdentity when the chain
+ *    doesn't verify (as with a self-signed certificate) and ignores its result
+ *    when rejectUnauthorized is false. With a pin, the hostname check is skipped:
+ *    the pin already identifies the exact certificate.
+ */
+function tlsConnector(cfg: UnifiConfig): buildConnector.connector {
+  const pins = cfg.tlsFingerprints?.map(normalizeFingerprint) ?? [];
+  const connector = buildConnector({
+    rejectUnauthorized: cfg.verifySsl,
+    ca: cfg.caFile ? readFileSync(cfg.caFile, "utf8") : undefined,
+    ...(pins.length ? { checkServerIdentity: () => undefined } : {}),
+  });
+  if (!pins.length) return connector;
+  return (opts, callback) => {
+    connector(opts, (err, socket) => {
+      if (err) return callback(err, null);
+      if (opts.protocol === "https:") {
+        const cert: PeerCertificate | undefined = (socket as TLSSocket).getPeerCertificate?.();
+        const presented = cert?.fingerprint256?.toUpperCase();
+        if (!presented || !pins.includes(presented)) {
+          socket!.destroy();
+          return callback(new TlsPinError(presented), null);
+        }
+      }
+      callback(null, socket!);
+    });
+  };
 }

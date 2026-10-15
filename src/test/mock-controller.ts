@@ -1,4 +1,5 @@
-import { createServer, type IncomingMessage, type Server } from "node:http";
+import { createServer, type IncomingMessage, type RequestListener, type Server } from "node:http";
+import { createServer as createHttpsServer } from "node:https";
 import type { AddressInfo } from "node:net";
 
 export interface RecordedRequest {
@@ -13,6 +14,8 @@ export type MockHandler = (body: any, match: RegExpMatchArray, query: URLSearchP
 export interface MockOptions {
   mode: "unifi-os" | "legacy";
   apiKey?: string;
+  /** Serve HTTPS with this certificate and key instead of plain HTTP. */
+  tls?: { cert: string; key: string };
 }
 
 /** A tiny fake UniFi controller covering the endpoints the tests exercise. */
@@ -27,6 +30,7 @@ export class MockController {
    */
   store = new Map<string, any[]>();
   private handlers: { method: string; pattern: RegExp; fn: MockHandler }[] = [];
+  private delays: { pattern: RegExp; ms: number }[] = [];
   private nextId = 1;
   private server!: Server;
   url = "";
@@ -37,7 +41,7 @@ export class MockController {
   }
 
   async start(): Promise<void> {
-    this.server = createServer((req, res) => {
+    const listener: RequestListener = (req, res) => {
       const chunks: Buffer[] = [];
       req.on("data", (c) => chunks.push(c));
       req.on("end", () => {
@@ -45,13 +49,18 @@ export class MockController {
         const body = text ? JSON.parse(text) : undefined;
         const path = req.url ?? "/";
         this.requests.push({ method: req.method ?? "GET", path, headers: req.headers, body });
+        // The response is decided on arrival (so auth uses the session sent), then optionally delayed.
         const [status, payload, headers] = this.route(req, path, body);
-        res.writeHead(status, { "Content-Type": "application/json", ...headers });
-        res.end(payload === undefined ? "" : JSON.stringify(payload));
+        const delay = this.delays.find((d) => d.pattern.test(this.relative(path)))?.ms ?? 0;
+        setTimeout(() => {
+          res.writeHead(status, { "Content-Type": "application/json", ...headers });
+          res.end(payload === undefined ? "" : JSON.stringify(payload));
+        }, delay);
       });
-    });
+    };
+    this.server = this.opts.tls ? createHttpsServer(this.opts.tls, listener) : createServer(listener);
     await new Promise<void>((r) => this.server.listen(0, "127.0.0.1", r));
-    this.url = `http://127.0.0.1:${(this.server.address() as AddressInfo).port}`;
+    this.url = `${this.opts.tls ? "https" : "http"}://127.0.0.1:${(this.server.address() as AddressInfo).port}`;
   }
 
   /**
@@ -62,6 +71,17 @@ export class MockController {
   on(method: string, pattern: RegExp, fn: MockHandler): this {
     this.handlers.push({ method, pattern, fn });
     return this;
+  }
+
+  /** Delay responses to paths (relative to the Network application, without query) matching `pattern`. */
+  delay(pattern: RegExp, ms: number): this {
+    this.delays.push({ pattern, ms });
+    return this;
+  }
+
+  private relative(path: string): string {
+    const prefix = this.opts.mode === "unifi-os" ? "/proxy/network" : "";
+    return (path.startsWith(`${prefix}/`) ? path.slice(prefix.length) : path).split("?")[0];
   }
 
   /** Seed the generic store, e.g. seed("rest", "firewallrule", [{ _id: "r1", name: "x" }]). */
