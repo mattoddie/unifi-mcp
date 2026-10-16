@@ -1,12 +1,12 @@
 version: 2
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: gomod
     directory: /
     schedule:
       interval: weekly
     groups:
-      dev-dependencies:
-        dependency-type: development
+      go:
+        patterns: ["*"]
     labels: [dependencies]
   - package-ecosystem: npm
     directory: /website
@@ -29,8 +29,3 @@ updates:
     schedule:
       interval: weekly
     labels: [dependencies]
-    ignore:
-      # Stay on Node.js LTS (even) majors: odd majors are short-lived and reach
-      # end of life about six months after release.
-      - dependency-name: node
-        versions: [">= 25, < 26", ">= 27, < 28", ">= 29, < 30", ">= 31, < 32", ">= 33, < 34"]
