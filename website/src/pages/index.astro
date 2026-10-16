@@ -43,6 +43,18 @@ docker compose up -d`;
 const connectSnippet = `claude mcp add --transport http unifi \\
   http://<docker-host>:8080/mcp \\
   --header "Authorization: Bearer <token>"`;
+
+// Wi-Fi arcs for the hero scene: an arc of radius r below (cx, cy), spread degrees either side of straight down.
+const arc = (cx: number, cy: number, r: number, spread: number) => {
+  const a = (spread * Math.PI) / 180;
+  const dx = +(r * Math.sin(a)).toFixed(1);
+  const dy = +(r * Math.cos(a)).toFixed(1);
+  return `M${cx - dx} ${cy + dy} A${r} ${r} 0 0 0 ${cx + dx} ${cy + dy}`;
+};
+const ap = { x: 660, y: 670 };
+const apArcs = [30, 50, 70, 90].map((r) => arc(ap.x, ap.y, r, 50));
+const noiseArcs = [22, 36, 50, 64, 78, 92, 106, 120, 134].map((r, i) => arc(ap.x + (i % 3) * 6 - 6, ap.y, r, 62));
+const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
 ---
 
 <!doctype html>
@@ -107,37 +119,168 @@ const connectSnippet = `claude mcp add --transport http unifi \\
 
     <main id="main">
       <!-- Hero -->
-      <section class="hero">
-        <svg class="mesh" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <section class="hero scene">
+        <svg class="scene-sky" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <defs>
-            <radialGradient id="node-glow">
-              <stop offset="0" stop-color="#a5b4fc" stop-opacity="0.9" />
-              <stop offset="1" stop-color="#a5b4fc" stop-opacity="0" />
-            </radialGradient>
-            <linearGradient id="link" x1="0" x2="1">
-              <stop offset="0" stop-color="#6366f1" />
-              <stop offset="1" stop-color="#22d3ee" />
+            <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#07080f" />
+              <stop offset="0.65" stop-color="#0e1026" />
+              <stop offset="1" stop-color="#1a1c44" />
             </linearGradient>
+            <radialGradient id="sky-glow" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0" stop-color="#6366f1" stop-opacity="0.22" />
+              <stop offset="1" stop-color="#6366f1" stop-opacity="0" />
+            </radialGradient>
           </defs>
+          <rect width="1440" height="900" fill="url(#sky)" />
+          <ellipse cx="300" cy="180" rx="520" ry="320" fill="url(#sky-glow)" />
+          <ellipse cx="1160" cy="300" rx="420" ry="280" fill="url(#sky-glow)" opacity="0.6" />
+          <g class="stars" fill="#e7e9f3">
+            <circle cx="120" cy="330" r="1.6" /><circle cx="380" cy="270" r="1.4" /><circle cx="560" cy="380" r="1.8" />
+            <circle cx="260" cy="120" r="1.2" /><circle cx="700" cy="90" r="1.3" /><circle cx="900" cy="430" r="1.5" />
+            <circle cx="1040" cy="160" r="1.3" /><circle cx="1320" cy="250" r="1.6" />
+          </g>
+        </svg>
+        <svg class="scene-art" viewBox="-10 540 1440 360" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <defs>
+            <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#1c1f4a" />
+              <stop offset="1" stop-color="#121433" />
+            </linearGradient>
+            <linearGradient id="room" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#151836" />
+              <stop offset="1" stop-color="#1b1e44" />
+            </linearGradient>
+            <linearGradient id="picture" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#4f46e5" />
+              <stop offset="1" stop-color="#06b6d4" />
+            </linearGradient>
+            <radialGradient id="ap-glow" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0" stop-color="#22d3ee" stop-opacity="0.3" />
+              <stop offset="1" stop-color="#22d3ee" stop-opacity="0" />
+            </radialGradient>
+            <radialGradient id="lamp-glow" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="0" stop-color="#fbbf24" stop-opacity="0.22" />
+              <stop offset="1" stop-color="#fbbf24" stop-opacity="0" />
+            </radialGradient>
+          </defs>
+
+          <!-- Ground -->
+          <rect x="-10" y="868" width="1440" height="32" fill="#0b0d1c" />
+
+          <!-- The internet, coming in to the gateway -->
+          <g class="internet">
+            <path d="M74 612 a16 16 0 0 1 22 -20 a22 22 0 0 1 40 6 a14 14 0 0 1 4 28 h-62 a12 12 0 0 1 -4 -14 Z" fill="#1c1f4a" stroke="#818cf8" stroke-width="2" />
+            <text x="106" y="652" text-anchor="middle">Internet</text>
+            <path class="cable" d="M106 662 V748 H196" />
+          </g>
+
+          <!-- Neighbours, also on channel 36 -->
+          <g class="neighbour">
+            <path d="M1150 704 L1285 634 L1420 704 Z" fill="#121433" stroke="#2a2d62" stroke-width="3" />
+            <rect x="1168" y="704" width="234" height="164" fill="#0f1129" />
+            <rect x="1196" y="770" width="40" height="34" rx="3" fill="#fbbf24" opacity="0.28" />
+            <rect x="1334" y="770" width="40" height="34" rx="3" fill="#fbbf24" opacity="0.18" />
+            <g class="n-arcs">{neighbourArcs.map((d) => <path d={d} />)}</g>
+            <rect x="1263" y="708" width="44" height="10" rx="5" fill="#9aa0b8" />
+            <text x="1285" y="626" text-anchor="middle">Neighbours · ch 36</text>
+          </g>
+
+          <!-- The house, cut away -->
+          <path d="M140 652 L640 556 L1140 652 Z" fill="url(#roof)" />
+          <path d="M140 652 L640 556 L1140 652" fill="none" stroke="#3b3f86" stroke-width="3" />
+          <rect x="170" y="652" width="940" height="208" fill="url(#room)" />
+          <rect x="164" y="640" width="952" height="12" fill="#2a2d62" />
+          <rect x="164" y="640" width="8" height="228" fill="#2a2d62" />
+          <rect x="1108" y="640" width="8" height="228" fill="#2a2d62" />
+          <rect x="406" y="652" width="8" height="90" fill="#2a2d62" />
+          <rect x="164" y="860" width="952" height="8" fill="#2a2d62" />
+
+          <!-- Office: gateway and switch in a cabinet, laptop on a desk -->
+          <rect x="188" y="760" width="84" height="100" rx="4" fill="#10122a" stroke="#2f3370" stroke-width="2" />
+          <rect x="194" y="734" width="72" height="24" rx="6" fill="#e5e7f3" />
+          <circle class="led" cx="254" cy="746" r="3.5" fill="#22d3ee" />
+          <rect x="196" y="778" width="68" height="18" rx="3" fill="#d4d7e8" />
+          <g class="ports" fill="#34d399">
+            <rect x="203" y="785" width="6" height="5" /><rect x="213" y="785" width="6" height="5" /><rect x="223" y="785" width="6" height="5" />
+            <rect x="233" y="785" width="6" height="5" /><rect x="243" y="785" width="6" height="5" /><rect x="253" y="785" width="6" height="5" />
+          </g>
+          <path class="cable" d="M230 758 V778" />
+          <path class="cable" d="M196 787 H182 V662 H630" />
+          <text x="230" y="724" text-anchor="middle">Gateway</text>
+          <text x="230" y="816" text-anchor="middle">Switch</text>
+          <rect x="296" y="804" width="104" height="7" rx="2" fill="#2f3370" />
+          <rect x="302" y="811" width="6" height="49" fill="#2f3370" /><rect x="388" y="811" width="6" height="49" fill="#2f3370" />
+          <rect x="318" y="760" width="62" height="40" rx="4" fill="#1c1f4a" stroke="#c7d2fe" stroke-width="2" />
+          <rect x="324" y="766" width="50" height="28" rx="2" fill="#4f46e5" opacity="0.55" />
+          <path d="M308 804 H390 L384 798 H314 Z" fill="#c7d2fe" />
+          <text x="349" y="848" text-anchor="middle">Laptop</text>
+
+          <!-- Lounge: sofa, lamp, TV -->
+          <ellipse cx="560" cy="770" rx="110" ry="80" fill="url(#lamp-glow)" />
+          <rect x="606" y="740" width="4" height="120" fill="#2f3370" />
+          <path d="M592 742 H624 L616 720 H600 Z" fill="#fcd34d" opacity="0.85" />
+          <rect x="440" y="770" width="148" height="42" rx="12" fill="#2b2f6b" />
+          <rect x="432" y="800" width="164" height="42" rx="10" fill="#353a80" />
+          <rect x="432" y="842" width="10" height="18" fill="#2b2f6b" /><rect x="586" y="842" width="10" height="18" fill="#2b2f6b" />
+          <rect x="500" y="768" width="22" height="38" rx="4" fill="#0b0d1c" stroke="#c7d2fe" stroke-width="2" />
+          <rect x="504" y="773" width="14" height="27" rx="1.5" fill="#22d3ee" opacity="0.5" />
+          <text x="492" y="792" text-anchor="end">Phone</text>
+
+          <rect x="808" y="828" width="144" height="32" rx="4" fill="#23265a" />
+          <rect x="800" y="700" width="160" height="92" rx="6" fill="#05060c" stroke="#3b3f86" stroke-width="4" />
+          <g class="tv-buffer">
+            <circle cx="880" cy="746" r="15" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4" />
+            <path class="spinner" d="M880 731 a15 15 0 0 1 15 15" fill="none" stroke="#e7e9f3" stroke-width="4" stroke-linecap="round" />
+          </g>
+          <g class="tv-picture">
+            <rect x="806" y="706" width="148" height="80" rx="2" fill="url(#picture)" />
+            <circle cx="922" cy="726" r="9" fill="#fde68a" opacity="0.9" />
+            <path d="M806 786 V762 L838 740 L866 760 L894 744 L954 776 V786 Z" fill="#1e1b4b" opacity="0.75" />
+            <rect x="814" y="764" width="76" height="16" rx="8" fill="rgba(7,8,15,0.75)" />
+            <text class="playing" x="852" y="776" text-anchor="middle">▶ playing</text>
+          </g>
+          <text x="880" y="818" text-anchor="middle">Lounge TV</text>
+          <path d="M1040 860 V838 M1040 838 c-18 -6 -22 -28 -12 -40 M1040 838 c16 -8 20 -30 8 -44 M1040 840 c-4 -20 4 -44 2 -60" fill="none" stroke="#2f7a6a" stroke-width="6" stroke-linecap="round" />
+          <rect x="1026" y="844" width="28" height="16" rx="3" fill="#2b2f6b" />
+
+          <!-- Wi-Fi links from the access point -->
           <g class="links">
-            <path d="M110 520 L320 380 L560 470 L820 300 L1080 420" />
-            <path d="M320 380 L420 170 L700 120 L820 300" />
-            <path d="M560 470 L640 640" />
-            <path d="M820 300 L980 140" />
-            <path d="M420 170 L180 120" />
-            <path d="M1080 420 L1140 610" />
+            <path class="link" d="M640 676 L372 758" />
+            <path class="link" d="M648 680 L524 766" />
+            <path class="link link-tv" d="M680 678 L800 732" />
+            <path class="tv-flow" d="M680 678 L800 732" />
           </g>
-          <g class="pulses">
-            <path d="M110 520 L320 380 L560 470 L820 300 L1080 420" />
-            <path d="M320 380 L420 170 L700 120 L820 300" />
-            <path d="M820 300 L980 140" />
+
+          <!-- The access point on the lounge ceiling -->
+          <ellipse cx={ap.x} cy="700" rx="110" ry="70" fill="url(#ap-glow)" />
+          <g class="noise">{noiseArcs.map((d) => <path d={d} />)}</g>
+          <g class="arcs">{apArcs.map((d) => <path d={d} />)}</g>
+          <rect x="628" y="652" width="64" height="14" rx="7" fill="#eef0f8" />
+          <rect class="ap-led" x="644" y="664" width="32" height="4" rx="2" fill="#22d3ee" />
+          <text class="ap-name" x="702" y="672">Lounge AP</text>
+          <path d="M660 620 V652" stroke="rgba(199,210,254,0.35)" stroke-width="2" stroke-dasharray="3 4" />
+
+          <!-- Channel label -->
+          <g class="chan">
+            <rect x="530" y="588" width="260" height="32" rx="16" />
+            <text class="ch-init" x="660" y="609" text-anchor="middle">5 GHz · ch 36</text>
+            <text class="ch-diag" x="660" y="609" text-anchor="middle">5 GHz · ch 36 · 81% busy</text>
+            <text class="ch-fixed" x="660" y="609" text-anchor="middle">5 GHz · ch 149 · 9% busy</text>
           </g>
-          <g class="nodes">
-            <circle cx="110" cy="520" r="5" /><circle cx="320" cy="380" r="7" /><circle cx="560" cy="470" r="5" />
-            <circle cx="820" cy="300" r="9" /><circle cx="1080" cy="420" r="6" /><circle cx="420" cy="170" r="5" />
-            <circle cx="700" cy="120" r="6" /><circle cx="640" cy="640" r="4" /><circle cx="980" cy="140" r="5" />
-            <circle cx="180" cy="120" r="4" /><circle cx="1140" cy="610" r="4" />
+
+          <!-- The TV's signal -->
+          <g class="sig">
+            <rect x="806" y="664" width="176" height="28" rx="14" />
+            <rect class="b1" x="817" y="682" width="3.5" height="4" rx="1" />
+            <rect class="b2" x="822" y="678" width="3.5" height="8" rx="1" />
+            <rect class="b3" x="827" y="674" width="3.5" height="12" rx="1" />
+            <rect class="b4" x="832" y="670" width="3.5" height="16" rx="1" />
+            <text class="sig-diag" x="842" y="683">-78 dBm · 12 Mbps</text>
+            <text class="sig-fixed" x="842" y="683">ch 149 · 433 Mbps</text>
           </g>
+
+          <text class="caption" x="640" y="890" text-anchor="middle">Example network</text>
         </svg>
 
         <div class="wrap hero-grid">
@@ -168,15 +311,15 @@ const connectSnippet = `claude mcp add --transport http unifi \\
                 <span class="call"><i></i>unifi_get_rf_scan<b>5 GHz</b></span>
               </div>
               <div class="msg bot" data-step="2">
-                The TV is on <strong>Lounge AP</strong> at <mark>-78 dBm</mark> and only <mark>12 Mbps</mark>. That AP's 5 GHz radio
-                is <mark>81% utilised</mark> on channel 36, shared with three neighbouring networks.
+                The TV is on <strong>Lounge AP</strong> at <mark>-78 dBm</mark> and only <mark>12 Mbps</mark>. Its 5 GHz channel, 36,
+                is <mark>81% busy</mark> and shared with three neighbouring networks.
                 <br /><br />Channel 149 is clear. Want me to move the radio there?
               </div>
               <div class="msg user" data-step="3">Yes, go ahead.</div>
               <div class="calls" data-step="4">
                 <span class="call write"><i></i>unifi_set_radio<b>na → ch 149</b></span>
               </div>
-              <div class="msg bot" data-step="5">Done. The Lounge AP's 5 GHz radio is now on channel 149, and the TV reconnected at <mark>433 Mbps</mark>. ✅</div>
+              <div class="msg bot" data-step="5">Done. Lounge AP is on channel 149 now, and the TV reconnected at <mark>433 Mbps</mark>. ✅</div>
             </div>
           </div>
         </div>
@@ -379,31 +522,49 @@ const connectSnippet = `claude mcp add --transport http unifi \\
         });
       }
 
-      // Play the example conversation once it scrolls into view.
+      // Play the example conversation when the hero is on screen, and loop it. Steps also switch the
+      // scene: the diagnosis shows the weak, congested link; the channel change fixes it.
+      const hero = document.querySelector<HTMLElement>(".hero.scene");
       const chat = document.getElementById("chat");
       const steps = chat ? [...chat.querySelectorAll<HTMLElement>("[data-step]")] : [];
+      const sceneAt: Record<number, string> = { 2: "diag-on", 5: "fixed-on" };
       const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (chat && !reduce) {
+      if (hero && chat && reduce) {
+        hero.classList.add(...Object.values(sceneAt));
+      } else if (hero && chat) {
         chat.classList.add("animate");
         const delays = [300, 900, 1900, 1700, 900, 1500];
+        let timers: number[] = [];
+        let visible = false;
+        let running = false;
+        const reset = () => {
+          timers.forEach(clearTimeout);
+          timers = [];
+          steps.forEach((el) => el.classList.remove("shown"));
+          chat.querySelectorAll(".call").forEach((c) => c.classList.remove("done"));
+          hero.classList.remove(...Object.values(sceneAt));
+        };
         const play = () => {
+          running = true;
+          reset();
           let t = 0;
           steps.forEach((el, i) => {
             t += delays[i] ?? 1000;
-            setTimeout(() => {
+            timers.push(window.setTimeout(() => {
               el.classList.add("shown");
+              if (sceneAt[i]) hero.classList.add(sceneAt[i]);
               for (const [j, c] of [...el.querySelectorAll<HTMLElement>(".call")].entries()) {
-                setTimeout(() => c.classList.add("done"), 450 + j * 380);
+                timers.push(window.setTimeout(() => c.classList.add("done"), 450 + j * 380));
               }
-            }, t);
+            }, t));
           });
+          // Hold the finished scene for a while, then start again if the hero is still in view.
+          timers.push(window.setTimeout(() => (visible ? play() : (running = false)), t + 7000));
         };
-        new IntersectionObserver((entries, obs) => {
-          if (entries.some((e) => e.isIntersecting)) {
-            play();
-            obs.disconnect();
-          }
-        }, { threshold: 0.35 }).observe(chat);
+        new IntersectionObserver((entries) => {
+          visible = entries.some((e) => e.isIntersecting);
+          if (visible && !running) play();
+        }, { threshold: 0.2 }).observe(chat);
       }
     </script>
 
@@ -486,15 +647,80 @@ const connectSnippet = `claude mcp add --transport http unifi \\
         mask-image: radial-gradient(60% 60% at 50% 40%, #000 30%, transparent 80%);
         opacity: 0.35;
       }
-      .mesh { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.55; }
-      .mesh .links path { fill: none; stroke: url(#link); stroke-width: 1.2; stroke-opacity: 0.35; }
-      .mesh .pulses path { fill: none; stroke: #a5f3fc; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 6 600; animation: pulse 7s linear infinite; }
-      .mesh .pulses path:nth-child(2) { animation-delay: -2.5s; animation-duration: 9s; }
-      .mesh .pulses path:nth-child(3) { animation-delay: -4s; animation-duration: 5s; }
-      .mesh .nodes circle { fill: #c7d2fe; filter: drop-shadow(0 0 6px #818cf8); animation: blink 4s ease-in-out infinite; }
-      .mesh .nodes circle:nth-child(3n) { animation-delay: -1.3s; }
-      .mesh .nodes circle:nth-child(3n + 1) { animation-delay: -2.6s; }
-      @keyframes pulse { from { stroke-dashoffset: 600; } to { stroke-dashoffset: 0; } }
+      /* The illustrated home network behind the hero; the chat steps switch its states. */
+      .hero.scene { padding: 80px 0 340px; }
+      .hero.scene::before { display: none; }
+      /* Ground that runs past the edges of the fixed-width scene on wide screens. */
+      .hero.scene::after { inset: auto 0 0 0; height: 32px; background: #0b0d1c; mask-image: none; opacity: 1; z-index: -2; }
+      .scene-sky { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -3; }
+      .scene-sky .stars circle { animation: blink 3s ease-in-out infinite; }
+      .scene-sky .stars circle:nth-child(2n) { animation-delay: -1.5s; }
+      .scene-art { position: absolute; left: 50%; bottom: 0; width: 1440px; height: 360px; transform: translateX(-50%); z-index: -1; }
+      .scene-art text { fill: var(--muted); font: 500 13px var(--sans); }
+      .scene-art .ap-name { fill: #e7e9f3; font: 600 15px var(--sans); }
+      .scene-art .caption { fill: rgba(154, 160, 184, 0.75); font: 500 12px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
+      .scene-art .cable { fill: none; stroke: #818cf8; stroke-width: 2.5; stroke-dasharray: 6 6; animation: flow 1.6s linear infinite; }
+      .scene-art .led, .scene-art .ap-led { animation: blink 2s ease-in-out infinite; }
+      .scene-art .ports rect { animation: blink 0.9s steps(2) infinite; }
+      .scene-art .ports rect:nth-child(2n) { animation-delay: -0.4s; }
+      .scene-art .ports rect:nth-child(3n) { animation-duration: 1.3s; }
+      .scene-art .neighbour text { fill: rgba(154, 160, 184, 0.8); }
+      .scene-art .n-arcs path { fill: none; stroke: #9aa0b8; stroke-width: 2.5; stroke-linecap: round; opacity: 0.3; transition: stroke 0.6s, opacity 0.6s; }
+      .scene-art .links path { fill: none; stroke-linecap: round; }
+      .scene-art .link { stroke: #a5b4fc; stroke-opacity: 0.7; stroke-width: 2.5; stroke-dasharray: 3 9; animation: flow 1.2s linear infinite; transition: stroke 0.6s, stroke-width 0.6s; }
+      .scene-art .tv-flow { stroke: #ecfdf5; stroke-width: 3; stroke-dasharray: 2 16; opacity: 0; animation: flow 0.9s linear infinite; transition: opacity 0.6s; }
+      .scene-art .arcs path { fill: none; stroke: #22d3ee; stroke-width: 3.5; stroke-linecap: round; animation: wave 2.4s ease-out infinite; transition: stroke 0.6s; }
+      .scene-art .arcs path:nth-child(2) { animation-delay: 0.3s; }
+      .scene-art .arcs path:nth-child(3) { animation-delay: 0.6s; }
+      .scene-art .arcs path:nth-child(4) { animation-delay: 0.9s; }
+      .scene-art .noise { opacity: 0; transition: opacity 0.6s; }
+      .scene-art .noise path { fill: none; stroke: #fbbf24; stroke-width: 2; stroke-dasharray: 5 7; stroke-linecap: round; animation: flicker 0.5s steps(2) infinite; }
+      .scene-art .noise path:nth-child(2n) { stroke: #f87171; animation-delay: -0.25s; }
+      .scene-art .noise path:nth-child(3n) { animation-duration: 0.7s; }
+      .scene-art .chan rect, .scene-art .sig > rect:first-child { fill: rgba(10, 11, 24, 0.92); stroke: rgba(129, 140, 248, 0.6); stroke-width: 1.5; transition: stroke 0.6s; }
+      .scene-art .chan text { fill: #c7d2fe; font: 500 15px var(--mono); }
+      .scene-art .sig text { font: 500 13px var(--mono); }
+      .scene-art .ch-diag, .scene-art .ch-fixed, .scene-art .sig-fixed { display: none; }
+      .scene-art .sig { opacity: 0; transition: opacity 0.6s; }
+      .scene-art .sig .b1, .scene-art .sig .b2, .scene-art .sig .b3, .scene-art .sig .b4 { fill: rgba(255, 255, 255, 0.18); }
+      .scene-art .playing { fill: #fff; font: 600 11px var(--sans); }
+      .scene-art .spinner { transform-box: fill-box; transform-origin: 0 100%; animation: spin 0.9s linear infinite; }
+      .scene-art .tv-picture { opacity: 0; transition: opacity 0.8s; }
+      /* Diagnosed: a weak, congested link to the TV */
+      .hero.diag-on .scene-art .noise { opacity: 1; }
+      .hero.diag-on .scene-art .arcs path { stroke: #fb923c; animation-duration: 0.8s; }
+      .hero.diag-on .scene-art .n-arcs path { stroke: #fbbf24; opacity: 0.75; animation: flicker 0.6s steps(2) infinite; }
+      .hero.diag-on .scene-art .link-tv { stroke: #f87171; stroke-opacity: 1; stroke-width: 3; stroke-dasharray: 10 9; animation: stutter 1.4s steps(4) infinite; }
+      .hero.diag-on .scene-art .chan rect { stroke: #f59e0b; }
+      .hero.diag-on .scene-art .chan text { fill: #fcd34d; }
+      .hero.diag-on .scene-art .ch-init { display: none; }
+      .hero.diag-on .scene-art .ch-diag { display: inline; }
+      .hero.diag-on .scene-art .sig { opacity: 1; }
+      .hero.diag-on .scene-art .sig > rect:first-child { stroke: #f87171; }
+      .hero.diag-on .scene-art .sig text { fill: #fca5a5; }
+      .hero.diag-on .scene-art .sig .b1 { fill: #f87171; }
+      /* Fixed: a clear channel, a strong link and the TV playing */
+      .hero.fixed-on .scene-art .noise { opacity: 0; }
+      .hero.fixed-on .scene-art .arcs path { stroke: #5eead4; animation-duration: 2.4s; }
+      .hero.fixed-on .scene-art .n-arcs path { stroke: #9aa0b8; opacity: 0.3; animation: none; }
+      .hero.fixed-on .scene-art .link-tv { stroke: #34d399; stroke-width: 4; stroke-dasharray: none; animation: none; }
+      .hero.fixed-on .scene-art .tv-flow { opacity: 0.9; }
+      .hero.fixed-on .scene-art .chan rect { stroke: #34d399; }
+      .hero.fixed-on .scene-art .chan text { fill: #6ee7b7; }
+      .hero.fixed-on .scene-art .ch-diag { display: none; }
+      .hero.fixed-on .scene-art .ch-fixed { display: inline; }
+      .hero.fixed-on .scene-art .sig > rect:first-child { stroke: #34d399; }
+      .hero.fixed-on .scene-art .sig text { fill: #6ee7b7; }
+      .hero.fixed-on .scene-art .sig-diag { display: none; }
+      .hero.fixed-on .scene-art .sig-fixed { display: inline; }
+      .hero.fixed-on .scene-art .sig .b1, .hero.fixed-on .scene-art .sig .b2, .hero.fixed-on .scene-art .sig .b3, .hero.fixed-on .scene-art .sig .b4 { fill: #34d399; }
+      .hero.fixed-on .scene-art .tv-buffer { display: none; }
+      .hero.fixed-on .scene-art .tv-picture { opacity: 1; }
+      .hero.scene .hero-grid { grid-template-columns: minmax(0, 1fr) 440px; align-items: start; }
+      @keyframes flow { to { stroke-dashoffset: -24; } }
+      @keyframes wave { 0% { opacity: 0.15; } 30% { opacity: 1; } 100% { opacity: 0.15; } }
+      @keyframes flicker { 50% { opacity: 0.25; } }
+      @keyframes stutter { 0%, 40% { stroke-dashoffset: 0; } 60%, 100% { stroke-dashoffset: -19; } }
       @keyframes blink { 50% { opacity: 0.45; } }
 
       .hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 56px; align-items: center; }
@@ -533,15 +759,15 @@ const connectSnippet = `claude mcp add --transport http unifi \\
 
       /* Chat demo */
       .chat {
-        border-radius: 20px; border: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(20, 22, 40, 0.9), rgba(10, 11, 22, 0.92));
+        border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(16, 18, 36, 0.84); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         box-shadow: 0 40px 80px -30px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 0 80px -20px rgba(99, 102, 241, 0.35);
         overflow: hidden;
       }
       .chat-bar { display: flex; align-items: center; gap: 7px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
       .chat-bar span { width: 11px; height: 11px; border-radius: 50%; background: #2a2d42; }
       .chat-bar em { margin-left: auto; font-style: normal; color: var(--muted); font-size: 12.5px; font-family: var(--mono); }
-      .chat-body { padding: 22px; display: flex; flex-direction: column; gap: 14px; min-height: 470px; }
+      .chat-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; min-height: 470px; }
       .msg { max-width: 88%; padding: 12px 15px; border-radius: 14px; font-size: 14.5px; line-height: 1.55; }
       .msg.user { align-self: flex-end; background: linear-gradient(135deg, #4f46e5, #4338ca); color: #fff; border-bottom-right-radius: 4px; }
       .msg.bot { align-self: flex-start; background: var(--panel-2); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
@@ -676,6 +902,10 @@ const connectSnippet = `claude mcp add --transport http unifi \\
         .examples { grid-template-columns: repeat(2, 1fr); }
         .steps { grid-template-columns: minmax(0, 1fr); }
         .chat-body { min-height: 0; }
+        .hero.scene { padding-top: 64px; padding-bottom: 0; display: flex; flex-direction: column; }
+        .hero.scene::after { display: none; }
+        .hero.scene .hero-grid { grid-template-columns: minmax(0, 1fr); }
+        .hero.scene .scene-art { order: 2; position: relative; left: auto; bottom: auto; transform: none; display: block; width: 100%; height: 250px; margin-top: 24px; }
       }
       @media (max-width: 640px) {
         .wrap { width: calc(100% - 32px); }
