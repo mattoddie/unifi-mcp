@@ -6,6 +6,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-16
+
 ### Changed
 
 - unifi-mcp is rewritten in Go on the official MCP Go SDK, as a drop-in replacement: the tools, their arguments, descriptions and annotations, the prompts, the configuration variables and the output are unchanged (`docs/tools.md` is generated identically, apart from the command named in its header), and every v0.2.0 security fix is kept. The few differences visible from outside:
@@ -54,6 +56,7 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mattoddie/unifi-mcp/releases/tag/v0.1.0
