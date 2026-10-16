@@ -1,0 +1,251 @@
+// Command gen-tool-docs writes docs/tools.md from the registered tools and
+// prompts, so the reference can't drift from the code. With -check it fails
+// when the committed file is out of date.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"regexp"
+	"strings"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/mattoddie/unifi-mcp/internal/config"
+	"github.com/mattoddie/unifi-mcp/internal/ojson"
+	"github.com/mattoddie/unifi-mcp/internal/tools"
+	"github.com/mattoddie/unifi-mcp/internal/unifi"
+)
+
+var toolsetInfo = map[string]string{
+	"overview":   "Sites, controller information and site health.",
+	"devices":    "UniFi devices (gateways, switches, access points, PDUs): status, firmware, radios, adoption and maintenance.",
+	"clients":    "Connected and known clients: lookup, blocking, reconnecting and naming.",
+	"switching":  "Switch ports and port profiles, including PoE.",
+	"wifi":       "WiFi networks (WLANs) and join QR codes.",
+	"networks":   "Networks/VLANs, WAN links, local DNS records, bandwidth profiles and dynamic DNS.",
+	"firewall":   "Port forwards, legacy firewall rules and groups, zone-based firewall policies and zones, and traffic rules.",
+	"routing":    "Static routes and policy-based traffic routes.",
+	"security":   "Threat management (IDS/IPS), country blocking and content filtering.",
+	"vpn":        "VPN servers and site-to-site VPNs, RADIUS profiles and RADIUS accounts.",
+	"hotspot":    "Hotspot vouchers, operators, guest authorization and the guest portal.",
+	"monitoring": "Events, alarms, traffic and DPI statistics, speed tests, logs and dashboards.",
+	"admin":      "Site settings, administrators, backups, controller updates and site management.",
+	"raw":        "A raw API escape hatch for anything the other tools don't cover. It is limited to GET requests unless writes are enabled.",
+}
+
+var badge = map[tools.Gate]string{tools.Read: "🟢 read", tools.Write: "🟠 write", tools.Delete: "🔴 delete"}
+
+// typeOf renders a JSON Schema type the way the reference shows it.
+func typeOf(s any) string {
+	if c := ojson.Get(s, "const"); !ojson.IsUndefined(c) {
+		j, _ := ojson.Stringify(c)
+		return "`" + j + "`"
+	}
+	if e, ok := ojson.Arr(ojson.Get(s, "enum")); ok {
+		parts := make([]string, len(e))
+		for i, v := range e {
+			j, _ := ojson.Stringify(v)
+			parts[i] = "`" + j + "`"
+		}
+		return strings.Join(parts, " | ")
+	}
+	if any, ok := ojson.Arr(ojson.Get(s, "anyOf")); ok {
+		parts := make([]string, len(any))
+		for i, v := range any {
+			parts[i] = typeOf(v)
+		}
+		return strings.Join(parts, " | ")
+	}
+	t := ojson.Get(s, "type")
+	if t == "array" {
+		item := "any"
+		if items := ojson.Get(s, "items"); !ojson.IsUndefined(items) {
+			item = typeOf(items)
+		}
+		if strings.Contains(item, " | ") {
+			return "(" + item + ")[]"
+		}
+		return item + "[]"
+	}
+	if list, ok := ojson.Arr(t); ok {
+		parts := make([]string, len(list))
+		for i, v := range list {
+			parts[i] = ojson.String(v)
+		}
+		return strings.Join(parts, " | ")
+	}
+	if str, ok := t.(string); ok {
+		return str
+	}
+	return "any"
+}
+
+var spaces = regexp.MustCompile(`\s*\n\s*`)
+
+func cell(s string) string { return spaces.ReplaceAllString(strings.ReplaceAll(s, "|", "\\|"), " ") }
+
+func main() {
+	check := flag.Bool("check", false, "fail if docs/tools.md is out of date instead of writing it")
+	out := flag.String("o", "docs/tools.md", "output file")
+	flag.Parse()
+
+	// A client that is never used: listing tools doesn't touch the controller.
+	client, err := unifi.New(config.Unifi{URL: "https://unifi.invalid", APIKey: "unused", Site: "default", ControllerType: config.ControllerUnifiOS, TimeoutMs: 1000})
+	if err != nil {
+		log.Fatal(err)
+	}
+	var registered []tools.Info
+	server := tools.NewServer(client, config.AllTools(), &registered)
+	st, ct := mcp.NewInMemoryTransports()
+	ctx := context.Background()
+	if _, err := server.Connect(ctx, st, nil); err != nil {
+		log.Fatal(err)
+	}
+	session, err := mcp.NewClient(&mcp.Implementation{Name: "gen-tool-docs", Version: "0"}, nil).Connect(ctx, ct, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer session.Close()
+
+	listed := map[string]*mcp.Tool{}
+	for t, err := range session.Tools(ctx, nil) {
+		if err != nil {
+			log.Fatal(err)
+		}
+		listed[t.Name] = t
+	}
+	var prompts []*mcp.Prompt
+	for p, err := range session.Prompts(ctx, nil) {
+		if err != nil {
+			log.Fatal(err)
+		}
+		prompts = append(prompts, p)
+	}
+	// List prompts in the order they are defined, as the reference always has.
+	order := tools.PromptNames()
+	pos := map[string]int{}
+	for i, n := range order {
+		pos[n] = i
+	}
+	ordered := make([]*mcp.Prompt, len(prompts))
+	for _, p := range prompts {
+		ordered[pos[p.Name]] = p
+	}
+	prompts = ordered
+
+	counts := map[tools.Gate]int{}
+	for _, info := range registered {
+		counts[info.Gate]++
+	}
+
+	var lines []string
+	w := func(l ...string) { lines = append(lines, l...) }
+	w("# Tool reference", "",
+		"<!-- Generated by `make docs` (go run ./cmd/gen-tool-docs) from the tool definitions. Do not edit by hand. -->", "",
+		fmt.Sprintf("unifi-mcp has **%d tools** in **%d toolsets**: %d read, %d write and %d delete. It also has **%d prompts**.",
+			len(registered), len(config.Toolsets), counts[tools.Read], counts[tools.Write], counts[tools.Delete], len(prompts)), "",
+		"Each tool is labelled with the setting it needs:", "",
+		"| Label | Registered when |", "|---|---|",
+		"| 🟢 read | Always |",
+		"| 🟠 write | `UNIFI_ALLOW_WRITES=true` |",
+		"| 🔴 delete | `UNIFI_ALLOW_WRITES=true` and `UNIFI_ALLOW_DELETES=true` |", "",
+		"Every tool also needs its toolset to be enabled in `UNIFI_TOOLSETS`, which enables all toolsets by default. Most tools take an optional `site` argument, which defaults to `UNIFI_SITE`.", "",
+		"## Contents", "")
+	for _, ts := range config.Toolsets {
+		w(fmt.Sprintf("- [`%s`](#%s): %s", ts, ts, toolsetInfo[ts]))
+	}
+	w("- [Prompts](#prompts)", "")
+
+	for _, ts := range config.Toolsets {
+		w("## "+ts, "", toolsetInfo[ts], "", "| Tool | Access | Summary |", "|---|---|---|")
+		var inSet []tools.Info
+		for _, info := range registered {
+			if info.Toolset == ts {
+				inSet = append(inSet, info)
+			}
+		}
+		for _, info := range inSet {
+			t := listed[info.Name]
+			title := t.Title
+			if title == "" && t.Annotations != nil {
+				title = t.Annotations.Title
+			}
+			w(fmt.Sprintf("| [`%s`](#%s) | %s | %s |", t.Name, t.Name, badge[info.Gate], cell(title)))
+		}
+		w("")
+		for _, info := range inSet {
+			t := listed[info.Name]
+			label := badge[info.Gate]
+			if a := t.Annotations; a != nil && a.DestructiveHint != nil && *a.DestructiveHint {
+				label += " · destructive"
+			}
+			w("### "+t.Name, "", label, "", t.Description, "")
+			props, _ := ojson.AsObj(info.Schema.Get("properties"))
+			if props.Len() == 0 {
+				w("_No arguments._", "")
+				continue
+			}
+			required := map[string]bool{}
+			for _, r := range arrOf(info.Schema.Get("required")) {
+				required[ojson.String(r)] = true
+			}
+			w("| Argument | Type | Required | Description |", "|---|---|---|---|")
+			for _, name := range props.Keys() {
+				p := props.Get(name)
+				desc, _ := ojson.Get(p, "description").(string)
+				if def := ojson.Get(p, "default"); !ojson.IsUndefined(def) {
+					j, _ := ojson.Stringify(def)
+					if desc != "" {
+						desc += " "
+					}
+					desc += "Default: `" + j + "`."
+				}
+				req := ""
+				if required[name] {
+					req = "yes"
+				}
+				w(fmt.Sprintf("| `%s` | %s | %s | %s |", name, cell(typeOf(p)), req, cell(desc)))
+			}
+			w("")
+		}
+	}
+
+	w("## Prompts", "", "Prompts are ready-made requests that tell the model which tools to call and what to report. In Claude Code they appear as slash commands, such as `/mcp__unifi__network_health_check`.", "")
+	for _, p := range prompts {
+		w("### "+p.Name, "", p.Description, "")
+		if len(p.Arguments) > 0 {
+			w("| Argument | Required | Description |", "|---|---|---|")
+			for _, a := range p.Arguments {
+				req := ""
+				if a.Required {
+					req = "yes"
+				}
+				w(fmt.Sprintf("| `%s` | %s | %s |", a.Name, req, cell(a.Description)))
+			}
+			w("")
+		}
+	}
+
+	text := regexp.MustCompile(`\n{3,}`).ReplaceAllString(strings.Join(lines, "\n"), "\n\n")
+	if *check {
+		current, _ := os.ReadFile(*out)
+		if string(current) != text {
+			log.Fatalf("%s is out of date. Run `make docs` and commit the result.", *out)
+		}
+		fmt.Printf("%s is up to date.\n", *out)
+		return
+	}
+	if err := os.WriteFile(*out, []byte(text), 0o644); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Wrote %s (%d tools, %d prompts).\n", *out, len(registered), len(prompts))
+}
+
+func arrOf(v any) []any {
+	a, _ := ojson.Arr(v)
+	return a
+}
