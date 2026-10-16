@@ -21,7 +21,7 @@ The project follows [Semantic Versioning](https://semver.org). Its public API is
 
 While the version is `0.x`, minor bumps may contain breaking changes. Call them out in the release notes.
 
-The version comes **from the tag**. `package.json` stays at `0.0.0-dev` in the repository, and release builds stamp the tag's version into the image. The server reports it to MCP clients and prints it on its first log line.
+The version comes **from the tag**. The code says `0.0.0-dev` in the repository, and release builds stamp the tag's version into the binary (`-ldflags`, through the `VERSION` build argument). The server reports it to MCP clients and prints it on its first log line.
 
 ## Release checklist
 
@@ -78,7 +78,7 @@ Two rulesets protect the repository. You can view and edit them under **Settings
 **Protect main** (the default branch):
 
 - Changes land only through pull requests. Nobody can push directly, force-push or delete the branch, and there are no bypasses.
-- The CI checks *Test (Node 22)*, *Test (Node 24)* and *Docker image* must pass, and the branch must be up to date with `main`.
+- The CI checks *Test* and *Docker image* must pass, and the branch must be up to date with `main`.
 - Review threads must be resolved before merging. The only merge method is squash.
 - No approving review is required yet, because GitHub doesn't let authors approve their own pull requests and the project has a single maintainer. Raise this when there are more maintainers.
 

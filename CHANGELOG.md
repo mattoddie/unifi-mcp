@@ -6,6 +6,19 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Changed
+
+- unifi-mcp is rewritten in Go on the official MCP Go SDK, as a drop-in replacement: the tools, their arguments, descriptions and annotations, the prompts, the configuration variables and the output are unchanged (`docs/tools.md` is generated identically, apart from the command named in its header), and every v0.2.0 security fix is kept. The few differences visible from outside:
+  - The Docker image is now a single static binary on `gcr.io/distroless/static-debian13` (about 22 MB, with no shell or package manager) and runs as `nonroot` (UID 65532) instead of `node` (UID 1000). Files you mount for `*_FILE` secrets or `UNIFI_CA_FILE` must be readable by that user. The health check is now the binary's own `healthcheck` command.
+  - Outside Docker, run the `unifi-mcp` binary (`go install github.com/mattoddie/unifi-mcp/cmd/unifi-mcp@latest` or `make build`) instead of `node dist/index.js`. It also has `version` and `healthcheck` commands, and refuses unknown arguments.
+  - At the MCP protocol level, `tools/list` and `prompts/list` return entries in alphabetical order rather than definition order, tool annotations include `idempotentHint: false`, optional prompt arguments omit `required: false`, and calling an unknown tool returns a JSON-RPC error instead of an error result. Clients don't depend on any of these.
+  - `UNIFI_CA_FILE` must contain at least one PEM certificate; the server now says so at startup instead of failing on the first request.
+  - Connection errors keep the Node-style codes (`ECONNREFUSED`, `ENOTFOUND`, `DEPTH_ZERO_SELF_SIGNED_CERT`, ...) for the common cases; rarer network errors are described in Go's words.
+
+### Fixed
+
+- `unifi_get_dashboard`, and `unifi_get_security_settings` with `include_categories: true`, failed since 0.2.0 because their query string was refused by the new path checks. The query is now sent separately.
+
 ## [0.2.0] - 2026-10-15
 
 ### Security

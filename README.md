@@ -35,7 +35,7 @@ Ask about your network in plain English. The assistant picks from **132 tools** 
 
 ## Highlights
 
-- **🐳 Docker-first.** There's one small image (`ghcr.io/mattoddie/unifi-mcp`) for `linux/amd64` and `linux/arm64`. It serves Streamable HTTP for a long-running service, or stdio for `docker run -i`.
+- **🐳 Docker-first.** There's one small distroless image (`ghcr.io/mattoddie/unifi-mcp`, about 22 MB) for `linux/amd64` and `linux/arm64`. It serves Streamable HTTP for a long-running service, or stdio for `docker run -i`.
 - **🛡️ Safe by default.** The server is read-only unless you turn on writes, and deleting configuration needs a second switch. Destructive tools are labelled so your MCP client asks before running them, and passwords and keys are redacted from output.
 - **🧰 Broad coverage.** It covers 14 toolsets: devices, clients, switch ports and PoE, WiFi, networks and VLANs, WAN, DNS, legacy and zone-based firewall, traffic rules and routes, IDS/IPS, VPN, RADIUS, hotspot vouchers, statistics, logs, admins and backups.
 - **🎛️ Tunable.** Expose only the toolsets you need, which keeps the model's context small and focused.
