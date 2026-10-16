@@ -24,16 +24,15 @@ By taking part you agree to follow the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Development setup
 
-You need **Node.js 22+** and, to build the image, **Docker**.
+You need **Go 1.25+** and, to build the image, **Docker**.
 
 ```sh
 git clone https://github.com/<you>/unifi-mcp.git   # your fork
 cd unifi-mcp
-npm ci
-npm test
+make test
 ```
 
-`npm test` type-checks, builds and runs the whole suite against a built-in mock controller in a few seconds. You don't need a real UniFi controller to contribute.
+`make test` runs the whole suite against a built-in mock controller in a few seconds. You don't need a real UniFi controller to contribute.
 
 See [docs/development.md](docs/development.md) for the architecture, the mock controller and a walkthrough of adding a tool.
 
@@ -44,19 +43,20 @@ See [docs/development.md](docs/development.md) for the architecture, the mock co
 3. **Run the checks** that CI runs:
 
    ```sh
-   npm test             # build + tests
-   npm run docs:check   # docs/tools.md matches the code
+   make lint            # gofmt and go vet
+   make test            # tests (CI also runs them with -race)
+   make docs-check      # docs/tools.md matches the code
    docker build .       # optional: the image builds and the tests pass inside it
    ```
 
-4. **Update the docs.** If you changed tools, run `npm run docs:tools`. Update `README.md` or `docs/` if behaviour changed, and add a line under **Unreleased** in [CHANGELOG.md](CHANGELOG.md) for anything users will notice.
+4. **Update the docs.** If you changed tools, run `make docs`. Update `README.md` or `docs/` if behaviour changed, and add a line under **Unreleased** in [CHANGELOG.md](CHANGELOG.md) for anything users will notice.
 5. **Open a pull request** against `main` and fill in the template.
 
 ## Pull request guidelines
 
-- CI must be green. It tests on Node 22 and 24, checks the generated docs, builds the image for amd64 and arm64, and smoke-tests the container.
-- Match the existing style: TypeScript strict mode, ES modules, small focused functions, and comments that explain *why* rather than *what*.
-- **No new dependencies without discussion.** The project deliberately stays small. The runtime dependencies are `@modelcontextprotocol/sdk`, `zod` and `undici`.
+- CI must be green. It checks formatting and `go vet`, runs the tests with the race detector, checks the generated docs, builds the image for amd64 and arm64, and smoke-tests the container.
+- Match the existing style: `gofmt`, small focused functions, and comments that explain *why* rather than *what*.
+- **No new dependencies without discussion.** The project deliberately stays small. The only direct dependency is the official MCP Go SDK, `github.com/modelcontextprotocol/go-sdk`.
 - Never include real credentials, API keys, MAC addresses, public IPs or other personal network data in code, tests, fixtures or screenshots. Use obviously fake values like `aa:bb:cc:00:00:01` and `192.0.2.1`.
 - Maintainers may push small fixes to your branch or squash commits when merging.
 - Label suggestions (`bug`, `enhancement`, `new-tool`, `documentation`, `breaking`, …) are welcome. Labels sort the auto-generated release notes.
@@ -71,12 +71,12 @@ See [docs/development.md](docs/development.md) for the architecture, the mock co
 
 The full guide is in [docs/development.md](docs/development.md#adding-a-tool). The short version:
 
-- Put the tool in the right toolset file under `src/tools/`, using `defineTool()`.
-- Mark it correctly. `write: true` for anything that changes state, `delete: true` for deletes, and `destructive: true` for writes that disconnect clients, reboot devices or change configuration. **This gating is the project's main safety feature, so reviewers check it carefully.**
+- Put the tool in the right toolset file under `internal/tools/`, using `c.add()`.
+- Mark it correctly. `Gate: Write` for anything that changes state, `Gate: Delete` for deletes, and `Destructive: boolPtr(true)` for writes that disconnect clients, reboot devices or change configuration. **This gating is the project's main safety feature, so reviewers check it carefully.**
 - Follow the `save_*` convention for configuration objects: no `id` creates, and an `id` updates only the fields passed.
 - Return compact summaries, offer `raw: true`, and redact secrets.
 - Write the description for an AI model: what the tool does, side effects, units and version requirements.
-- Add tests against the mock controller, then run `npm run docs:tools`.
+- Add tests against the mock controller, then run `make docs`.
 
 Changing an existing tool's name or arguments in an incompatible way is a **breaking change**. Call it out in the PR and the changelog.
 

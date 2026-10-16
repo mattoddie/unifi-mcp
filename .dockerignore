@@ -1,11 +1,11 @@
-node_modules
-dist
 .git
 .env
 .claude
-*.md
-!README.md
-.build
+bin
 docs
-.github
 website
+.github
+*.md
+node_modules
+dist
+.build

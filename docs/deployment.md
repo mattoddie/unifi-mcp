@@ -122,7 +122,7 @@ When the server sits behind a proxy, don't publish its port. Set `MCP_ALLOWED_HO
 
 ## Hardening
 
-The image already runs as the unprivileged `node` user and doesn't need a writable filesystem. You can lock it down further:
+The image is distroless (`gcr.io/distroless/static-debian13`): a single static binary, CA certificates and a non-root user (`nonroot`, UID 65532), about 22 MB, with no shell or package manager. It doesn't need a writable filesystem. You can lock it down further:
 
 ```yaml
 services:
@@ -131,7 +131,8 @@ services:
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    mem_limit: 256m
+    mem_limit: 128m
+    pids_limit: 100
     env_file: .env
     ports: ["127.0.0.1:8080:8080"]
 ```
@@ -140,14 +141,29 @@ See [Security](security.md) for choosing permissions and toolsets.
 
 ## Running without Docker
 
-Docker is the supported way to run unifi-mcp, but the server is an ordinary Node.js 22+ program:
+Docker is the supported way to run unifi-mcp, but the server is a single static binary with no dependencies. You need [Go](https://go.dev/dl/) 1.25 or later to build it.
+
+With `go install`:
+
+```sh
+go install github.com/mattoddie/unifi-mcp/cmd/unifi-mcp@latest
+```
+
+The binary lands in `$(go env GOPATH)/bin`. Built this way it reports its version as `0.0.0-dev`.
+
+Or from a clone, which also stamps the version:
 
 ```sh
 git clone https://github.com/mattoddie/unifi-mcp.git
 cd unifi-mcp
-npm ci && npm run build
-UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... node dist/index.js   # stdio by default
-MCP_TRANSPORT=http MCP_AUTH_TOKEN=... UNIFI_URL=... UNIFI_API_KEY=... node dist/index.js
+make build VERSION=1.2.3      # writes bin/unifi-mcp
+```
+
+Then:
+
+```sh
+UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... unifi-mcp   # stdio by default
+MCP_TRANSPORT=http MCP_AUTH_TOKEN=... UNIFI_URL=... UNIFI_API_KEY=... unifi-mcp
 ```
 
 In HTTP mode, `MCP_AUTH_TOKEN` is required, and outside Docker the server listens on `127.0.0.1` only. Set `MCP_HTTP_HOST=0.0.0.0` to accept connections from other machines.

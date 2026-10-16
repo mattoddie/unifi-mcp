@@ -26,7 +26,7 @@ The best defence against both is to limit what's possible, not to rely on the mo
 | Toolsets | `UNIFI_TOOLSETS` | Tools outside the listed toolsets don't exist. The model can't see or call them. |
 | Tool annotations | Built in | Each tool is marked read-only or destructive, so MCP clients can ask for your confirmation before running destructive tools. |
 | Secret redaction | Built in | Passphrases, keys and other `x_*` secret fields, plus fields named like secrets (`password`, `passphrase`, `psk`, `community`, `*secret*`, `*token*`, `private_key`, `*_key`, `configuration_file` and similar), are `[redacted]` in output unless a call asks for `include_secrets`. |
-| Endpoint auth | `MCP_AUTH_TOKEN` | Bearer token required on every request, and required to start in HTTP mode at all (unless you set `MCP_ALLOW_UNAUTHENTICATED=true`). Checked in constant time. Run with Node directly, the server only listens on `127.0.0.1` by default. |
+| Endpoint auth | `MCP_AUTH_TOKEN` | Bearer token required on every request, and required to start in HTTP mode at all (unless you set `MCP_ALLOW_UNAUTHENTICATED=true`). Checked in constant time. Run outside Docker, the server only listens on `127.0.0.1` by default. |
 | Host allow-list | `MCP_ALLOWED_HOSTS` | Rejects requests with an unexpected `Host` header, or with an `Origin` header for another host. This blocks DNS-rebinding and cross-site attacks from browser pages. |
 | Path checks | Built in | API paths with `.` or `..` segments (also percent-encoded, like `%2e%2e`), backslashes or control characters are refused, so no request can leave the Network application. |
 | Container | Built in | Runs as a non-root user. Compatible with a read-only root filesystem and `cap_drop: [ALL]`. |

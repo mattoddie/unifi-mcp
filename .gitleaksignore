@@ -1,2 +1,0 @@
-# Throwaway self-signed key for the HTTPS mock controller in the tests; protects nothing.
-src/test/tls-fixture.ts:private-key:22

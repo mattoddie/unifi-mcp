@@ -38,7 +38,7 @@ Run `docker compose logs unifi-mcp`. The last line names the problem, for exampl
 4. **`401 Unauthorized`:** the client isn't sending `Authorization: Bearer <MCP_AUTH_TOKEN>`, or the token doesn't match. Watch for stray quotes or spaces in `.env`.
 5. **`403 Host … is not allowed` or `403 Origin … is not allowed`:** add the hostname the client uses to `MCP_ALLOWED_HOSTS`, or unset it. Browser-based clients send an `Origin` header, which must also name an allowed host.
 6. **`405 Method not allowed`:** the client tried to open an SSE stream with `GET`. The server is stateless and only accepts `POST`. Make sure the client is set to *Streamable HTTP* (often called `http`), not `sse`.
-7. **Connection refused without Docker:** run with Node directly, the server listens on `127.0.0.1` only. Set `MCP_HTTP_HOST=0.0.0.0` (and keep `MCP_AUTH_TOKEN` set) to accept connections from other machines.
+7. **Connection refused without Docker:** run outside Docker, the server listens on `127.0.0.1` only. Set `MCP_HTTP_HOST=0.0.0.0` (and keep `MCP_AUTH_TOKEN` set) to accept connections from other machines.
 
 ## Login and permission errors
 
