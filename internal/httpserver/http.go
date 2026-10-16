@@ -26,14 +26,25 @@ import (
 const MaxBodyBytes = 4 << 20
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
-	b, _ := json.Marshal(body)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	_ = enc.Encode(body)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_, _ = w.Write(b)
+	_, _ = w.Write(bytes.TrimSuffix(buf.Bytes(), []byte("\n")))
 }
 
 func rpcError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]any{"jsonrpc": "2.0", "error": map[string]any{"code": -32000, "message": message}, "id": nil})
+	type rpcErr struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	writeJSON(w, status, struct {
+		JSONRPC string `json:"jsonrpc"`
+		Error   rpcErr `json:"error"`
+		ID      any    `json:"id"`
+	}{"2.0", rpcErr{-32000, message}, nil})
 }
 
 var bearer = regexp.MustCompile(`(?i)^Bearer\s+(.+)$`)

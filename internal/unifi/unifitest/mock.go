@@ -279,6 +279,15 @@ func (m *Mock) route(r *http.Request, path string, body any) (int, any, http.Hea
 		loginPath = "/api/auth/login"
 	}
 	if path == loginPath && r.Method == http.MethodPost {
+		m.mu.Lock()
+		handlers := append([]route(nil), m.handlers...)
+		m.mu.Unlock()
+		for _, h := range handlers {
+			if h.method == r.Method && h.pattern.MatchString(path) {
+				status, payload := h.fn(body, h.pattern.FindStringSubmatch(path), nil)
+				return status, payload, nil
+			}
+		}
 		if !ojson.StrictEq(ojson.Get(body, "username"), "admin") || !ojson.StrictEq(ojson.Get(body, "password"), "secret") {
 			return 401, ojson.MustParse(`{"meta":{"rc":"error","msg":"api.err.Invalid"}}`), nil
 		}
