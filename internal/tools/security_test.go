@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/mattoddie/unifi-mcp/internal/ojson"
 )
@@ -149,5 +150,25 @@ func TestDeleteLikeReason(t *testing.T) {
 		if got := deleteLikeReason(c.path, c.body); got != c.want {
 			t.Errorf("%s: %q, want %q", c.path, got, c.want)
 		}
+	}
+}
+
+func TestLargeOutputIsTruncated(t *testing.T) {
+	env := startMock(t, toolOptions(false, false))
+	big := make([]any, 0, 20000)
+	for i := 0; i < 20000; i++ {
+		big = append(big, ojson.New("name", strings.Repeat("é", 10), "i", float64(i)))
+	}
+	env.mock.On("GET", `^/api/s/default/stat/big$`, func(any, []string, url.Values) (int, any) {
+		return 200, ojson.New("data", big, "meta", ojson.New("rc", "ok"))
+	})
+	res := callRaw(t, env.mcp, "unifi_api_request", `{"path":"/api/s/default/stat/big"}`)
+	out := text(res)
+	if len(out) > MaxOutputBytes+300 || !strings.Contains(out, "[Output truncated: the result is ") || !utf8.ValidString(out) {
+		t.Errorf("output: %d bytes, valid UTF-8 %v, tail %q", len(out), utf8.ValidString(out), out[len(out)-200:])
+	}
+	small := text(callRaw(t, env.mcp, "unifi_api_request", `{"path":"/api/self/sites"}`))
+	if strings.Contains(small, "truncated") {
+		t.Error("small output truncated")
 	}
 }

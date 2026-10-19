@@ -2,6 +2,7 @@ package ojson
 
 import (
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -119,5 +120,16 @@ func TestObjOperations(t *testing.T) {
 	}
 	if n, ok := Len("é😀"); !ok || n != 3 {
 		t.Errorf("UTF-16 length %d", n)
+	}
+}
+
+func TestParseDepthLimit(t *testing.T) {
+	deep := strings.Repeat("[", MaxDepth+2) + strings.Repeat("]", MaxDepth+2)
+	if _, err := Parse([]byte(deep)); err == nil || err.Error() != "JSON is nested too deeply" {
+		t.Errorf("deep: %v", err)
+	}
+	ok := strings.Repeat("[", MaxDepth) + strings.Repeat("]", MaxDepth)
+	if _, err := Parse([]byte(ok)); err != nil {
+		t.Errorf("at the limit: %v", err)
 	}
 }

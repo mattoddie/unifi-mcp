@@ -17,6 +17,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - The HTTP server now has a 60 second read timeout and a 120 second idle timeout, on top of the header timeout.
 - The `healthcheck` command connects to `MCP_HTTP_HOST` when it is a specific address (and to `127.0.0.1` when it is `0.0.0.0` or `::`), and reads `MCP_HTTP_PORT_FILE`.
 - With writes on and deletes off, the raw API tool could be made to delete by percent-encoding a letter of the path, e.g. `POST /v2/api/site/default/firewall-policies/batch-d%65lete`, which the delete check didn't recognise but the controller decoded and ran. API paths that percent-encode letters, digits, `-`, `_` or `~` are now refused, and the delete check runs on the decoded path. The check also recognises more verbs (`set-default`, `factory`, `clear`, `purge`, `erase`, `wipe`, `del-`), matches `cmd` keys in any letter case, and, for the classic `cmd/<manager>` endpoints, only sends commands known not to delete anything.
+- Controller responses are read up to 64 MiB (a bigger one is an error instead of being read into memory), and JSON nesting is capped at 1000 levels. Tool output returned to the model is capped at 256 KiB, with a note saying it was truncated and how to narrow the request.
+- With a username and password, the server logs in again only when the controller answers 401, not 403 (which means the account lacks permission). After a rejected login it waits before trying again (5 seconds, doubling up to 5 minutes) instead of retrying on every tool call, which could lock the account.
 
 ## [0.3.0] - 2026-10-16
 

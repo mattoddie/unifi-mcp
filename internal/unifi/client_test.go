@@ -365,3 +365,60 @@ func writeFile(t *testing.T, name string, data []byte) string {
 	}
 	return p
 }
+
+func TestForbiddenDoesNotLogInAgain(t *testing.T) {
+	m := unifitest.New(unifitest.Options{Mode: "unifi-os"})
+	defer m.Close()
+	m.On("GET", `^/api/s/default/stat/admin-only$`, func(any, []string, url.Values) (int, any) {
+		return 403, ojson.MustParse(`{"meta":{"rc":"error","msg":"api.err.NoPermission"}}`)
+	})
+	c := newClient(t, userEnv(m.URL))
+	if _, err := c.SiteGet(ctx, "default", "stat/admin-only", nil); err == nil || !strings.Contains(err.Error(), "HTTP 403") {
+		t.Errorf("403: %v", err)
+	}
+	if m.LoginCount() != 1 {
+		t.Errorf("a 403 triggered a new login: %d logins", m.LoginCount())
+	}
+}
+
+func TestFailedLoginBacksOff(t *testing.T) {
+	m := unifitest.New(unifitest.Options{Mode: "unifi-os"})
+	defer m.Close()
+	c := newClient(t, userEnv(m.URL, "UNIFI_PASSWORD", "wrong"))
+	if _, err := c.SiteGet(ctx, "default", "stat/device", nil); err == nil || !strings.HasPrefix(err.Error(), "Login to UniFi controller failed (HTTP 401)") {
+		t.Fatalf("first: %v", err)
+	}
+	logins := func() int {
+		n := 0
+		for _, r := range m.Requests() {
+			if r.Path == "/api/auth/login" {
+				n++
+			}
+		}
+		return n
+	}
+	attempts := logins()
+	if attempts != 1 {
+		t.Errorf("login attempts: %d", attempts)
+	}
+	for i := 0; i < 3; i++ {
+		_, err := c.SiteGet(ctx, "default", "stat/device", nil)
+		if err == nil || !strings.Contains(err.Error(), "Login to UniFi controller failed (HTTP 401)") || !strings.Contains(err.Error(), "not retrying for") {
+			t.Errorf("retry %d: %v", i, err)
+		}
+	}
+	if n := logins(); n != attempts {
+		t.Errorf("logins retried during the backoff: %d, want %d", n, attempts)
+	}
+}
+
+func TestOversizedResponseIsRefused(t *testing.T) {
+	m := unifitest.New(unifitest.Options{Mode: "unifi-os", APIKey: "key123"})
+	defer m.Close()
+	huge := strings.Repeat("a", unifi.MaxResponseBytes)
+	m.On("GET", `^/api/s/default/stat/huge$`, func(any, []string, url.Values) (int, any) { return 200, huge })
+	c := newClient(t, map[string]string{"UNIFI_URL": m.URL, "UNIFI_API_KEY": "key123"})
+	if _, err := c.SiteGet(ctx, "default", "stat/huge", nil); err == nil || !strings.Contains(err.Error(), "larger than 64 MiB") {
+		t.Errorf("huge: %v", err)
+	}
+}

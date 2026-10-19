@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -133,8 +135,24 @@ func (c *Context) add(d Def) {
 	}
 }
 
+// MaxOutputBytes caps the text a tool returns, so one huge response (a raw API call,
+// or a list on a very large site) can't flood the model's context.
+const MaxOutputBytes = 256 << 10
+
 func ok(data any) *mcp.CallToolResult {
-	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: ojson.StringifyIndent(data)}}}
+	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: truncateOutput(ojson.StringifyIndent(data))}}}
+}
+
+// truncateOutput cuts text longer than MaxOutputBytes at a character boundary and says so.
+func truncateOutput(text string) string {
+	if len(text) <= MaxOutputBytes {
+		return text
+	}
+	cut := MaxOutputBytes
+	for cut > 0 && !utf8.RuneStart(text[cut]) {
+		cut--
+	}
+	return text[:cut] + fmt.Sprintf("\n\n[Output truncated: the result is %d bytes, more than the %d-byte limit. Narrow the request, for example with a filter, a limit or a specific id.]", len(text), MaxOutputBytes)
 }
 
 func fail(text string) *mcp.CallToolResult {

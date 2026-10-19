@@ -17,7 +17,7 @@ import (
 func Parse(data []byte) (any, error) {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
-	v, err := parseValue(dec)
+	v, err := parseValue(dec, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,14 @@ func Parse(data []byte) (any, error) {
 	return v, nil
 }
 
-func parseValue(dec *json.Decoder) (any, error) {
+// MaxDepth is the deepest nesting of arrays and objects Parse accepts, so a
+// hostile response can't exhaust the stack.
+const MaxDepth = 1000
+
+func parseValue(dec *json.Decoder, depth int) (any, error) {
+	if depth > MaxDepth {
+		return nil, errors.New("JSON is nested too deeply")
+	}
 	tok, err := dec.Token()
 	if err != nil {
 		if err == io.EOF {
@@ -49,7 +56,7 @@ func parseValue(dec *json.Decoder) (any, error) {
 				if !ok {
 					return nil, errors.New("invalid object key")
 				}
-				v, err := parseValue(dec)
+				v, err := parseValue(dec, depth+1)
 				if err != nil {
 					return nil, err
 				}
@@ -62,7 +69,7 @@ func parseValue(dec *json.Decoder) (any, error) {
 		case '[':
 			arr := []any{}
 			for dec.More() {
-				v, err := parseValue(dec)
+				v, err := parseValue(dec, depth+1)
 				if err != nil {
 					return nil, err
 				}
