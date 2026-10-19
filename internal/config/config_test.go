@@ -124,11 +124,17 @@ func TestHTTPAuthRequirement(t *testing.T) {
 	if err == nil || err.Error() != "MCP_AUTH_TOKEN is required for the http transport (generate one with: openssl rand -hex 32); set MCP_ALLOW_UNAUTHENTICATED=true only behind something else that authenticates" {
 		t.Errorf("http without token: %v", err)
 	}
-	if !mustLoad(t, base, "MCP_TRANSPORT", "http", "MCP_ALLOW_UNAUTHENTICATED", "true").HTTP.AllowUnauthenticated {
+	if _, err := load(t, base, "MCP_TRANSPORT", "http", "MCP_ALLOW_UNAUTHENTICATED", "true"); err == nil || err.Error() != UnauthenticatedNeedsHosts {
+		t.Errorf("unauthenticated without allowed hosts: %v", err)
+	}
+	if !mustLoad(t, base, "MCP_TRANSPORT", "http", "MCP_ALLOW_UNAUTHENTICATED", "true", "MCP_ALLOWED_HOSTS", "mcp.example.lan").HTTP.AllowUnauthenticated {
 		t.Error("MCP_ALLOW_UNAUTHENTICATED")
 	}
 	mustLoad(t, base) // stdio needs no token
-	cfg := mustLoad(t, base, "MCP_TRANSPORT", "http", "MCP_AUTH_TOKEN", "t", "MCP_ALLOWED_HOSTS", "MCP.Example.LAN, Other:8080", "MCP_HTTP_PORT", "9000")
+	if _, err := load(t, base, "MCP_TRANSPORT", "http", "MCP_AUTH_TOKEN", strings.Repeat("t", 15)); err == nil || err.Error() != "MCP_AUTH_TOKEN must be at least 16 characters (generate one with: openssl rand -hex 32)" {
+		t.Errorf("short token: %v", err)
+	}
+	cfg := mustLoad(t, base, "MCP_TRANSPORT", "http", "MCP_AUTH_TOKEN", strings.Repeat("t", 16), "MCP_ALLOWED_HOSTS", "MCP.Example.LAN, Other:8080", "MCP_HTTP_PORT", "9000")
 	if cfg.HTTP.Host != "127.0.0.1" || cfg.HTTP.Port != 9000 || !reflect.DeepEqual(cfg.HTTP.AllowedHosts, []string{"mcp.example.lan", "other:8080"}) {
 		t.Errorf("http: %+v", cfg.HTTP)
 	}
@@ -200,5 +206,32 @@ func TestAllTools(t *testing.T) {
 	all := AllTools()
 	if !all.AllowWrites || !all.AllowDeletes || len(all.Toolsets) != 14 {
 		t.Errorf("AllTools: %+v", all)
+	}
+}
+
+func TestHealthcheckURL(t *testing.T) {
+	dir := t.TempDir()
+	portFile := filepath.Join(dir, "port")
+	if err := os.WriteFile(portFile, []byte("9100\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		env  map[string]string
+		want string
+	}{
+		{map[string]string{"MCP_TRANSPORT": "stdio"}, ""},
+		{map[string]string{}, "http://127.0.0.1:8080/health"},
+		{map[string]string{"MCP_HTTP_HOST": "0.0.0.0", "MCP_HTTP_PORT": "9000"}, "http://127.0.0.1:9000/health"},
+		{map[string]string{"MCP_HTTP_HOST": "::"}, "http://127.0.0.1:8080/health"},
+		{map[string]string{"MCP_HTTP_HOST": "192.0.2.10"}, "http://192.0.2.10:8080/health"},
+		{map[string]string{"MCP_HTTP_HOST": "::1"}, "http://[::1]:8080/health"},
+		{map[string]string{"MCP_HTTP_PORT_FILE": portFile}, "http://127.0.0.1:9100/health"},
+	} {
+		if got, err := HealthcheckURL(MapEnv(c.env)); err != nil || got != c.want {
+			t.Errorf("%v: %q %v, want %q", c.env, got, err, c.want)
+		}
+	}
+	if _, err := HealthcheckURL(MapEnv(map[string]string{"MCP_HTTP_PORT": "x"})); err == nil {
+		t.Error("bad port")
 	}
 }

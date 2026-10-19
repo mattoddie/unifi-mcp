@@ -27,6 +27,8 @@ Run `docker compose logs unifi-mcp`. The last line names the problem, for exampl
 | `Unknown toolset "x" in UNIFI_TOOLSETS` | Fix the typo. The message lists the valid names. |
 | `Could not read UNIFI_API_KEY_FILE (…)` | The secret file isn't mounted where the variable points. |
 | `MCP_AUTH_TOKEN is required for the http transport …` | Set `MCP_AUTH_TOKEN` (generate one with `openssl rand -hex 32`) and send it from your client. Only if something else in front of the server authenticates requests, set `MCP_ALLOW_UNAUTHENTICATED=true` instead. |
+| `MCP_AUTH_TOKEN must be at least 16 characters` | Use a longer token, for example `openssl rand -hex 32`. |
+| `MCP_ALLOW_UNAUTHENTICATED=true also requires MCP_ALLOWED_HOSTS …` | List the host names your clients use to reach the server in `MCP_ALLOWED_HOSTS`, or set `MCP_AUTH_TOKEN` instead. |
 | `UNIFI_TLS_FINGERPRINT: … is not a SHA-256 certificate fingerprint` | Use the 64-hex-digit SHA-256 fingerprint, with or without colons. SHA-1 fingerprints are too short. |
 | `Could not read UNIFI_CA_FILE (…)` | The CA file isn't mounted where the variable points. |
 
@@ -36,7 +38,7 @@ Run `docker compose logs unifi-mcp`. The last line names the problem, for exampl
 2. **Right host?** The port is published on the machine running Docker. If Docker runs on another machine (for example with `DOCKER_HOST`), `localhost` won't work.
 3. **Right path?** The endpoint is `/mcp`, so the URL is `http://<docker-host>:8080/mcp`.
 4. **`401 Unauthorized`:** the client isn't sending `Authorization: Bearer <MCP_AUTH_TOKEN>`, or the token doesn't match. Watch for stray quotes or spaces in `.env`.
-5. **`403 Host … is not allowed` or `403 Origin … is not allowed`:** add the hostname the client uses to `MCP_ALLOWED_HOSTS`, or unset it. Browser-based clients send an `Origin` header, which must also name an allowed host.
+5. **`403 Host … is not allowed` or `403 Origin … is not allowed`:** add the hostname the client uses to `MCP_ALLOWED_HOSTS`, or unset it. Browser-based clients send an `Origin` header, which must also name an allowed host; for a page on a non-default port, list it as `host:port`.
 6. **`405 Method not allowed`:** the client tried to open an SSE stream with `GET`. The server is stateless and only accepts `POST`. Make sure the client is set to *Streamable HTTP* (often called `http`), not `sse`.
 7. **Connection refused without Docker:** run outside Docker, the server listens on `127.0.0.1` only. Set `MCP_HTTP_HOST=0.0.0.0` (and keep `MCP_AUTH_TOKEN` set) to accept connections from other machines.
 

@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -59,24 +60,31 @@ func tokenMatches(header, token string) bool {
 
 var portSuffix = regexp.MustCompile(`:\d+$`)
 
-// originAllowed reports whether the Origin's host (with or without port) is in
-// the allow-list. "null" and malformed origins are rejected.
+// originAllowed reports whether the Origin is in the allow-list. An entry
+// without a port matches only the scheme's default port (80 for http, 443 for
+// https); a page on another port needs an explicit host:port entry. "null" and
+// malformed origins are rejected.
 func originAllowed(origin string, allowed []string) bool {
 	u, err := url.Parse(origin)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Opaque != "" {
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.Opaque != "" || u.User != nil {
 		return false
 	}
 	hostname := strings.ToLower(u.Hostname())
-	host := hostname
 	if strings.Contains(hostname, ":") {
-		host = "[" + hostname + "]"
-		hostname = host
+		hostname = "[" + hostname + "]"
 	}
-	// Like the WHATWG URL parser, drop the scheme's default port.
-	if port := u.Port(); port != "" && !(u.Scheme == "http" && port == "80" || u.Scheme == "https" && port == "443") {
-		host += ":" + port
+	defaultPort := "80"
+	if u.Scheme == "https" {
+		defaultPort = "443"
 	}
-	return slices.Contains(allowed, host) || slices.Contains(allowed, hostname)
+	port := u.Port()
+	if port == "" {
+		port = defaultPort
+	}
+	if port == defaultPort && slices.Contains(allowed, hostname) {
+		return true
+	}
+	return slices.Contains(allowed, hostname+":"+port)
 }
 
 // Handler serves /mcp (stateless Streamable HTTP: every request is handled on
@@ -108,8 +116,8 @@ func Handler(cfg config.HTTP, server *mcp.Server) http.Handler {
 				return
 			}
 			// Browsers send Origin on cross-site requests; non-browser clients usually don't.
-			if origins, ok := r.Header["Origin"]; ok {
-				origin := origins[0]
+			// An Origin that is present but empty or "null" is rejected too.
+			for _, origin := range r.Header["Origin"] {
 				if !originAllowed(origin, cfg.AllowedHosts) {
 					rpcError(w, http.StatusForbidden, "Origin "+origin+" is not allowed")
 					return
@@ -165,10 +173,17 @@ func Serve(srv *http.Server, ln net.Listener, cfg config.HTTP) error {
 	return nil
 }
 
-// Check refuses to serve /mcp without a bearer token unless MCP_ALLOW_UNAUTHENTICATED is set.
+// Check refuses to serve /mcp without a bearer token unless MCP_ALLOW_UNAUTHENTICATED
+// is set, and refuses to serve it unauthenticated without a Host allow-list.
 func Check(cfg config.HTTP) error {
 	if cfg.AuthToken == "" && !cfg.AllowUnauthenticated {
 		return errors.New("MCP_AUTH_TOKEN is required for the http transport (or set MCP_ALLOW_UNAUTHENTICATED=true)")
+	}
+	if cfg.AuthToken == "" && len(cfg.AllowedHosts) == 0 {
+		return errors.New(config.UnauthenticatedNeedsHosts)
+	}
+	if cfg.AuthToken != "" && len(cfg.AuthToken) < config.MinAuthTokenLength {
+		return fmt.Errorf("MCP_AUTH_TOKEN must be at least %d characters", config.MinAuthTokenLength)
 	}
 	return nil
 }

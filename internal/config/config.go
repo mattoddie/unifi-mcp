@@ -4,9 +4,11 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/mattoddie/unifi-mcp/internal/ojson"
@@ -151,6 +153,14 @@ func positiveInt(name, v string, fallback int) (int, error) {
 	return int(n), nil
 }
 
+// MinAuthTokenLength is the shortest MCP_AUTH_TOKEN accepted.
+const MinAuthTokenLength = 16
+
+// UnauthenticatedNeedsHosts is the error for MCP_ALLOW_UNAUTHENTICATED=true without MCP_ALLOWED_HOSTS.
+// Without a token, the Host check is the only thing stopping a web page from reaching
+// the server through DNS rebinding.
+const UnauthenticatedNeedsHosts = "MCP_ALLOW_UNAUTHENTICATED=true also requires MCP_ALLOWED_HOSTS: without a token, a web page you visit could reach the server through DNS rebinding. List the host names clients use to reach it (e.g. MCP_ALLOWED_HOSTS=unifi-mcp.example.com)"
+
 var trailingSlashes = regexp.MustCompile(`/+$`)
 
 // Load builds the configuration from the environment.
@@ -255,6 +265,12 @@ func Load(env Env) (*Config, error) {
 	if cfg.Transport == "http" && h.AuthToken == "" && !h.AllowUnauthenticated {
 		return nil, errors.New("MCP_AUTH_TOKEN is required for the http transport (generate one with: openssl rand -hex 32); set MCP_ALLOW_UNAUTHENTICATED=true only behind something else that authenticates")
 	}
+	if cfg.Transport == "http" && h.AuthToken != "" && len(h.AuthToken) < MinAuthTokenLength {
+		return nil, fmt.Errorf("MCP_AUTH_TOKEN must be at least %d characters (generate one with: openssl rand -hex 32)", MinAuthTokenLength)
+	}
+	if cfg.Transport == "http" && h.AuthToken == "" && len(h.AllowedHosts) == 0 {
+		return nil, errors.New(UnauthenticatedNeedsHosts)
+	}
 
 	u := &cfg.Unifi
 	u.CAFile = get("UNIFI_CA_FILE")
@@ -352,4 +368,35 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// HealthcheckURL is the /health URL the healthcheck command checks, or "" in
+// stdio mode. It connects to MCP_HTTP_HOST when that is a specific address, and
+// to the loopback address when the server listens on every interface.
+func HealthcheckURL(env Env) (string, error) {
+	transport, err := read(env, "MCP_TRANSPORT")
+	if err != nil {
+		return "", err
+	}
+	if transport == "stdio" {
+		return "", nil
+	}
+	host, err := read(env, "MCP_HTTP_HOST")
+	if err != nil {
+		return "", err
+	}
+	switch host {
+	case "", "0.0.0.0", "::", "[::]":
+		host = "127.0.0.1"
+	}
+	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	p, err := read(env, "MCP_HTTP_PORT")
+	if err != nil {
+		return "", err
+	}
+	port, err := positiveInt("MCP_HTTP_PORT", p, 8080)
+	if err != nil {
+		return "", err
+	}
+	return "http://" + net.JoinHostPort(host, strconv.Itoa(port)) + "/health", nil
 }

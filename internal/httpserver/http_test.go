@@ -120,7 +120,7 @@ func TestMethodsAndBodies(t *testing.T) {
 }
 
 func TestAllowedHostsAndOrigins(t *testing.T) {
-	srv := newServer(t, config.HTTP{AuthToken: "s3cret", AllowedHosts: []string{"127.0.0.1", "mcp.example.com"}})
+	srv := newServer(t, config.HTTP{AuthToken: "s3cret", AllowedHosts: []string{"127.0.0.1", "mcp.example.com", "app.example.com:3000"}})
 	auth := map[string]string{"Authorization": "Bearer s3cret"}
 	with := func(kv ...string) map[string]string {
 		h := map[string]string{"Authorization": "Bearer s3cret"}
@@ -139,10 +139,18 @@ func TestAllowedHostsAndOrigins(t *testing.T) {
 		t.Errorf("listed host with port: %d", res.StatusCode)
 	}
 	for origin, want := range map[string]int{
-		srv.URL:                          200,
+		srv.URL:                          403, // 127.0.0.1 on a non-default port isn't listed
+		"http://127.0.0.1:80":            200,
+		"https://127.0.0.1":              200,
+		"http://localhost":               403,
+		"http://app.example.com:3000":    200,
+		"https://app.example.com:3000":   200,
+		"http://app.example.com":         403,
+		"":                               403,
 		"http://127.0.0.1":               200,
 		"https://MCP.example.com:443":    200,
-		"https://mcp.example.com:8443":   200,
+		"https://mcp.example.com:8443":   403,
+		"http://user@mcp.example.com":    403,
 		"http://evil.example":            403,
 		"null":                           403,
 		"file://":                        403,
@@ -168,7 +176,16 @@ func TestUnauthenticatedOnlyWhenAllowed(t *testing.T) {
 	if err := Check(config.HTTP{}); err == nil || err.Error() != "MCP_AUTH_TOKEN is required for the http transport (or set MCP_ALLOW_UNAUTHENTICATED=true)" {
 		t.Errorf("Check: %v", err)
 	}
-	if err := Check(config.HTTP{AllowUnauthenticated: true}); err != nil {
+	if err := Check(config.HTTP{AllowUnauthenticated: true}); err == nil || err.Error() != config.UnauthenticatedNeedsHosts {
+		t.Errorf("unauthenticated without hosts: %v", err)
+	}
+	if err := Check(config.HTTP{AllowUnauthenticated: true, AllowedHosts: []string{"127.0.0.1"}}); err != nil {
+		t.Error(err)
+	}
+	if err := Check(config.HTTP{AuthToken: "short"}); err == nil || !strings.Contains(err.Error(), "at least 16 characters") {
+		t.Errorf("short token: %v", err)
+	}
+	if err := Check(config.HTTP{AuthToken: strings.Repeat("t", 16)}); err != nil {
 		t.Error(err)
 	}
 	srv := newServer(t, config.HTTP{AllowUnauthenticated: true})

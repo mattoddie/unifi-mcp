@@ -8,6 +8,11 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ### Security
 
+- **Breaking:** `MCP_ALLOW_UNAUTHENTICATED=true` now also requires `MCP_ALLOWED_HOSTS`. Without a token, the Host check is the only protection against a web page reaching the server through DNS rebinding, so the server refuses to start without it.
+- **Breaking:** `MCP_AUTH_TOKEN` must be at least 16 characters. Generate one with `openssl rand -hex 32`.
+- An `MCP_ALLOWED_HOSTS` entry without a port now only allows an `Origin` on the scheme's default port (80 or 443). List `host:port` to allow a page on another port. Before, `localhost` let a page on any `localhost:<port>` through. Every `Origin` header is checked, and an empty one is rejected.
+- The HTTP server now has a 60 second read timeout and a 120 second idle timeout, on top of the header timeout.
+- The `healthcheck` command connects to `MCP_HTTP_HOST` when it is a specific address (and to `127.0.0.1` when it is `0.0.0.0` or `::`), and reads `MCP_HTTP_PORT_FILE`.
 - With writes on and deletes off, the raw API tool could be made to delete by percent-encoding a letter of the path, e.g. `POST /v2/api/site/default/firewall-policies/batch-d%65lete`, which the delete check didn't recognise but the controller decoded and ran. API paths that percent-encode letters, digits, `-`, `_` or `~` are now refused, and the delete check runs on the decoded path. The check also recognises more verbs (`set-default`, `factory`, `clear`, `purge`, `erase`, `wipe`, `del-`), matches `cmd` keys in any letter case, and, for the classic `cmd/<manager>` endpoints, only sends commands known not to delete anything.
 
 ## [0.3.0] - 2026-10-16

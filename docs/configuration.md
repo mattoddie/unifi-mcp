@@ -48,11 +48,11 @@ Tools that aren't allowed are **not registered at all**. The assistant can't see
 | Variable | Default | Description |
 |---|---|---|
 | `MCP_TRANSPORT` | `http` in the Docker image (`stdio` when the binary is run directly) | `http` for Streamable HTTP, or `stdio`. |
-| `MCP_HTTP_HOST` | `0.0.0.0` in the Docker image (`127.0.0.1` when the binary is run directly) | Address to listen on (HTTP only). |
-| `MCP_HTTP_PORT` | `8080` | Port to listen on (HTTP only). |
-| `MCP_AUTH_TOKEN` | **required for HTTP** | Every request to `/mcp` must send `Authorization: Bearer <token>`. Generate one with `openssl rand -hex 32`. The server refuses to start in HTTP mode without it. |
-| `MCP_ALLOW_UNAUTHENTICATED` | `false` | Start the HTTP transport without `MCP_AUTH_TOKEN`. Only set this when something in front of the server, such as an authenticating reverse proxy, already checks every request. |
-| `MCP_ALLOWED_HOSTS` | | Comma-separated allow-list of host names, such as `unifi-mcp.lan,unifi-mcp.lan:8080` (case-insensitive). Requests with any other `Host` header, or with an `Origin` header for another host, are rejected. This protects against DNS-rebinding and cross-site attacks from web pages in your browser. |
+| `MCP_HTTP_HOST` | `0.0.0.0` in the Docker image (`127.0.0.1` when the binary is run directly) | Address to listen on (HTTP only). The `healthcheck` command connects to this address, or to `127.0.0.1` when it is `0.0.0.0` or `::`. |
+| `MCP_HTTP_PORT` | `8080` | Port to listen on (HTTP only), also used by the `healthcheck` command. |
+| `MCP_AUTH_TOKEN` | **required for HTTP** | Every request to `/mcp` must send `Authorization: Bearer <token>`. Generate one with `openssl rand -hex 32`. The server refuses to start in HTTP mode without it, or if it is shorter than 16 characters. |
+| `MCP_ALLOW_UNAUTHENTICATED` | `false` | Start the HTTP transport without `MCP_AUTH_TOKEN`. Only set this when something in front of the server, such as an authenticating reverse proxy, already checks every request. It also requires `MCP_ALLOWED_HOSTS`: without a token, the Host check is what stops a web page from reaching the server through DNS rebinding. |
+| `MCP_ALLOWED_HOSTS` | | Comma-separated allow-list of host names, such as `unifi-mcp.lan,unifi-mcp.lan:8080` (case-insensitive). For the `Host` header, an entry without a port matches any port, and `host:port` matches only that port. For the `Origin` header (sent by browsers), an entry without a port matches only the scheme's default port (80 or 443), so a page served from another port needs an explicit `host:port` entry. Requests with any other `Host`, or with an `Origin` that is not listed (including an empty or `null` one), are rejected. This protects against DNS-rebinding and cross-site attacks from web pages in your browser. |
 
 The HTTP server exposes these endpoints:
 

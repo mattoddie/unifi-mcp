@@ -107,7 +107,13 @@ func serve() error {
 	if err != nil {
 		return err
 	}
-	srv := &http.Server{Handler: httpserver.Handler(cfg.HTTP, server), ReadHeaderTimeout: 10 * time.Second}
+	// No WriteTimeout: tool calls can legitimately take minutes (rolling upgrades, RF scans).
+	srv := &http.Server{
+		Handler:           httpserver.Handler(cfg.HTTP, server),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -118,15 +124,12 @@ func serve() error {
 }
 
 func healthcheck() error {
-	if os.Getenv("MCP_TRANSPORT") == "stdio" {
-		return nil
-	}
-	port := os.Getenv("MCP_HTTP_PORT")
-	if port == "" {
-		port = "8080"
+	url, err := config.HealthcheckURL(os.LookupEnv)
+	if err != nil || url == "" {
+		return err
 	}
 	c := &http.Client{Timeout: 3 * time.Second}
-	resp, err := c.Get("http://127.0.0.1:" + port + "/health")
+	resp, err := c.Get(url)
 	if err != nil {
 		return err
 	}
