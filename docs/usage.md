@@ -83,7 +83,7 @@ So *"turn off the guest WiFi"* becomes `unifi_save_wlan {id: "…", enabled: fal
 
 ### Deleting
 
-Deleting needs `UNIFI_ALLOW_DELETES=true` as well. This covers forgetting clients and revoking hotspot vouchers too. With it off, the delete tools don't exist, and the raw API tool refuses `DELETE` requests and commands that delete, forget, revoke, remove, destroy or reset something. You can still *disable* most objects with `enabled: false`, which is easy to undo.
+Deleting needs `UNIFI_ALLOW_DELETES=true` as well. This covers forgetting clients and revoking hotspot vouchers too. With it off, the delete tools don't exist, and the raw API tool refuses `DELETE` requests and requests that delete, forget, revoke, remove, reset, clear, purge or factory-reset something, and only sends classic `cmd/<manager>` commands that are known not to delete anything. You can still *disable* most objects with `enabled: false`, which is easy to undo.
 
 ### Actions
 

@@ -242,6 +242,10 @@ var traversals = []string{
 	"/api/s/default/stat/device#x",
 	"/api/s/%zz/stat",
 	"/api/s/%c3%28/stat",
+	"/v2/api/site/default/firewall-policies/batch-d%65lete",
+	"/api/s/default/cmd/%73tamgr",
+	"/api/s/default/rest/user/u%2D1",
+	"/api/s/default/rest/user/%5F%7e%30%5a",
 	"api/s/default",
 }
 
@@ -251,18 +255,19 @@ func TestAssertSafePath(t *testing.T) {
 			t.Errorf("%q: %v", p, err)
 		}
 	}
-	for _, p := range []string{"/api/s/default/stat/device/aa:bb:cc:00:00:01", "/api/s/default/stat/report/5minutes.site", "/v2/api/site/default/trafficrules/my%20rule"} {
+	for _, p := range []string{"/api/s/default/stat/device/aa:bb:cc:00:00:01", "/api/s/default/stat/report/5minutes.site", "/v2/api/site/default/trafficrules/my%20rule", "/api/s/default/rest/user/a%2Fb%7C", "/x/%C3%A9"} {
 		if err := unifi.AssertSafePath(p); err != nil {
 			t.Errorf("%q: %v", p, err)
 		}
 	}
 	for p, want := range map[string]string{
-		"/a/../b":    `Invalid API path "/a/../b": "." and ".." segments are not allowed`,
-		"/a%2e":      `Invalid API path "/a%2e": encoded dots (%2e) are not allowed`,
-		"/a?b":       `Invalid API path "/a?b": pass query parameters separately, not in the path`,
-		"/a\\b":      `Invalid API path "/a\b": backslashes and control characters are not allowed`,
-		"/a%zz":      `Invalid API path "/a%zz": malformed percent-encoding`,
-		"relative/x": `Invalid API path "relative/x": it must start with /`,
+		"/a/../b":              `Invalid API path "/a/../b": "." and ".." segments are not allowed`,
+		"/a%2e":                `Invalid API path "/a%2e": encoded dots (%2e) are not allowed`,
+		"/a?b":                 `Invalid API path "/a?b": pass query parameters separately, not in the path`,
+		"/a\\b":                `Invalid API path "/a\b": backslashes and control characters are not allowed`,
+		"/a%zz":                `Invalid API path "/a%zz": malformed percent-encoding`,
+		"/v2/x/batch-d%65lete": `Invalid API path "/v2/x/batch-d%65lete": %65 encodes a character that doesn't need encoding; write it unencoded`,
+		"relative/x":           `Invalid API path "relative/x": it must start with /`,
 	} {
 		if err := unifi.AssertSafePath(p); err == nil || err.Error() != want {
 			t.Errorf("%q: %v", p, err)

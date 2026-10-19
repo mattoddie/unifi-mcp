@@ -13,13 +13,20 @@ var (
 	queryChars    = regexp.MustCompile(`[?#]`)
 	encodedDot    = regexp.MustCompile(`(?i)%2e`)
 	percentEscape = regexp.MustCompile(`%[0-9A-Fa-f]{2}`)
+	// Escapes of letters, digits, "-", "_" and "~" (unreserved characters other than
+	// the dot, which has its own check). They never need encoding and decode to the
+	// same path, so the only reason to send one is to hide a word from a check, as in
+	// batch-d%65lete.
+	encodedUnreserved = regexp.MustCompile(`(?i)%(?:3[0-9]|4[1-9a-f]|5[0-9a]|6[1-9a-f]|7[0-9a]|2d|5f|7e)`)
 )
 
 // AssertSafePath rejects request paths that could be normalised to somewhere
 // else once turned into a URL: dot segments (also percent-encoded, e.g.
 // %2e%2e), backslashes, control characters and embedded query strings or
 // fragments. Without this, /%2e%2e/api/system would resolve outside the
-// Network application.
+// Network application. Percent-encoded letters, digits, "-", "_" and "~" are
+// rejected too: they never need encoding, so the path a check sees is the path
+// the controller acts on.
 func AssertSafePath(path string) error {
 	if !strings.HasPrefix(path, "/") {
 		return &Error{Message: fmt.Sprintf(`Invalid API path "%s": it must start with /`, path)}
@@ -27,6 +34,9 @@ func AssertSafePath(path string) error {
 	decoded, ok := decodeURIComponent(path)
 	if !ok {
 		return &Error{Message: fmt.Sprintf(`Invalid API path "%s": malformed percent-encoding`, path)}
+	}
+	if m := encodedUnreserved.FindString(path); m != "" {
+		return &Error{Message: fmt.Sprintf(`Invalid API path "%s": %s encodes a character that doesn't need encoding; write it unencoded`, path, m)}
 	}
 	for _, p := range []string{path, decoded} {
 		if badPathChars.MatchString(p) {

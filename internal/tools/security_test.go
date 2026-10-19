@@ -54,6 +54,11 @@ func TestRawToolGating(t *testing.T) {
 		{"/api/s/default/cmd/hotspot", `[{"cmd":"delete-voucher","_id":"v1"}]`, `command "delete-voucher"`},
 		{"/v2/api/site/default/firewall-policies/batch-delete", `["p1"]`, `path segment "batch-delete"`},
 		{"/api/s/default/cmd/devmgr", `{"cmd":"destroy-everything"}`, `command "destroy-everything"`},
+		{"/api/s/default/cmd/devmgr", `{"cmd":"set-default","mac":"aa:bb:cc:00:00:01"}`, `command "set-default"`},
+		{"/api/s/default/cmd/devmgr", `{"CMD":"Set-Default","mac":"aa:bb:cc:00:00:01"}`, `command "Set-Default"`},
+		{"/api/s/default/cmd/stat", `{"cmd":"clear-dpi"}`, `command "clear-dpi"`},
+		{"/api/s/default/cmd/devmgr", `{"cmd":"migrate","mac":"aa:bb:cc:00:00:01"}`, `command "migrate" for devmgr isn't on the list of commands known not to delete anything`},
+		{"/api/s/default/cmd/stamgr", `{"Cmd":"block-sta","cmd":"purge-sta"}`, `command "purge-sta"`},
 	} {
 		msg := env.callErr("unifi_api_request", `{"method":"POST","path":"`+c.path+`","body":`+c.body+`}`)
 		contains(t, c.body, msg, "Delete access is disabled and this request looks like a delete ("+c.reason+"). Set UNIFI_ALLOW_DELETES=true to allow it.")
@@ -68,6 +73,25 @@ func TestRawToolGating(t *testing.T) {
 	all := startMock(t, toolOptions(true, true))
 	all.call("unifi_api_request", `{"method":"POST","path":"/api/s/default/cmd/stamgr","body":{"cmd":"forget-sta","macs":["11:22:33:44:55:66"]}}`)
 	eq(t, "forget", get(all.mock.Last().Body, "cmd"), "forget-sta")
+}
+
+// Regression test: a percent-encoded letter must not hide a delete from the
+// no-deletes gate (POST .../batch-d%65lete reached the controller and batch-deleted).
+func TestRawToolEncodedDeleteIsRejected(t *testing.T) {
+	env := startMock(t, toolOptions(true, false))
+	before := len(env.mock.Requests())
+	for _, path := range []string{
+		"/v2/api/site/default/firewall-policies/batch-d%65lete",
+		"/v2/api/site/default/firewall-policies/batch-%64elete",
+		"/v2/api/site/default/firewall-policies/batch-DEL%45TE",
+	} {
+		contains(t, path, env.callErr("unifi_api_request", `{"method":"POST","path":"`+path+`","body":["p1"]}`), "Invalid API path")
+	}
+	if reqs := env.mock.Requests()[before:]; len(reqs) != 0 {
+		t.Errorf("encoded delete reached the controller: %+v", reqs)
+	}
+	// The gate itself also looks at the decoded path.
+	eq(t, "decoded", deleteLikeReason("/v2/x/batch-d%65lete", ojson.Undefined), `path segment "batch-delete"`)
 }
 
 func TestForgetAndRevokeAreDeletes(t *testing.T) {
@@ -112,6 +136,15 @@ func TestDeleteLikeReason(t *testing.T) {
 		{"/api/s/default/cmd/x", js(`[{"cmd":"ok"},{"cmd":"forget"}]`), `command "forget"`},
 		{"/v2/api/site/default/thing/reset", ojson.Undefined, `path segment "reset"`},
 		{"/api/s/default/cmd/x", js(`{"cmd":5}`), ""},
+		{"/api/s/default/cmd/devmgr", js(`{"cmd":"set-default"}`), `command "set-default"`},
+		{"/api/s/default/cmd/devmgr/set-rollupgrade", js(`{}`), ""},
+		{"/api/s/default/cmd/devmgr/mystery", js(`{}`), `command "mystery" for devmgr isn't on the list of commands known not to delete anything`},
+		{"/api/s/default/cmd/stamgr", js(`{"cmd":"Kick-Sta"}`), ""},
+		{"/api/s/default/cmd/system", js(`{"cmd":"reboot"}`), ""},
+		{"/api/s/default/rest/model-x/1", js(`{}`), ""},
+		{"/api/s/default/cmd/x", js(`{"cmd":"del-user"}`), `command "del-user"`},
+		{"/api/s/default/cmd/x", js(`{"cmd":"erase"}`), `command "erase"`},
+		{"/api/s/default/cmd/x", js(`{"cmd":"factory"}`), `command "factory"`},
 	} {
 		if got := deleteLikeReason(c.path, c.body); got != c.want {
 			t.Errorf("%s: %q, want %q", c.path, got, c.want)

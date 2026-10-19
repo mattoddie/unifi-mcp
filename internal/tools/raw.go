@@ -3,7 +3,9 @@ package tools
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/mattoddie/unifi-mcp/internal/ojson"
@@ -12,23 +14,83 @@ import (
 
 // deleteLike matches commands and endpoints that remove things even though
 // they aren't sent with DELETE, e.g. POST cmd/sitemgr {"cmd":"delete-site"},
-// cmd/stamgr forget-sta, cmd/sitemgr revoke-admin or v2 .../batch-delete.
-var deleteLike = regexp.MustCompile(`(?i)delete|forget|revoke|remove|destroy|reset`)
+// cmd/stamgr forget-sta, cmd/sitemgr revoke-admin, v2 .../batch-delete or
+// cmd/devmgr set-default (a factory reset).
+var deleteLike = regexp.MustCompile(`(?i)delete|\bdel-|forget|revoke|remove|destroy|reset|set-default|factory|clear|purge|erase|wipe`)
 
-// deleteLikeReason is the reason a non-GET raw request counts as a delete, if it does.
-func deleteLikeReason(path string, body any) string {
+// classicCmdPath matches classic API command endpoints: /api/s/<site>/cmd/<manager>[/<command>].
+var classicCmdPath = regexp.MustCompile(`^/api/s/[^/]+/cmd/([^/]+)(?:/([^/]+))?/?$`)
+
+// knownCommands are the commands of the classic API managers that are known
+// not to delete anything. With deletes disabled, a command sent to one of these
+// managers must be on its list: the command names aren't documented, so a deny
+// list alone can't be relied on to catch every one that removes something.
+// Commands for other managers are only checked against deleteLike.
+var knownCommands = map[string][]string{
+	"stamgr":      {"block-sta", "unblock-sta", "kick-sta", "authorize-guest", "unauthorize-guest"},
+	"devmgr":      {"restart", "adopt", "adv-adopt", "force-provision", "set-locate", "unset-locate", "upgrade", "upgrade-external", "set-rollupgrade", "unset-rollupgrade", "power-cycle", "speedtest", "speedtest-status", "spectrum-scan"},
+	"sitemgr":     {"add-site", "update-site", "get-admins", "invite-admin", "move-device"},
+	"evtmgr":      {"archive-alarm", "archive-all-alarms"},
+	"hotspot":     {"create-voucher"},
+	"backup":      {"list-backups", "backup"},
+	"productinfo": {"check-firmware-update"},
+	"firmware":    {"list-available", "list-cached"},
+}
+
+// commandsIn returns the string values of every "cmd" key (in any letter case)
+// in a request body or, for an array body, in each of its elements.
+func commandsIn(body any) []string {
 	bodies := []any{body}
 	if a, ok := ojson.Arr(body); ok {
 		bodies = a
 	}
+	var cmds []string
 	for _, b := range bodies {
-		if cmd, ok := ojson.Get(b, "cmd").(string); ok && deleteLike.MatchString(cmd) {
+		o, ok := ojson.AsObj(b)
+		if !ok {
+			continue
+		}
+		for _, k := range o.Keys() {
+			if cmd, ok := o.Get(k).(string); ok && strings.EqualFold(k, "cmd") {
+				cmds = append(cmds, cmd)
+			}
+		}
+	}
+	return cmds
+}
+
+// deleteLikeReason is the reason a non-GET raw request counts as a delete, if
+// it does. path must already have passed unifi.AssertSafePath; it is checked
+// after percent-decoding, so an encoded word can't slip past.
+func deleteLikeReason(path string, body any) string {
+	if decoded, err := url.PathUnescape(path); err == nil {
+		path = decoded
+	} else {
+		return "malformed percent-encoding in the path"
+	}
+	cmds := commandsIn(body)
+	for _, cmd := range cmds {
+		if deleteLike.MatchString(cmd) {
 			return fmt.Sprintf(`command "%s"`, cmd)
 		}
 	}
 	for _, seg := range strings.Split(path, "/") {
 		if deleteLike.MatchString(seg) {
 			return fmt.Sprintf(`path segment "%s"`, seg)
+		}
+	}
+	if m := classicCmdPath.FindStringSubmatch(path); m != nil {
+		known, ok := knownCommands[strings.ToLower(m[1])]
+		if !ok {
+			return ""
+		}
+		if m[2] != "" {
+			cmds = append(cmds, m[2])
+		}
+		for _, cmd := range cmds {
+			if !slices.Contains(known, strings.ToLower(cmd)) {
+				return fmt.Sprintf(`command "%s" for %s isn't on the list of commands known not to delete anything`, cmd, m[1])
+			}
 		}
 	}
 	return ""
@@ -41,7 +103,7 @@ func registerRaw(c *Context) {
 	case !c.AllowWrites:
 		mode = "Only GET is allowed because write access is disabled (UNIFI_ALLOW_WRITES=false)."
 	case !c.AllowDeletes:
-		mode = "DELETE, and commands that delete, forget, revoke, remove, destroy or reset something, are not allowed because delete access is disabled (UNIFI_ALLOW_DELETES=false)."
+		mode = "DELETE, and requests that delete, forget, revoke, remove, reset, clear, purge or factory-reset something, are not allowed because delete access is disabled (UNIFI_ALLOW_DELETES=false). Classic cmd/<manager> commands must also be ones known not to delete anything."
 	}
 
 	c.add(Def{
