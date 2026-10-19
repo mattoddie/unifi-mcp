@@ -276,7 +276,11 @@ func registerSwitching(c *Context) {
 			ojson.SortStable(overrides, func(x, y any) float64 {
 				return ojson.ToNumber(ojson.Get(x, "port_idx")) - ojson.ToNumber(ojson.Get(y, "port_idx"))
 			})
-			if _, err := client.SitePut(ctx, s, "rest/device/"+ojson.String(device.Get("_id")), ojson.New("port_overrides", overrides)); err != nil {
+			idPath, err := restPath("device", device.Get("_id"))
+			if err != nil {
+				return nil, err
+			}
+			if _, err := client.SitePut(ctx, s, idPath, ojson.New("port_overrides", overrides)); err != nil {
 				return nil, err
 			}
 			return ojson.New("switch", device.Get("mac"), "port_idx", portIdx, "override", override), nil
@@ -308,7 +312,11 @@ func registerSwitching(c *Context) {
 			kept := ojson.Filter(overrides, func(o any) bool { return !ojson.Includes(wanted, ojson.Get(o, "port_idx")) })
 			reset := ojson.Map(ojson.Filter(overrides, func(o any) bool { return ojson.Includes(wanted, ojson.Get(o, "port_idx")) }), func(o any) any { return ojson.Get(o, "port_idx") })
 			if len(reset) > 0 {
-				if _, err := client.SitePut(ctx, s, "rest/device/"+ojson.String(device.Get("_id")), ojson.New("port_overrides", kept)); err != nil {
+				idPath, err := restPath("device", device.Get("_id"))
+				if err != nil {
+					return nil, err
+				}
+				if _, err := client.SitePut(ctx, s, idPath, ojson.New("port_overrides", kept)); err != nil {
 					return nil, err
 				}
 			}

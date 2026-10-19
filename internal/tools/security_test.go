@@ -172,3 +172,29 @@ func TestLargeOutputIsTruncated(t *testing.T) {
 		t.Error("small output truncated")
 	}
 }
+
+func TestAccessGrantingAndDisruptiveWritesAreDestructive(t *testing.T) {
+	tools := toolMap(t, startMock(t, toolOptions(true, false)).mcp)
+	for _, name := range []string{
+		"unifi_invite_admin", "unifi_create_site", "unifi_reconnect_client", "unifi_update_client", "unifi_unblock_client",
+		"unifi_authorize_guest", "unifi_unauthorize_guest", "unifi_create_vouchers", "unifi_save_hotspot_operator",
+		"unifi_save_radius_account", "unifi_save_radius_profile", "unifi_provision_device", "unifi_adopt_device",
+		"unifi_save_ap_group", "unifi_save_dns_record", "unifi_save_content_filter", "unifi_save_bandwidth_profile",
+		"unifi_save_dynamic_dns",
+	} {
+		if tool := tools[name]; tool == nil || tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
+			t.Errorf("%s should be marked destructive", name)
+		}
+	}
+}
+
+func TestRestPathEncodesIDs(t *testing.T) {
+	if p, err := restPath("device", "a/b c"); err != nil || p != "rest/device/a%2Fb%20c" {
+		t.Errorf("%q %v", p, err)
+	}
+	for _, id := range []any{"..", ".", "", ojson.Undefined} {
+		if _, err := restPath("device", id); err == nil {
+			t.Errorf("%v accepted", id)
+		}
+	}
+}

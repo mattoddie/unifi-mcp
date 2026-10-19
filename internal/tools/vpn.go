@@ -310,6 +310,7 @@ func registerVPN(c *Context) {
 
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_save_radius_profile", Title: "Create/update RADIUS profile",
+		Destructive: boolPtr(true),
 		Description: "Create (no id) or update (id; only fields passed change) a RADIUS profile pointing at external RADIUS servers. Server lists replace the existing ones.",
 		Gate:        Write,
 		Input: props(
@@ -396,6 +397,7 @@ func registerVPN(c *Context) {
 
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_save_radius_account", Title: "Create/update RADIUS account",
+		Destructive: boolPtr(true),
 		Description: "Create (no id) or update (id) a user of the built-in RADIUS server. For per-user VLAN assignment set vlan together with tunnel_type 13 (VLAN) and tunnel_medium_type 6 (802).",
 		Gate:        Write,
 		Input: props(

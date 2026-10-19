@@ -70,7 +70,7 @@ All five are read-only: they tell the model not to change anything, or to ask fi
 
 ## Making changes
 
-With `UNIFI_ALLOW_WRITES=true` the assistant can change things. Good clients ask before running tools marked *destructive*, such as restarts, blocking, firmware upgrades and configuration edits. It's still a good habit to ask for a plan first: *"What would you change? Don't do it yet."*
+With `UNIFI_ALLOW_WRITES=true` the assistant can change things. Good clients ask before running tools marked *destructive*, such as restarts, blocking, firmware upgrades, configuration edits and anything that grants access, like inviting an admin or authorizing a guest. It's still a good habit to ask for a plan first: *"What would you change? Don't do it yet."*
 
 ### Create or update: `save_*` tools
 

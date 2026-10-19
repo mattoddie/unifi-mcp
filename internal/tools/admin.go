@@ -101,6 +101,7 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_create_site", Title: "Create site",
+		Destructive: boolPtr(true),
 		Description: "Create a new site on the controller. Returns its API name (used as `site` by other tools).",
 		Gate:        Write,
 		Input:       props(P("description", Str().MinLen(1).D("Display name of the new site"))),
@@ -185,6 +186,7 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_invite_admin", Title: "Invite administrator",
+		Destructive: boolPtr(true),
 		Description: "Invite an administrator to the site by email (re-sends the invite if they already exist). On UniFi OS consoles admins are usually managed in UniFi OS instead; this may not be supported there.",
 		Gate:        Write,
 		Input: props(

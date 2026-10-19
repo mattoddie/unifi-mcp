@@ -1,7 +1,9 @@
 package tools
 
 import (
+	"context"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/mattoddie/unifi-mcp/internal/ojson"
@@ -212,6 +214,10 @@ func TestZonesAndOrderingThroughTheIntegrationAPI(t *testing.T) {
 	contains(t, "wrong ids", env.callErr("unifi_set_firewall_policy_ordering", `{"source_zone_id":"z1","destination_zone_id":"z2","before_system_defined":["a"]}`), "exactly the current policy IDs: a, b")
 	if r := env.mock.RequestsTo("/integration/v1/sites"); r[0].Header.Get("X-API-KEY") != "key123" || r[0].Path != "/proxy/network/integration/v1/sites?limit=200" {
 		t.Errorf("integration request: %s %v", r[0].Path, r[0].Header)
+	}
+	// A site that isn't found is an error, even when the controller has only one site.
+	if _, err := integrationSiteID(context.Background(), env.client, "branch"); err == nil || !strings.Contains(err.Error(), `Could not find site "branch"`) {
+		t.Errorf("unknown site: %v", err)
 	}
 }
 

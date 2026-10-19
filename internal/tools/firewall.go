@@ -133,12 +133,9 @@ func integrationSiteID(ctx context.Context, client *unifi.Client, site string) (
 	match := ojson.Find(sites, func(s any) bool {
 		return ojson.Includes([]any{ojson.Get(s, "internalReference"), ojson.Get(s, "name"), ojson.Get(s, "id")}, site)
 	})
-	if ojson.IsUndefined(match) && len(sites) == 1 {
-		match = sites[0]
-	}
 	id := ojson.Get(match, "id")
 	if !ojson.Truthy(id) {
-		return "", fmt.Errorf(`Could not find site "%s" in the integration API (/integration/v1/sites)`, site)
+		return "", fmt.Errorf(`Could not find site "%s" in the integration API (/integration/v1/sites); pass its internalReference, name or id as site`, site)
 	}
 	return ojson.String(id), nil
 }

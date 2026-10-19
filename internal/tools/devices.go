@@ -346,7 +346,11 @@ func registerDevices(c *Context) {
 			if body.Len() == 0 {
 				return nil, errorf("Nothing to update")
 			}
-			if _, err := client.SitePut(ctx, s, "rest/device/"+ojson.String(device.Get("_id")), body); err != nil {
+			idPath, err := restPath("device", device.Get("_id"))
+			if err != nil {
+				return nil, err
+			}
+			if _, err := client.SitePut(ctx, s, idPath, body); err != nil {
 				return nil, err
 			}
 			return ojson.New("mac", device.Get("mac"), "updated", body), nil
@@ -401,7 +405,11 @@ func registerDevices(c *Context) {
 			}
 			r := asObj(radio)
 			r.Assign(patch)
-			if _, err := client.SitePut(ctx, s, "rest/device/"+ojson.String(device.Get("_id")), ojson.New("radio_table", table)); err != nil {
+			idPath, err := restPath("device", device.Get("_id"))
+			if err != nil {
+				return nil, err
+			}
+			if _, err := client.SitePut(ctx, s, idPath, ojson.New("radio_table", table)); err != nil {
 				return nil, err
 			}
 			return ojson.New("mac", device.Get("mac"), "radio", summarizeRadioConfig(r)), nil
@@ -446,7 +454,11 @@ func registerDevices(c *Context) {
 				)
 				overrides = append(overrides, override)
 			}
-			if _, err := client.SitePut(ctx, s, "rest/device/"+ojson.String(device.Get("_id")), ojson.New("outlet_overrides", overrides)); err != nil {
+			idPath, err := restPath("device", device.Get("_id"))
+			if err != nil {
+				return nil, err
+			}
+			if _, err := client.SitePut(ctx, s, idPath, ojson.New("outlet_overrides", overrides)); err != nil {
 				return nil, err
 			}
 			return ojson.New("mac", device.Get("mac"), "outlet", override), nil
@@ -539,7 +551,7 @@ func registerDevices(c *Context) {
 
 	devCmd("unifi_provision_device", "Force provision device",
 		"Force the controller to re-push configuration to a device.",
-		Write, false, []Prop{macArg()},
+		Write, true, []Prop{macArg()},
 		func(ctx context.Context, a Args, m string) (any, error) {
 			if _, err := client.Cmd(ctx, c.site(a), "devmgr", "force-provision", ojson.New("mac", m)); err != nil {
 				return nil, err
@@ -549,7 +561,7 @@ func registerDevices(c *Context) {
 
 	devCmd("unifi_adopt_device", "Adopt device",
 		"Adopt a device that is pending adoption (see unifi_list_devices, state=pending_adoption).",
-		Write, false, []Prop{macArg()},
+		Write, true, []Prop{macArg()},
 		func(ctx context.Context, a Args, m string) (any, error) {
 			if _, err := client.Cmd(ctx, c.site(a), "devmgr", "adopt", ojson.New("mac", m)); err != nil {
 				return nil, err
@@ -594,6 +606,7 @@ func registerDevices(c *Context) {
 
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_save_ap_group", Title: "Create/update AP group",
+		Destructive: boolPtr(true),
 		Description: "Create an access point group (omit id) or update one (pass id). device_macs replaces the group's member list when given.",
 		Gate:        Write,
 		Input: props(

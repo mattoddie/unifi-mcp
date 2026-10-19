@@ -110,7 +110,7 @@ The `Def` fields that control registration:
 | `Toolset` | Required. The tool is only registered when this toolset is enabled. |
 | `Gate: Write` | The tool changes state. Only registered when writes are enabled. Marked `readOnlyHint: false`. |
 | `Gate: Delete` | The tool deletes configuration. Only registered when deletes are enabled too. Marked destructive. |
-| `Destructive` | Marks a write tool as destructive (`destructiveHint`), so clients confirm before running it. Use it for anything that disconnects clients, reboots devices or changes configuration. |
+| `Destructive` | Marks a write tool as destructive (`destructiveHint`), so clients confirm before running it. Use it for anything that disconnects clients, reboots devices, changes configuration or grants access (admins, sites, guest authorization, vouchers, RADIUS accounts, unblocking). |
 | `ReadOnly` | Overrides the read-only hint. This is rarely needed. |
 
 Checklist for a new tool:

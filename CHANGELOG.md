@@ -19,6 +19,12 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - With writes on and deletes off, the raw API tool could be made to delete by percent-encoding a letter of the path, e.g. `POST /v2/api/site/default/firewall-policies/batch-d%65lete`, which the delete check didn't recognise but the controller decoded and ran. API paths that percent-encode letters, digits, `-`, `_` or `~` are now refused, and the delete check runs on the decoded path. The check also recognises more verbs (`set-default`, `factory`, `clear`, `purge`, `erase`, `wipe`, `del-`), matches `cmd` keys in any letter case, and, for the classic `cmd/<manager>` endpoints, only sends commands known not to delete anything.
 - Controller responses are read up to 64 MiB (a bigger one is an error instead of being read into memory), and JSON nesting is capped at 1000 levels. Tool output returned to the model is capped at 256 KiB, with a note saying it was truncated and how to narrow the request.
 - With a username and password, the server logs in again only when the controller answers 401, not 403 (which means the account lacks permission). After a rejected login it waits before trying again (5 seconds, doubling up to 5 minutes) instead of retrying on every tool call, which could lock the account.
+- Tools that grant access or can disrupt connectivity are now marked destructive, so MCP clients ask before running them: `unifi_invite_admin`, `unifi_create_site`, `unifi_reconnect_client`, `unifi_unblock_client`, `unifi_update_client` (fixed IPs), `unifi_authorize_guest`, `unifi_unauthorize_guest`, `unifi_create_vouchers`, `unifi_save_hotspot_operator`, `unifi_save_radius_account`, `unifi_save_radius_profile`, `unifi_provision_device`, `unifi_adopt_device`, `unifi_save_ap_group`, `unifi_save_dns_record`, `unifi_save_content_filter`, `unifi_save_bandwidth_profile` and `unifi_save_dynamic_dns`.
+- Device and client IDs taken from controller responses are now encoded as path segments.
+
+### Fixed
+
+- The zone-based firewall tools that use the integration API no longer fall back to the only site when the `site` name doesn't match; they report that the site wasn't found.
 
 ## [0.3.0] - 2026-10-16
 
