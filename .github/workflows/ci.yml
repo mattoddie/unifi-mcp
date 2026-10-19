@@ -32,6 +32,8 @@ jobs:
           CGO_ENABLED: "1"
       - name: Check docs/tools.md is up to date
         run: make docs-check
+      - name: Check for known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
   docker:
     name: Docker image

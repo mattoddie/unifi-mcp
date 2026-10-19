@@ -22,6 +22,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - Tools that grant access or can disrupt connectivity are now marked destructive, so MCP clients ask before running them: `unifi_invite_admin`, `unifi_create_site`, `unifi_reconnect_client`, `unifi_unblock_client`, `unifi_update_client` (fixed IPs), `unifi_authorize_guest`, `unifi_unauthorize_guest`, `unifi_create_vouchers`, `unifi_save_hotspot_operator`, `unifi_save_radius_account`, `unifi_save_radius_profile`, `unifi_provision_device`, `unifi_adopt_device`, `unifi_save_ap_group`, `unifi_save_dns_record`, `unifi_save_content_filter`, `unifi_save_bandwidth_profile` and `unifi_save_dynamic_dns`.
 - Device and client IDs taken from controller responses are now encoded as path segments.
 
+### Changed
+
+- The Docker base images are pinned by digest (Dependabot keeps them current), the Go toolchain is 1.27.2 in both `go.mod` and the image, and CI runs `govulncheck`.
+
 ### Fixed
 
 - The zone-based firewall tools that use the integration API no longer fall back to the only site when the `site` name doesn't match; they report that the site wasn't found.
