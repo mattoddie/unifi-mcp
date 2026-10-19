@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-var base = map[string]string{"UNIFI_URL": "https://10.0.0.1", "UNIFI_API_KEY": "k"}
+var base = map[string]string{"UNIFI_URL": "https://10.0.0.1", "UNIFI_API_KEY": "k", "UNIFI_VERIFY_SSL": "false"}
 
 func load(t *testing.T, env map[string]string, extra ...string) (*Config, error) {
 	t.Helper()
@@ -45,11 +45,11 @@ func TestRequiresURLAndCredentials(t *testing.T) {
 	if _, err := load(t, map[string]string{"UNIFI_URL": "not a url", "UNIFI_API_KEY": "k"}); err == nil || err.Error() != "UNIFI_URL is not a valid URL: not a url" {
 		t.Errorf("bad URL: %v", err)
 	}
-	mustLoad(t, map[string]string{"UNIFI_URL": "https://10.0.0.1", "UNIFI_USERNAME": "u", "UNIFI_PASSWORD": "p"})
+	mustLoad(t, map[string]string{"UNIFI_URL": "http://10.0.0.1", "UNIFI_USERNAME": "u", "UNIFI_PASSWORD": "p"})
 }
 
 func TestDefaults(t *testing.T) {
-	cfg := mustLoad(t, map[string]string{"UNIFI_URL": "https://10.0.0.1/", "UNIFI_API_KEY": "k"})
+	cfg := mustLoad(t, map[string]string{"UNIFI_URL": "https://10.0.0.1/", "UNIFI_API_KEY": "k", "UNIFI_VERIFY_SSL": "false"})
 	u := cfg.Unifi
 	if u.URL != "https://10.0.0.1" || u.Site != "default" || u.VerifySSL || u.ControllerType != "auto" || u.TimeoutMs != 30000 || u.CAFile != "" || u.TLSFingerprints != nil {
 		t.Errorf("unifi defaults: %+v", u)
@@ -113,7 +113,7 @@ func TestValidation(t *testing.T) {
 	if mustLoad(t, base, "UNIFI_TIMEOUT_MS", "5000ms").Unifi.TimeoutMs != 5000 {
 		t.Error("parseInt-style timeout")
 	}
-	cfg := mustLoad(t, map[string]string{"UNIFI_URL": "https://x", "UNIFI_USERNAME": "u", "UNIFI_PASSWORD": "p", "UNIFI_CONTROLLER_TYPE": "legacy", "UNIFI_SITE": "branch"})
+	cfg := mustLoad(t, map[string]string{"UNIFI_URL": "http://x", "UNIFI_USERNAME": "u", "UNIFI_PASSWORD": "p", "UNIFI_CONTROLLER_TYPE": "legacy", "UNIFI_SITE": "branch"})
 	if cfg.Unifi.ControllerType != "legacy" || cfg.Unifi.Site != "branch" {
 		t.Errorf("legacy: %+v", cfg.Unifi)
 	}
@@ -146,16 +146,16 @@ func TestFileSecrets(t *testing.T) {
 	if err := os.WriteFile(key, []byte("  from-file\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := mustLoad(t, map[string]string{"UNIFI_URL": "https://x", "UNIFI_API_KEY": "env", "UNIFI_API_KEY_FILE": key, "MCP_AUTH_TOKEN_FILE": key})
+	cfg := mustLoad(t, map[string]string{"UNIFI_URL": "http://x", "UNIFI_API_KEY": "env", "UNIFI_API_KEY_FILE": key, "MCP_AUTH_TOKEN_FILE": key})
 	if cfg.Unifi.APIKey != "from-file" || cfg.HTTP.AuthToken != "from-file" {
 		t.Errorf("_FILE: %q %q", cfg.Unifi.APIKey, cfg.HTTP.AuthToken)
 	}
 	missing := filepath.Join(dir, "missing")
-	if _, err := load(t, map[string]string{"UNIFI_URL": "https://x", "UNIFI_API_KEY_FILE": missing}); err == nil || err.Error() != "Could not read UNIFI_API_KEY_FILE ("+missing+"): ENOENT: no such file or directory, open '"+missing+"'" {
+	if _, err := load(t, map[string]string{"UNIFI_URL": "http://x", "UNIFI_API_KEY_FILE": missing}); err == nil || err.Error() != "Could not read UNIFI_API_KEY_FILE ("+missing+"): ENOENT: no such file or directory, open '"+missing+"'" {
 		t.Errorf("missing file: %v", err)
 	}
 	// An empty _FILE variable falls back to the plain one.
-	if mustLoad(t, map[string]string{"UNIFI_URL": "https://x", "UNIFI_API_KEY": "env", "UNIFI_API_KEY_FILE": ""}).Unifi.APIKey != "env" {
+	if mustLoad(t, map[string]string{"UNIFI_URL": "http://x", "UNIFI_API_KEY": "env", "UNIFI_API_KEY_FILE": ""}).Unifi.APIKey != "env" {
 		t.Error("empty _FILE")
 	}
 }
@@ -182,7 +182,7 @@ func TestTLSSettings(t *testing.T) {
 	if _, err := load(t, base, "UNIFI_CA_FILE", filepath.Join(dir, "missing.pem")); err == nil || !strings.HasPrefix(err.Error(), "Could not read UNIFI_CA_FILE") {
 		t.Errorf("missing CA: %v", err)
 	}
-	if !mustLoad(t, base, "UNIFI_CA_FILE", ca).Unifi.VerifySSL {
+	if !mustLoad(t, base, "UNIFI_VERIFY_SSL", "", "UNIFI_CA_FILE", ca).Unifi.VerifySSL {
 		t.Error("a CA file turns verification on")
 	}
 	if _, err := load(t, base, "UNIFI_CA_FILE", ca, "UNIFI_VERIFY_SSL", "false"); err == nil || err.Error() != "UNIFI_CA_FILE needs certificate verification; remove UNIFI_VERIFY_SSL=false" {
@@ -233,5 +233,55 @@ func TestHealthcheckURL(t *testing.T) {
 	}
 	if _, err := HealthcheckURL(MapEnv(map[string]string{"MCP_HTTP_PORT": "x"})); err == nil {
 		t.Error("bad port")
+	}
+}
+
+func TestTLSChoiceRequired(t *testing.T) {
+	https := map[string]string{"UNIFI_URL": "https://10.0.0.1", "UNIFI_API_KEY": "k"}
+	if _, err := load(t, https); err == nil || err.Error() != TLSChoiceRequired {
+		t.Errorf("https without a TLS choice: %v", err)
+	}
+	for _, s := range []string{"UNIFI_TLS_FINGERPRINT", "UNIFI_CA_FILE", "UNIFI_VERIFY_SSL"} {
+		if !strings.Contains(TLSChoiceRequired, s) {
+			t.Errorf("error should mention %s", s)
+		}
+	}
+	dir := t.TempDir()
+	ca := filepath.Join(dir, "ca.pem")
+	if err := os.WriteFile(ca, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, extra := range [][]string{
+		{"UNIFI_VERIFY_SSL", "false"},
+		{"UNIFI_VERIFY_SSL", "true"},
+		{"UNIFI_TLS_FINGERPRINT", strings.Repeat("ab", 32)},
+		{"UNIFI_CA_FILE", ca},
+		{"UNIFI_URL", "http://10.0.0.1"},
+	} {
+		if _, err := load(t, https, extra...); err != nil {
+			t.Errorf("%v: %v", extra, err)
+		}
+	}
+	// A pin alone doesn't switch chain verification on.
+	if mustLoad(t, https, "UNIFI_TLS_FINGERPRINT", strings.Repeat("ab", 32)).Unifi.VerifySSL {
+		t.Error("pin turned verification on")
+	}
+}
+
+func TestPlainHTTPWarning(t *testing.T) {
+	if w := PlainHTTPWarning(mustLoad(t, base, "UNIFI_URL", "HTTP://10.0.0.1").Unifi); !strings.Contains(w, "unencrypted") {
+		t.Errorf("warning: %q", w)
+	}
+	if w := PlainHTTPWarning(mustLoad(t, base).Unifi); w != "" {
+		t.Errorf("https: %q", w)
+	}
+}
+
+func TestURLWithUserinfoIsRejected(t *testing.T) {
+	for _, u := range []string{"https://admin:secret@10.0.0.1", "https://admin@10.0.0.1"} {
+		_, err := load(t, base, "UNIFI_URL", u)
+		if err == nil || !strings.Contains(err.Error(), "must not contain a username or password") || strings.Contains(err.Error(), "secret") {
+			t.Errorf("%s: %v", u, err)
+		}
 	}
 }

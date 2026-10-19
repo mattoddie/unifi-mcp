@@ -54,12 +54,13 @@ Claude Desktop starts local MCP servers over stdio, so use [stdio mode](#stdio-m
       "args": [
         "run", "-i", "--rm",
         "-e", "MCP_TRANSPORT=stdio",
-        "-e", "UNIFI_URL", "-e", "UNIFI_API_KEY",
+        "-e", "UNIFI_URL", "-e", "UNIFI_API_KEY", "-e", "UNIFI_TLS_FINGERPRINT",
         "ghcr.io/mattoddie/unifi-mcp:latest"
       ],
       "env": {
         "UNIFI_URL": "https://192.168.1.1",
-        "UNIFI_API_KEY": "your-api-key"
+        "UNIFI_API_KEY": "your-api-key",
+        "UNIFI_TLS_FINGERPRINT": "AB:CD:…"
       }
     }
   }
@@ -140,11 +141,13 @@ docker run -i --rm \
   -e MCP_TRANSPORT=stdio \
   -e UNIFI_URL=https://192.168.1.1 \
   -e UNIFI_API_KEY=your-api-key \
+  -e UNIFI_TLS_FINGERPRINT=AB:CD:… \
   ghcr.io/mattoddie/unifi-mcp:latest
 ```
 
 Tips:
 
+- **Tell it how to trust the controller's certificate.** For an `https` controller the server won't start without `UNIFI_TLS_FINGERPRINT` (recommended), `UNIFI_CA_FILE` or an explicit `UNIFI_VERIFY_SSL` (`true`, or `false` to skip the check). See [Security](security.md#about-tls-to-the-controller).
 - **Keep secrets out of the client config.** Pass `-e NAME` without a value so Docker copies the variable from the client's environment, as in the Claude Desktop example. You can also use `--env-file /path/to/unifi.env`.
 - **Always pass `-i` and never `-t`.** A TTY corrupts the MCP message stream.
 - **Docker on another machine** works too. Set `DOCKER_HOST` in the client's `env`, and note that `UNIFI_URL` must be reachable from that machine.

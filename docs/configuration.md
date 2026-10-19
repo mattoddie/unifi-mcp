@@ -15,12 +15,12 @@ The server checks the configuration at startup. If something is wrong, it exits 
 
 | Variable | Default | Description |
 |---|---|---|
-| `UNIFI_URL` | **required** | Controller URL, for example `https://192.168.1.1` or `https://unifi.local:8443`. Don't include a path. |
+| `UNIFI_URL` | **required** | Controller URL, for example `https://192.168.1.1` or `https://unifi.local:8443`. Don't include a path or a username and password. `http://` works but sends credentials unencrypted, and logs a warning. |
 | `UNIFI_API_KEY` | | API key. UniFi OS consoles only, Network 9.0+. Takes priority over username/password. |
 | `UNIFI_USERNAME` | | Local account username, used when no API key is set. |
 | `UNIFI_PASSWORD` | | Local account password. |
 | `UNIFI_SITE` | `default` | Site to use when a tool call doesn't name one. Use the site's **API name**, which is the `name` field from `unifi_list_sites` (e.g. `default`, `x7k2pq9d`), not its display name. |
-| `UNIFI_VERIFY_SSL` | `false` (`true` when `UNIFI_CA_FILE` is set) | Verify the controller's TLS certificate against trusted CAs. Leave it `false` for the self-signed certificate that consoles ship with, and pin that certificate with `UNIFI_TLS_FINGERPRINT` instead. Set it to `true` if you've installed a trusted certificate. |
+| `UNIFI_VERIFY_SSL` | unset (`true` when `UNIFI_CA_FILE` is set) | Verify the controller's TLS certificate against trusted CAs. For an `https` URL, the server refuses to start unless this, `UNIFI_CA_FILE` or `UNIFI_TLS_FINGERPRINT` is set. For the self-signed certificate that consoles ship with, pin it with `UNIFI_TLS_FINGERPRINT` (and leave this unset). Set it to `true` if you've installed a trusted certificate. `false` skips the check, which lets anyone on the network path impersonate the controller; the server logs a warning. |
 | `UNIFI_TLS_FINGERPRINT` | | SHA-256 fingerprint of the controller's certificate, as `AA:BB:…` or plain hex. Connections to any other certificate are refused, even with verification off. Comma-separate several to allow for a certificate change. See [Security: TLS to the controller](security.md#about-tls-to-the-controller). |
 | `UNIFI_CA_FILE` | | PEM file with the CA certificate(s) that signed the controller's certificate, for a private CA. Turns verification on. The certificate's name must match `UNIFI_URL`, unless `UNIFI_TLS_FINGERPRINT` is also set. |
 | `UNIFI_CONTROLLER_TYPE` | `auto` | `auto`, `unifi-os` or `legacy`. With `auto`, the server detects the type on first use. Set it explicitly if detection fails, for example behind an unusual reverse proxy. |
@@ -71,6 +71,7 @@ services:
     image: ghcr.io/mattoddie/unifi-mcp:latest
     environment:
       UNIFI_URL: https://192.168.1.1
+      UNIFI_TLS_FINGERPRINT: "AB:CD:…"   # the console's certificate; see Security
       UNIFI_API_KEY_FILE: /run/secrets/unifi_api_key
       MCP_AUTH_TOKEN_FILE: /run/secrets/mcp_auth_token
     secrets: [unifi_api_key, mcp_auth_token]
@@ -123,6 +124,7 @@ The counts include write and delete tools, so a read-only setup registers far fe
 ```sh
 UNIFI_URL=https://192.168.1.1
 UNIFI_API_KEY=...
+UNIFI_TLS_FINGERPRINT=AB:CD:…   # or UNIFI_VERIFY_SSL=false; see Security
 MCP_AUTH_TOKEN=...
 UNIFI_TOOLSETS=overview,devices,clients,monitoring
 ```
@@ -132,6 +134,7 @@ UNIFI_TOOLSETS=overview,devices,clients,monitoring
 ```sh
 UNIFI_URL=https://192.168.1.1
 UNIFI_API_KEY=...
+UNIFI_TLS_FINGERPRINT=AB:CD:…   # or UNIFI_VERIFY_SSL=false; see Security
 MCP_AUTH_TOKEN=...
 UNIFI_ALLOW_WRITES=true
 ```

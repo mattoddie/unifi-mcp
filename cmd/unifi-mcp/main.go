@@ -85,7 +85,10 @@ func serve() error {
 		writes += " (with deletes)"
 	}
 	log.Printf(`unifi-mcp %s: controller %s, site "%s", auth %s, writes %s, transport %s`, tools.Version, cfg.Unifi.URL, cfg.Unifi.Site, auth, writes, cfg.Transport)
-	if warning := config.InsecureTLSWarning(cfg.Unifi); warning != "" {
+	for _, warning := range []string{config.InsecureTLSWarning(cfg.Unifi), config.PlainHTTPWarning(cfg.Unifi)} {
+		if warning == "" {
+			continue
+		}
 		log.Printf("unifi-mcp: WARNING: %s", warning)
 	}
 

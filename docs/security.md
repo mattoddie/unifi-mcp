@@ -37,7 +37,7 @@ UniFi API keys carry the full permissions of the admin who created them, and the
 
 ### About TLS to the controller
 
-`UNIFI_VERIFY_SSL` defaults to `false` because UniFi consoles ship with self-signed certificates. Without anything else, though, anyone who can intercept traffic between unifi-mcp and the controller could impersonate it and capture your API key or password. The server logs a warning at startup in this case. Pick one of these instead:
+UniFi consoles ship with self-signed certificates, which normal verification rejects. Skipping the check, though, lets anyone who can intercept traffic between unifi-mcp and the controller impersonate it and capture your API key or password. So for an `https` controller the server refuses to start until you pick one of these:
 
 - **Pin the certificate (recommended for self-signed consoles).** Get its SHA-256 fingerprint and set `UNIFI_TLS_FINGERPRINT`:
 
@@ -49,7 +49,9 @@ UniFi API keys carry the full permissions of the admin who created them, and the
   You can also read it from your browser's certificate viewer. Only that exact certificate is accepted. When the console renews or regenerates its certificate (for example after a factory reset), connections fail with `TLS certificate fingerprint mismatch`, and the message shows the new fingerprint. Check it's genuine, then update the variable. You can list the old and new fingerprints, comma-separated, during a planned change.
 - **Trust a private CA.** If the controller's certificate comes from your own CA, set `UNIFI_CA_FILE` to the CA certificate (PEM). The certificate's name has to match `UNIFI_URL`.
 - **Use a publicly trusted certificate** on the controller and set `UNIFI_VERIFY_SSL=true`.
+- **Skip the check** with an explicit `UNIFI_VERIFY_SSL=false`. Only do this on a network you trust; the server logs a warning at startup. (Older versions did this by default.)
 
+A plain `http://` `UNIFI_URL` is allowed, for example for a controller reached over a trusted LAN or a tunnel, but the credentials and all traffic are unencrypted, and the server logs a warning. `UNIFI_URL` may not contain a username or password.
 ## Recommended setups
 
 **Monitoring only** (lowest risk):

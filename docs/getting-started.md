@@ -66,9 +66,10 @@ Edit `.env` and set at least:
 UNIFI_URL=https://192.168.1.1
 UNIFI_API_KEY=your-api-key          # or UNIFI_USERNAME + UNIFI_PASSWORD
 MCP_AUTH_TOKEN=a-long-random-string # required; generate one with: openssl rand -hex 32
+UNIFI_TLS_FINGERPRINT=AB:CD:…       # the console's certificate (see below)
 ```
 
-The server won't start without `MCP_AUTH_TOKEN`. It's also worth pinning the console's self-signed certificate with `UNIFI_TLS_FINGERPRINT`, so nobody on the network can impersonate the controller. [Security](security.md#about-tls-to-the-controller) shows how to get the fingerprint.
+The server won't start without `MCP_AUTH_TOKEN` (at least 16 characters). For an `https` controller it also won't start until you say how to check the controller's certificate. Pin the console's self-signed certificate with `UNIFI_TLS_FINGERPRINT`, so nobody on the network can impersonate the controller; [Security](security.md#about-tls-to-the-controller) shows how to get the fingerprint. Alternatively, trust its CA with `UNIFI_CA_FILE`, or set `UNIFI_VERIFY_SSL=true` for a publicly trusted certificate. `example.env` sets `UNIFI_VERIFY_SSL=false`, which skips the check: it works, but anyone on the network path could impersonate the controller.
 
 Start it:
 
@@ -84,7 +85,7 @@ unifi-mcp 1.0.0: controller https://192.168.1.1, site "default", auth API key, w
 unifi-mcp listening on http://0.0.0.0:8080/mcp (bearer auth enabled)
 ```
 
-A `WARNING: the controller's TLS certificate is not verified … and not pinned` line means `UNIFI_TLS_FINGERPRINT` isn't set yet. Everything works, but setting it is recommended.
+A `WARNING: the controller's TLS certificate is not verified … and not pinned` line means `UNIFI_VERIFY_SSL=false` is set and `UNIFI_TLS_FINGERPRINT` isn't. Everything works, but pinning is recommended.
 
 Check that it's up from another machine:
 

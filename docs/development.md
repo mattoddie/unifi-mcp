@@ -160,7 +160,7 @@ With the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
 
 ```sh
 make build
-UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... npx @modelcontextprotocol/inspector ./bin/unifi-mcp
+UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... UNIFI_VERIFY_SSL=false npx @modelcontextprotocol/inspector ./bin/unifi-mcp
 ```
 
 Or build the image and point Claude Code at it:

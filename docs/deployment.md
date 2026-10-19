@@ -162,8 +162,8 @@ make build VERSION=1.2.3      # writes bin/unifi-mcp
 Then:
 
 ```sh
-UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... unifi-mcp   # stdio by default
-MCP_TRANSPORT=http MCP_AUTH_TOKEN=... UNIFI_URL=... UNIFI_API_KEY=... unifi-mcp
+UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... UNIFI_TLS_FINGERPRINT=... unifi-mcp   # stdio by default
+MCP_TRANSPORT=http MCP_AUTH_TOKEN=... UNIFI_URL=... UNIFI_API_KEY=... UNIFI_TLS_FINGERPRINT=... unifi-mcp
 ```
 
 In HTTP mode, `MCP_AUTH_TOKEN` is required, and outside Docker the server listens on `127.0.0.1` only. Set `MCP_HTTP_HOST=0.0.0.0` to accept connections from other machines.

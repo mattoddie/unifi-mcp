@@ -30,6 +30,8 @@ Run `docker compose logs unifi-mcp`. The last line names the problem, for exampl
 | `MCP_AUTH_TOKEN must be at least 16 characters` | Use a longer token, for example `openssl rand -hex 32`. |
 | `MCP_ALLOW_UNAUTHENTICATED=true also requires MCP_ALLOWED_HOSTS …` | List the host names your clients use to reach the server in `MCP_ALLOWED_HOSTS`, or set `MCP_AUTH_TOKEN` instead. |
 | `UNIFI_TLS_FINGERPRINT: … is not a SHA-256 certificate fingerprint` | Use the 64-hex-digit SHA-256 fingerprint, with or without colons. SHA-1 fingerprints are too short. |
+| `UNIFI_URL is https, but nothing says how to check the controller's certificate …` | Set `UNIFI_TLS_FINGERPRINT` to the console's certificate fingerprint (recommended), `UNIFI_CA_FILE` to your CA, or `UNIFI_VERIFY_SSL=true` for a trusted certificate. `UNIFI_VERIFY_SSL=false` skips the check, as older versions did by default. See [Security](security.md#about-tls-to-the-controller). |
+| `UNIFI_URL must not contain a username or password` | Remove `user:pass@` from the URL and use `UNIFI_API_KEY`, or `UNIFI_USERNAME` and `UNIFI_PASSWORD`. |
 | `Could not read UNIFI_CA_FILE (…)` | The CA file isn't mounted where the variable points. |
 
 ## The client can't connect to the server

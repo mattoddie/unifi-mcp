@@ -8,6 +8,9 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ### Security
 
+- **Breaking: the controller's TLS certificate must now be checked, or explicitly not checked.** For an `https` `UNIFI_URL`, the server refuses to start unless `UNIFI_TLS_FINGERPRINT`, `UNIFI_CA_FILE` or `UNIFI_VERIFY_SSL` is set. Before, verification was silently off, so anyone on the network path could impersonate the controller and capture the API key or password. To upgrade, pin the console's certificate with `UNIFI_TLS_FINGERPRINT` (recommended; see `docs/security.md`), or set `UNIFI_VERIFY_SSL=false` to keep the old behaviour. `example.env` already sets `UNIFI_VERIFY_SSL=false`, so a `.env` copied from it keeps working.
+- A plain `http://` `UNIFI_URL` now logs a warning that credentials travel unencrypted.
+- **Breaking:** `UNIFI_URL` may no longer contain a username or password (`https://user:pass@host`); they ended up in logs and error messages. Use `UNIFI_API_KEY`, or `UNIFI_USERNAME` and `UNIFI_PASSWORD`.
 - **Breaking:** `MCP_ALLOW_UNAUTHENTICATED=true` now also requires `MCP_ALLOWED_HOSTS`. Without a token, the Host check is the only protection against a web page reaching the server through DNS rebinding, so the server refuses to start without it.
 - **Breaking:** `MCP_AUTH_TOKEN` must be at least 16 characters. Generate one with `openssl rand -hex 32`.
 - An `MCP_ALLOWED_HOSTS` entry without a port now only allows an `Origin` on the scheme's default port (80 or 443). List `host:port` to allow a page on another port. Before, `localhost` let a page on any `localhost:<port>` through. Every `Origin` header is checked, and an empty one is rejected.

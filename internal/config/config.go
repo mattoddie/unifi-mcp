@@ -189,6 +189,10 @@ func Load(env Env) (*Config, error) {
 	if rawURL == "" {
 		return nil, errors.New("UNIFI_URL is required (e.g. https://192.168.1.1)")
 	}
+	if u, err := url.Parse(rawURL); err == nil && u.User != nil {
+		// Credentials in the URL would end up in logs and error messages.
+		return nil, errors.New("UNIFI_URL must not contain a username or password; use UNIFI_API_KEY, or UNIFI_USERNAME and UNIFI_PASSWORD")
+	}
 	if !validURL(rawURL) {
 		return nil, fmt.Errorf("UNIFI_URL is not a valid URL: %s", rawURL)
 	}
@@ -283,7 +287,8 @@ func Load(env Env) (*Config, error) {
 		}
 	}
 	// A custom CA only makes sense with verification on, so it switches it on by default.
-	u.VerifySSL = boolValue(get("UNIFI_VERIFY_SSL"), u.CAFile != "")
+	verifySSL := get("UNIFI_VERIFY_SSL")
+	u.VerifySSL = boolValue(verifySSL, u.CAFile != "")
 	if err := check(); err != nil {
 		return nil, err
 	}
@@ -299,6 +304,12 @@ func Load(env Env) (*Config, error) {
 			return nil, fmt.Errorf("UNIFI_TLS_FINGERPRINT: %s", err.Error())
 		}
 		u.TLSFingerprints = append(u.TLSFingerprints, fp)
+	}
+	// Consoles ship with self-signed certificates, so verification used to be off by
+	// default, which let anyone on the path impersonate the controller and capture
+	// its credentials. Now the choice has to be made explicitly.
+	if verifySSL == "" && u.CAFile == "" && len(u.TLSFingerprints) == 0 && strings.HasPrefix(strings.ToLower(rawURL), "https:") {
+		return nil, errors.New(TLSChoiceRequired)
 	}
 
 	u.URL = trailingSlashes.ReplaceAllString(rawURL, "")
@@ -350,6 +361,21 @@ func NormalizeFingerprint(value string) (string, error) {
 		pairs = append(pairs, hex[i:i+2])
 	}
 	return strings.Join(pairs, ":"), nil
+}
+
+// TLSChoiceRequired is the startup error for an https controller when none of
+// UNIFI_VERIFY_SSL, UNIFI_CA_FILE and UNIFI_TLS_FINGERPRINT is set.
+const TLSChoiceRequired = "UNIFI_URL is https, but nothing says how to check the controller's certificate. Choose one: " +
+	"(1) pin it with UNIFI_TLS_FINGERPRINT (recommended for a console's self-signed certificate; see docs/security.md), " +
+	"(2) trust its CA with UNIFI_CA_FILE, or set UNIFI_VERIFY_SSL=true if it has a publicly trusted certificate, or " +
+	"(3) set UNIFI_VERIFY_SSL=false to skip the check, which lets anyone on the network path impersonate the controller and capture its credentials"
+
+// PlainHTTPWarning is the startup warning for an http:// controller URL.
+func PlainHTTPWarning(u Unifi) string {
+	if !strings.HasPrefix(strings.ToLower(u.URL), "http:") {
+		return ""
+	}
+	return "UNIFI_URL uses plain http, so the API key or password and all controller traffic travel unencrypted. Use https (with UNIFI_TLS_FINGERPRINT) unless the connection is on a trusted network."
 }
 
 // InsecureTLSWarning is the startup warning for an https controller whose certificate is

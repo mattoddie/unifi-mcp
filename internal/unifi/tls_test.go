@@ -59,8 +59,12 @@ func TestTLS(t *testing.T) {
 		return err.Error()
 	}
 
-	// The self-signed certificate is accepted by default (verification off).
-	okSites("default")
+	// With nothing configured an https controller is refused at startup; with
+	// UNIFI_VERIFY_SSL=false the self-signed certificate is accepted.
+	if _, err := sites(); err == nil || err.Error() != config.TLSChoiceRequired {
+		t.Errorf("default: %v", err)
+	}
+	okSites("verification off", "UNIFI_VERIFY_SSL", "false")
 
 	// A matching pin is accepted; a mismatched one is refused before anything is sent.
 	okSites("pin", "UNIFI_TLS_FINGERPRINT", fingerprint)
