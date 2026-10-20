@@ -6,6 +6,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-20
+
 ### Security
 
 - **Breaking: the controller's TLS certificate must now be checked, or explicitly not checked.** For an `https` `UNIFI_URL`, the server refuses to start unless `UNIFI_TLS_FINGERPRINT`, `UNIFI_CA_FILE` or `UNIFI_VERIFY_SSL` is set. Before, verification was silently off, so anyone on the network path could impersonate the controller and capture the API key or password. To upgrade, pin the console's certificate with `UNIFI_TLS_FINGERPRINT` (recommended; see `docs/security.md`), or set `UNIFI_VERIFY_SSL=false` to keep the old behaviour. `example.env` already sets `UNIFI_VERIFY_SSL=false`, so a `.env` copied from it keeps working.
@@ -80,7 +82,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mattoddie/unifi-mcp/releases/tag/v0.1.0
