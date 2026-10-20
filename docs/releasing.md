@@ -26,7 +26,7 @@ The version comes **from the tag**. The code says `0.0.0-dev` in the repository,
 ## Release checklist
 
 1. **Check `main` is green** on [CI](https://github.com/mattoddie/unifi-mcp/actions/workflows/ci.yml).
-2. **Update the changelog.** In a small PR, move the **Unreleased** entries in [`CHANGELOG.md`](../CHANGELOG.md) under a new heading, `## [1.2.0] - YYYY-MM-DD`, and update the comparison links at the bottom. Merge it.
+2. **Update the changelog.** In a small PR titled `chore(release): v1.2.0`, move the **Unreleased** entries in [`CHANGELOG.md`](../CHANGELOG.md) under a new heading, `## [1.2.0] - YYYY-MM-DD`, and update the comparison links at the bottom. Merge it.
 3. **Publish the release.** Use either the CLI or the web UI.
 
    With the CLI:
