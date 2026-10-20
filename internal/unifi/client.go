@@ -39,6 +39,9 @@ type Options struct {
 	Query []Param
 }
 
+// MaxResponseBytes is the largest controller response read; anything bigger is an error.
+const MaxResponseBytes = 64 << 20
+
 // unifiOSPrefix is where the Network application lives on UniFi OS consoles.
 const unifiOSPrefix = "/proxy/network"
 
@@ -64,6 +67,13 @@ type Client struct {
 	// generation is incremented on every successful login, so a request can tell
 	// whether its session is still the current one.
 	generation int
+	// loginFailures counts consecutive logins the controller rejected, and
+	// loginErr and loginRetryAt are the last such failure and when the next
+	// attempt is allowed, so bad credentials aren't retried on every call (which
+	// could lock the account).
+	loginFailures int
+	loginErr      error
+	loginRetryAt  time.Time
 }
 
 type cookie struct{ name, value string }
@@ -182,8 +192,9 @@ func (c *Client) Request(ctx context.Context, method, path string, opts *Options
 	if err != nil {
 		return nil, err
 	}
-	if (res.status == 401 || res.status == 403) && c.cfg.APIKey == "" {
-		// Session expired: log in again and retry once.
+	if res.status == 401 && c.cfg.APIKey == "" {
+		// Session expired: log in again and retry once. A 403 means the session is
+		// valid but not allowed to do this, so logging in again wouldn't help.
 		if err := c.reauthenticate(ctx, generation); err != nil {
 			return nil, err
 		}
@@ -208,6 +219,10 @@ func (c *Client) reauthenticate(ctx context.Context, generation int) error {
 	if generation != c.generation {
 		c.mu.Unlock()
 		return nil
+	}
+	if err := c.loginBackoffLocked(); err != nil {
+		c.mu.Unlock()
+		return err
 	}
 	c.cookies = nil
 	c.csrf = ""
@@ -250,6 +265,10 @@ func (c *Client) ensureReady(ctx context.Context) error {
 		<-call.done
 		return call.err
 	}
+	if err := c.loginBackoffLocked(); err != nil {
+		c.mu.Unlock()
+		return err
+	}
 	call := c.startLoginLocked()
 	c.mu.Unlock()
 	return c.runLogin(ctx, call)
@@ -282,9 +301,40 @@ func (c *Client) runLogin(ctx context.Context, call *loginCall) error {
 	call.err = c.doLogin(context.WithoutCancel(ctx))
 	c.mu.Lock()
 	c.login = nil
+	var rejected *Error
+	if errors.As(call.err, &rejected) && rejected.Status != 0 {
+		c.loginFailures++
+		c.loginErr = call.err
+		c.loginRetryAt = time.Now().Add(loginBackoff(c.loginFailures))
+	} else if call.err == nil {
+		c.loginFailures, c.loginErr = 0, nil
+	}
 	c.mu.Unlock()
 	close(call.done)
 	return call.err
+}
+
+// loginBackoff is how long to wait before trying again after the nth consecutive
+// rejected login: 5s, 10s, 20s... up to 5 minutes.
+func loginBackoff(n int) time.Duration {
+	d := 5 * time.Second
+	for i := 1; i < n && d < 5*time.Minute; i++ {
+		d *= 2
+	}
+	return min(d, 5*time.Minute)
+}
+
+// loginBackoffLocked returns the last login failure while the backoff after it
+// lasts; c.mu must be held.
+func (c *Client) loginBackoffLocked() error {
+	if c.loginErr == nil {
+		return nil
+	}
+	wait := time.Until(c.loginRetryAt)
+	if wait <= 0 {
+		return nil
+	}
+	return &Error{Message: fmt.Sprintf("%s (not retrying for %s, to avoid locking the account)", c.loginErr.Error(), wait.Round(time.Second))}
 }
 
 var mfaPattern = regexp.MustCompile(`(?i)2fa|mfa|ubic_2fa`)
@@ -400,9 +450,12 @@ func (c *Client) send(ctx context.Context, method, path string, opts *Options, r
 		return nil, c.networkError(err)
 	}
 	defer res.Body.Close()
-	data, err := io.ReadAll(res.Body)
+	data, err := io.ReadAll(io.LimitReader(res.Body, MaxResponseBytes+1))
 	if err != nil {
 		return nil, c.networkError(err)
+	}
+	if len(data) > MaxResponseBytes {
+		return nil, &Error{Message: fmt.Sprintf("%s %s: the controller's response is larger than %d MiB, so it was not read", method, path, MaxResponseBytes>>20)}
 	}
 	c.captureSession(res.Header)
 	return &response{status: res.StatusCode, header: res.Header, body: data}, nil

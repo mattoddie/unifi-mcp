@@ -255,7 +255,7 @@ Start a rolling (one-at-a-time) firmware upgrade of all devices of the given typ
 
 ### unifi_provision_device
 
-🟠 write
+🟠 write · destructive
 
 Force the controller to re-push configuration to a device.
 
@@ -266,7 +266,7 @@ Force the controller to re-push configuration to a device.
 
 ### unifi_adopt_device
 
-🟠 write
+🟠 write · destructive
 
 Adopt a device that is pending adoption (see unifi_list_devices, state=pending_adoption).
 
@@ -311,7 +311,7 @@ Start an RF/spectrum scan on an access point. Its radios go offline for a few mi
 
 ### unifi_save_ap_group
 
-🟠 write
+🟠 write · destructive
 
 Create an access point group (omit id) or update one (pass id). device_macs replaces the group's member list when given.
 
@@ -402,7 +402,7 @@ Block a client from connecting to the network.
 
 ### unifi_unblock_client
 
-🟠 write
+🟠 write · destructive
 
 Unblock a previously blocked client.
 
@@ -413,7 +413,7 @@ Unblock a previously blocked client.
 
 ### unifi_reconnect_client
 
-🟠 write
+🟠 write · destructive
 
 Disconnect a wireless client so it reconnects (useful to force a roam or re-authentication).
 
@@ -435,7 +435,7 @@ Remove clients and their history (alias, note, fixed IP, statistics) from the co
 
 ### unifi_update_client
 
-🟠 write
+🟠 write · destructive
 
 Set a known client's alias (name) and note, or assign/clear a fixed IP (DHCP reservation). Only the fields given are changed.
 
@@ -761,7 +761,7 @@ List local DNS records served by the gateway (v2 static-dns; UniFi Network 8.2+)
 
 ### unifi_save_dns_record
 
-🟠 write
+🟠 write · destructive
 
 Create (no id) or update (id; only fields passed change) a local DNS record served by the gateway (UniFi Network 8.2+). For A/AAAA the value is an IP; for CNAME a hostname; for MX/SRV set priority (and weight/port for SRV).
 
@@ -802,7 +802,7 @@ List bandwidth profiles (user groups) that cap client download/upload rates; ass
 
 ### unifi_save_bandwidth_profile
 
-🟠 write
+🟠 write · destructive
 
 Create (no id) or update (id) a bandwidth profile (user group). Rates are in kbps; -1 means unlimited.
 
@@ -838,7 +838,7 @@ List dynamic DNS configurations (passwords redacted unless include_secrets).
 
 ### unifi_save_dynamic_dns
 
-🟠 write
+🟠 write · destructive
 
 Create (no id) or update (id) a dynamic DNS configuration on the gateway.
 
@@ -1353,7 +1353,7 @@ List content filtering profiles (blocked categories, safe search, target network
 
 ### unifi_save_content_filter
 
-🟠 write
+🟠 write · destructive
 
 Create a content filtering profile (no id) or update one (id; only given fields change). v2 API, Network 8.1+.
 
@@ -1458,7 +1458,7 @@ List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP V
 
 ### unifi_save_radius_profile
 
-🟠 write
+🟠 write · destructive
 
 Create (no id) or update (id; only fields passed change) a RADIUS profile pointing at external RADIUS servers. Server lists replace the existing ones.
 
@@ -1497,7 +1497,7 @@ List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise).
 
 ### unifi_save_radius_account
 
-🟠 write
+🟠 write · destructive
 
 Create (no id) or update (id) a user of the built-in RADIUS server. For per-user VLAN assignment set vlan together with tunnel_type 13 (VLAN) and tunnel_medium_type 6 (802).
 
@@ -1552,7 +1552,7 @@ List guest hotspot vouchers with code, duration, usage and status.
 
 ### unifi_create_vouchers
 
-🟠 write
+🟠 write · destructive
 
 Create guest hotspot vouchers and return their codes.
 
@@ -1580,7 +1580,7 @@ Delete/revoke a hotspot voucher.
 
 ### unifi_authorize_guest
 
-🟠 write
+🟠 write · destructive
 
 Authorize a guest client on a hotspot/guest portal network, optionally with time, bandwidth and data limits.
 
@@ -1595,7 +1595,7 @@ Authorize a guest client on a hotspot/guest portal network, optionally with time
 
 ### unifi_unauthorize_guest
 
-🟠 write
+🟠 write · destructive
 
 Revoke a guest client's hotspot authorization.
 
@@ -1616,7 +1616,7 @@ List hotspot operator accounts (staff who can log in to the hotspot manager to i
 
 ### unifi_save_hotspot_operator
 
-🟠 write
+🟠 write · destructive
 
 Create a hotspot operator (no id; name and password required) or update one (id; only given fields change).
 
@@ -1893,7 +1893,7 @@ Change fields of one site setting object (see unifi_get_site_settings for keys a
 
 ### unifi_create_site
 
-🟠 write
+🟠 write · destructive
 
 Create a new site on the controller. Returns its API name (used as `site` by other tools).
 
@@ -1935,7 +1935,7 @@ List administrator accounts for a site, or for all sites (all_sites: true).
 
 ### unifi_invite_admin
 
-🟠 write
+🟠 write · destructive
 
 Invite an administrator to the site by email (re-sends the invite if they already exist). On UniFi OS consoles admins are usually managed in UniFi OS instead; this may not be supported there.
 

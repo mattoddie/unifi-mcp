@@ -18,6 +18,20 @@ import (
 
 func enc(value string) (string, error) { return unifi.PathSegment(value, "") }
 
+// restPath is rest/<collection>/<id> with the id encoded as a path segment,
+// for ids taken from controller responses.
+func restPath(collection string, id any) (string, error) {
+	s, ok := id.(string)
+	if !ok {
+		return "", fmt.Errorf("the controller returned no ID for this %s", collection)
+	}
+	e, err := unifi.PathSegment(s, "object ID")
+	if err != nil {
+		return "", err
+	}
+	return "rest/" + collection + "/" + e, nil
+}
+
 // first is Array.isArray(res) ? res[0] : res.
 func first(res any) any {
 	if a, ok := ojson.Arr(res); ok {

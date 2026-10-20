@@ -242,6 +242,10 @@ var traversals = []string{
 	"/api/s/default/stat/device#x",
 	"/api/s/%zz/stat",
 	"/api/s/%c3%28/stat",
+	"/v2/api/site/default/firewall-policies/batch-d%65lete",
+	"/api/s/default/cmd/%73tamgr",
+	"/api/s/default/rest/user/u%2D1",
+	"/api/s/default/rest/user/%5F%7e%30%5a",
 	"api/s/default",
 }
 
@@ -251,18 +255,19 @@ func TestAssertSafePath(t *testing.T) {
 			t.Errorf("%q: %v", p, err)
 		}
 	}
-	for _, p := range []string{"/api/s/default/stat/device/aa:bb:cc:00:00:01", "/api/s/default/stat/report/5minutes.site", "/v2/api/site/default/trafficrules/my%20rule"} {
+	for _, p := range []string{"/api/s/default/stat/device/aa:bb:cc:00:00:01", "/api/s/default/stat/report/5minutes.site", "/v2/api/site/default/trafficrules/my%20rule", "/api/s/default/rest/user/a%2Fb%7C", "/x/%C3%A9"} {
 		if err := unifi.AssertSafePath(p); err != nil {
 			t.Errorf("%q: %v", p, err)
 		}
 	}
 	for p, want := range map[string]string{
-		"/a/../b":    `Invalid API path "/a/../b": "." and ".." segments are not allowed`,
-		"/a%2e":      `Invalid API path "/a%2e": encoded dots (%2e) are not allowed`,
-		"/a?b":       `Invalid API path "/a?b": pass query parameters separately, not in the path`,
-		"/a\\b":      `Invalid API path "/a\b": backslashes and control characters are not allowed`,
-		"/a%zz":      `Invalid API path "/a%zz": malformed percent-encoding`,
-		"relative/x": `Invalid API path "relative/x": it must start with /`,
+		"/a/../b":              `Invalid API path "/a/../b": "." and ".." segments are not allowed`,
+		"/a%2e":                `Invalid API path "/a%2e": encoded dots (%2e) are not allowed`,
+		"/a?b":                 `Invalid API path "/a?b": pass query parameters separately, not in the path`,
+		"/a\\b":                `Invalid API path "/a\b": backslashes and control characters are not allowed`,
+		"/a%zz":                `Invalid API path "/a%zz": malformed percent-encoding`,
+		"/v2/x/batch-d%65lete": `Invalid API path "/v2/x/batch-d%65lete": %65 encodes a character that doesn't need encoding; write it unencoded`,
+		"relative/x":           `Invalid API path "relative/x": it must start with /`,
 	} {
 		if err := unifi.AssertSafePath(p); err == nil || err.Error() != want {
 			t.Errorf("%q: %v", p, err)
@@ -359,4 +364,61 @@ func writeFile(t *testing.T, name string, data []byte) string {
 		t.Fatal(err)
 	}
 	return p
+}
+
+func TestForbiddenDoesNotLogInAgain(t *testing.T) {
+	m := unifitest.New(unifitest.Options{Mode: "unifi-os"})
+	defer m.Close()
+	m.On("GET", `^/api/s/default/stat/admin-only$`, func(any, []string, url.Values) (int, any) {
+		return 403, ojson.MustParse(`{"meta":{"rc":"error","msg":"api.err.NoPermission"}}`)
+	})
+	c := newClient(t, userEnv(m.URL))
+	if _, err := c.SiteGet(ctx, "default", "stat/admin-only", nil); err == nil || !strings.Contains(err.Error(), "HTTP 403") {
+		t.Errorf("403: %v", err)
+	}
+	if m.LoginCount() != 1 {
+		t.Errorf("a 403 triggered a new login: %d logins", m.LoginCount())
+	}
+}
+
+func TestFailedLoginBacksOff(t *testing.T) {
+	m := unifitest.New(unifitest.Options{Mode: "unifi-os"})
+	defer m.Close()
+	c := newClient(t, userEnv(m.URL, "UNIFI_PASSWORD", "wrong"))
+	if _, err := c.SiteGet(ctx, "default", "stat/device", nil); err == nil || !strings.HasPrefix(err.Error(), "Login to UniFi controller failed (HTTP 401)") {
+		t.Fatalf("first: %v", err)
+	}
+	logins := func() int {
+		n := 0
+		for _, r := range m.Requests() {
+			if r.Path == "/api/auth/login" {
+				n++
+			}
+		}
+		return n
+	}
+	attempts := logins()
+	if attempts != 1 {
+		t.Errorf("login attempts: %d", attempts)
+	}
+	for i := 0; i < 3; i++ {
+		_, err := c.SiteGet(ctx, "default", "stat/device", nil)
+		if err == nil || !strings.Contains(err.Error(), "Login to UniFi controller failed (HTTP 401)") || !strings.Contains(err.Error(), "not retrying for") {
+			t.Errorf("retry %d: %v", i, err)
+		}
+	}
+	if n := logins(); n != attempts {
+		t.Errorf("logins retried during the backoff: %d, want %d", n, attempts)
+	}
+}
+
+func TestOversizedResponseIsRefused(t *testing.T) {
+	m := unifitest.New(unifitest.Options{Mode: "unifi-os", APIKey: "key123"})
+	defer m.Close()
+	huge := strings.Repeat("a", unifi.MaxResponseBytes)
+	m.On("GET", `^/api/s/default/stat/huge$`, func(any, []string, url.Values) (int, any) { return 200, huge })
+	c := newClient(t, map[string]string{"UNIFI_URL": m.URL, "UNIFI_API_KEY": "key123"})
+	if _, err := c.SiteGet(ctx, "default", "stat/huge", nil); err == nil || !strings.Contains(err.Error(), "larger than 64 MiB") {
+		t.Errorf("huge: %v", err)
+	}
 }

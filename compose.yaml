@@ -1,4 +1,6 @@
 # Copy example.env to .env and fill it in (MCP_AUTH_TOKEN is required), then: docker compose up -d
+# For an https UNIFI_URL, .env must also set UNIFI_TLS_FINGERPRINT (recommended), UNIFI_CA_FILE or
+# UNIFI_VERIFY_SSL explicitly; example.env sets UNIFI_VERIFY_SSL=false, which skips the check.
 services:
   unifi-mcp:
     image: ghcr.io/mattoddie/unifi-mcp:latest
@@ -10,4 +12,5 @@ services:
     ports:
       # Reachable from other machines. If only this machine (or a reverse proxy on it)
       # needs access, publish on localhost instead: "127.0.0.1:8080:8080"
+      # (recommended with MCP_ALLOW_UNAUTHENTICATED=true behind an authenticating proxy)
       - "8080:8080"

@@ -70,7 +70,7 @@ All five are read-only: they tell the model not to change anything, or to ask fi
 
 ## Making changes
 
-With `UNIFI_ALLOW_WRITES=true` the assistant can change things. Good clients ask before running tools marked *destructive*, such as restarts, blocking, firmware upgrades and configuration edits. It's still a good habit to ask for a plan first: *"What would you change? Don't do it yet."*
+With `UNIFI_ALLOW_WRITES=true` the assistant can change things. Good clients ask before running tools marked *destructive*, such as restarts, blocking, firmware upgrades, configuration edits and anything that grants access, like inviting an admin or authorizing a guest. It's still a good habit to ask for a plan first: *"What would you change? Don't do it yet."*
 
 ### Create or update: `save_*` tools
 
@@ -83,7 +83,7 @@ So *"turn off the guest WiFi"* becomes `unifi_save_wlan {id: "…", enabled: fal
 
 ### Deleting
 
-Deleting needs `UNIFI_ALLOW_DELETES=true` as well. This covers forgetting clients and revoking hotspot vouchers too. With it off, the delete tools don't exist, and the raw API tool refuses `DELETE` requests and commands that delete, forget, revoke, remove, destroy or reset something. You can still *disable* most objects with `enabled: false`, which is easy to undo.
+Deleting needs `UNIFI_ALLOW_DELETES=true` as well. This covers forgetting clients and revoking hotspot vouchers too. With it off, the delete tools don't exist, and the raw API tool refuses `DELETE` requests and requests that delete, forget, revoke, remove, reset, clear, purge or factory-reset something, and only sends classic `cmd/<manager>` commands that are known not to delete anything. You can still *disable* most objects with `enabled: false`, which is easy to undo.
 
 ### Actions
 

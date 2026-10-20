@@ -110,7 +110,7 @@ The `Def` fields that control registration:
 | `Toolset` | Required. The tool is only registered when this toolset is enabled. |
 | `Gate: Write` | The tool changes state. Only registered when writes are enabled. Marked `readOnlyHint: false`. |
 | `Gate: Delete` | The tool deletes configuration. Only registered when deletes are enabled too. Marked destructive. |
-| `Destructive` | Marks a write tool as destructive (`destructiveHint`), so clients confirm before running it. Use it for anything that disconnects clients, reboots devices or changes configuration. |
+| `Destructive` | Marks a write tool as destructive (`destructiveHint`), so clients confirm before running it. Use it for anything that disconnects clients, reboots devices, changes configuration or grants access (admins, sites, guest authorization, vouchers, RADIUS accounts, unblocking). |
 | `ReadOnly` | Overrides the read-only hint. This is rarely needed. |
 
 Checklist for a new tool:
@@ -160,7 +160,7 @@ With the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
 
 ```sh
 make build
-UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... npx @modelcontextprotocol/inspector ./bin/unifi-mcp
+UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... UNIFI_VERIFY_SSL=false npx @modelcontextprotocol/inspector ./bin/unifi-mcp
 ```
 
 Or build the image and point Claude Code at it:

@@ -32,6 +32,8 @@ jobs:
           CGO_ENABLED: "1"
       - name: Check docs/tools.md is up to date
         run: make docs-check
+      - name: Check for known vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
   docker:
     name: Docker image
@@ -56,12 +58,12 @@ jobs:
       - name: Smoke test
         run: |
           docker run -d --name smoke -p 8080:8080 \
-            -e UNIFI_URL=https://192.0.2.1 -e UNIFI_API_KEY=ci -e MCP_AUTH_TOKEN=ci \
+            -e UNIFI_URL=https://192.0.2.1 -e UNIFI_VERIFY_SSL=false -e UNIFI_API_KEY=ci -e MCP_AUTH_TOKEN=ci-token-0123456789 \
             unifi-mcp:ci
           for i in $(seq 1 30); do curl -fsS http://localhost:8080/health && break; sleep 1; done
           echo
           tools=$(curl -fsS -X POST http://localhost:8080/mcp \
-            -H 'Authorization: Bearer ci' -H 'Content-Type: application/json' \
+            -H 'Authorization: Bearer ci-token-0123456789' -H 'Content-Type: application/json' \
             -H 'Accept: application/json, text/event-stream' \
             -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | jq '.result.tools | length')
           echo "Tools registered: $tools"
@@ -82,6 +84,15 @@ jobs:
           fi
           cat err.txt
           grep -q 'MCP_AUTH_TOKEN is required' err.txt
+
+      - name: Refuses an https controller without a TLS choice
+        run: |
+          if docker run --rm -e UNIFI_URL=https://192.0.2.1 -e UNIFI_API_KEY=ci -e MCP_AUTH_TOKEN=ci-token-0123456789 unifi-mcp:ci 2> err.txt; then
+            echo "::error::The image started without UNIFI_VERIFY_SSL, UNIFI_CA_FILE or UNIFI_TLS_FINGERPRINT"
+            exit 1
+          fi
+          cat err.txt
+          grep -q 'nothing says how to check the controller' err.txt
 
       - name: Build all platforms
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

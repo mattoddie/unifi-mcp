@@ -55,7 +55,9 @@ mkdir unifi-mcp && cd unifi-mcp
 curl -fsSLO https://raw.githubusercontent.com/mattoddie/unifi-mcp/main/compose.yaml
 curl -fsSL https://raw.githubusercontent.com/mattoddie/unifi-mcp/main/example.env -o .env
 # Edit .env: set UNIFI_URL, UNIFI_API_KEY and a random MCP_AUTH_TOKEN (required; e.g. `openssl rand -hex 32`).
-# Recommended: pin the console's certificate with UNIFI_TLS_FINGERPRINT (see docs/security.md).
+# For an https controller, also say how to check its certificate, or the server won't start.
+# Recommended: pin it with UNIFI_TLS_FINGERPRINT (see docs/security.md). example.env sets
+# UNIFI_VERIFY_SSL=false, which skips the check: remove it once the fingerprint is set.
 docker compose up -d
 ```
 

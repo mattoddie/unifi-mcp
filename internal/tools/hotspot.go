@@ -48,6 +48,7 @@ func registerHotspot(c *Context) {
 
 	c.add(Def{
 		Toolset: "hotspot", Name: "unifi_create_vouchers", Title: "Create hotspot vouchers",
+		Destructive: boolPtr(true),
 		Description: "Create guest hotspot vouchers and return their codes.",
 		Gate:        Write,
 		Input: props(
@@ -114,6 +115,7 @@ func registerHotspot(c *Context) {
 
 	c.add(Def{
 		Toolset: "hotspot", Name: "unifi_authorize_guest", Title: "Authorize guest",
+		Destructive: boolPtr(true),
 		Description: "Authorize a guest client on a hotspot/guest portal network, optionally with time, bandwidth and data limits.",
 		Gate:        Write,
 		Input: props(
@@ -140,6 +142,7 @@ func registerHotspot(c *Context) {
 
 	c.add(Def{
 		Toolset: "hotspot", Name: "unifi_unauthorize_guest", Title: "Unauthorize guest",
+		Destructive: boolPtr(true),
 		Description: "Revoke a guest client's hotspot authorization.",
 		Gate:        Write,
 		Input:       props(siteArg(), macArg()),
@@ -174,6 +177,7 @@ func registerHotspot(c *Context) {
 
 	c.add(Def{
 		Toolset: "hotspot", Name: "unifi_save_hotspot_operator", Title: "Create/update hotspot operator",
+		Destructive: boolPtr(true),
 		Description: "Create a hotspot operator (no id; name and password required) or update one (id; only given fields change).",
 		Gate:        Write,
 		Input: props(

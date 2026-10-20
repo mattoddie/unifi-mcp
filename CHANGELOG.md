@@ -6,6 +6,30 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Security
+
+- **Breaking: the controller's TLS certificate must now be checked, or explicitly not checked.** For an `https` `UNIFI_URL`, the server refuses to start unless `UNIFI_TLS_FINGERPRINT`, `UNIFI_CA_FILE` or `UNIFI_VERIFY_SSL` is set. Before, verification was silently off, so anyone on the network path could impersonate the controller and capture the API key or password. To upgrade, pin the console's certificate with `UNIFI_TLS_FINGERPRINT` (recommended; see `docs/security.md`), or set `UNIFI_VERIFY_SSL=false` to keep the old behaviour. `example.env` already sets `UNIFI_VERIFY_SSL=false`, so a `.env` copied from it keeps working.
+- A plain `http://` `UNIFI_URL` now logs a warning that credentials travel unencrypted.
+- **Breaking:** `UNIFI_URL` may no longer contain a username or password (`https://user:pass@host`); they ended up in logs and error messages. Use `UNIFI_API_KEY`, or `UNIFI_USERNAME` and `UNIFI_PASSWORD`.
+- **Breaking:** `MCP_ALLOW_UNAUTHENTICATED=true` now also requires `MCP_ALLOWED_HOSTS`. Without a token, the Host check is the only protection against a web page reaching the server through DNS rebinding, so the server refuses to start without it.
+- **Breaking:** `MCP_AUTH_TOKEN` must be at least 16 characters. Generate one with `openssl rand -hex 32`.
+- An `MCP_ALLOWED_HOSTS` entry without a port now only allows an `Origin` on the scheme's default port (80 or 443). List `host:port` to allow a page on another port. Before, `localhost` let a page on any `localhost:<port>` through. Every `Origin` header is checked, and an empty one is rejected.
+- The HTTP server now has a 60 second read timeout and a 120 second idle timeout, on top of the header timeout.
+- The `healthcheck` command connects to `MCP_HTTP_HOST` when it is a specific address (and to `127.0.0.1` when it is `0.0.0.0` or `::`), and reads `MCP_HTTP_PORT_FILE`.
+- With writes on and deletes off, the raw API tool could be made to delete by percent-encoding a letter of the path, e.g. `POST /v2/api/site/default/firewall-policies/batch-d%65lete`, which the delete check didn't recognise but the controller decoded and ran. API paths that percent-encode letters, digits, `-`, `_` or `~` are now refused, and the delete check runs on the decoded path. The check also recognises more verbs (`set-default`, `factory`, `clear`, `purge`, `erase`, `wipe`, `del-`), matches `cmd` keys in any letter case, and, for the classic `cmd/<manager>` endpoints, only sends commands known not to delete anything.
+- Controller responses are read up to 64 MiB (a bigger one is an error instead of being read into memory), and JSON nesting is capped at 1000 levels. Tool output returned to the model is capped at 256 KiB, with a note saying it was truncated and how to narrow the request.
+- With a username and password, the server logs in again only when the controller answers 401, not 403 (which means the account lacks permission). After a rejected login it waits before trying again (5 seconds, doubling up to 5 minutes) instead of retrying on every tool call, which could lock the account.
+- Tools that grant access or can disrupt connectivity are now marked destructive, so MCP clients ask before running them: `unifi_invite_admin`, `unifi_create_site`, `unifi_reconnect_client`, `unifi_unblock_client`, `unifi_update_client` (fixed IPs), `unifi_authorize_guest`, `unifi_unauthorize_guest`, `unifi_create_vouchers`, `unifi_save_hotspot_operator`, `unifi_save_radius_account`, `unifi_save_radius_profile`, `unifi_provision_device`, `unifi_adopt_device`, `unifi_save_ap_group`, `unifi_save_dns_record`, `unifi_save_content_filter`, `unifi_save_bandwidth_profile` and `unifi_save_dynamic_dns`.
+- Device and client IDs taken from controller responses are now encoded as path segments.
+
+### Changed
+
+- The Docker base images are pinned by digest (Dependabot keeps them current), the Go toolchain is 1.27.2 in both `go.mod` and the image, and CI runs `govulncheck`.
+
+### Fixed
+
+- The zone-based firewall tools that use the integration API no longer fall back to the only site when the `site` name doesn't match; they report that the site wasn't found.
+
 ## [0.3.0] - 2026-10-16
 
 ### Changed

@@ -459,6 +459,7 @@ func registerNetworks(c *Context) {
 
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_save_dns_record", Title: "Create/update local DNS record",
+		Destructive: boolPtr(true),
 		Description: "Create (no id) or update (id; only fields passed change) a local DNS record served by the gateway (UniFi Network 8.2+). " +
 			"For A/AAAA the value is an IP; for CNAME a hostname; for MX/SRV set priority (and weight/port for SRV).",
 		Gate: Write,
@@ -534,6 +535,7 @@ func registerNetworks(c *Context) {
 
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_save_bandwidth_profile", Title: "Create/update bandwidth profile",
+		Destructive: boolPtr(true),
 		Description: "Create (no id) or update (id) a bandwidth profile (user group). Rates are in kbps; -1 means unlimited.",
 		Gate:        Write,
 		Input: props(
@@ -613,6 +615,7 @@ func registerNetworks(c *Context) {
 
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_save_dynamic_dns", Title: "Create/update dynamic DNS",
+		Destructive: boolPtr(true),
 		Description: "Create (no id) or update (id) a dynamic DNS configuration on the gateway.",
 		Gate:        Write,
 		Input: props(

@@ -258,6 +258,7 @@ func registerSecurity(c *Context) {
 
 	c.add(Def{
 		Toolset: "security", Name: "unifi_save_content_filter", Title: "Create/update content filter",
+		Destructive: boolPtr(true),
 		Description: "Create a content filtering profile (no id) or update one (id; only given fields change). v2 API, Network 8.1+.",
 		Gate:        Write,
 		Input: props(

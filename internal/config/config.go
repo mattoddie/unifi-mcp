@@ -4,9 +4,11 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/mattoddie/unifi-mcp/internal/ojson"
@@ -151,6 +153,14 @@ func positiveInt(name, v string, fallback int) (int, error) {
 	return int(n), nil
 }
 
+// MinAuthTokenLength is the shortest MCP_AUTH_TOKEN accepted.
+const MinAuthTokenLength = 16
+
+// UnauthenticatedNeedsHosts is the error for MCP_ALLOW_UNAUTHENTICATED=true without MCP_ALLOWED_HOSTS.
+// Without a token, the Host check is the only thing stopping a web page from reaching
+// the server through DNS rebinding.
+const UnauthenticatedNeedsHosts = "MCP_ALLOW_UNAUTHENTICATED=true also requires MCP_ALLOWED_HOSTS: without a token, a web page you visit could reach the server through DNS rebinding. List the host names clients use to reach it (e.g. MCP_ALLOWED_HOSTS=unifi-mcp.example.com)"
+
 var trailingSlashes = regexp.MustCompile(`/+$`)
 
 // Load builds the configuration from the environment.
@@ -178,6 +188,10 @@ func Load(env Env) (*Config, error) {
 	}
 	if rawURL == "" {
 		return nil, errors.New("UNIFI_URL is required (e.g. https://192.168.1.1)")
+	}
+	if u, err := url.Parse(rawURL); err == nil && u.User != nil {
+		// Credentials in the URL would end up in logs and error messages.
+		return nil, errors.New("UNIFI_URL must not contain a username or password; use UNIFI_API_KEY, or UNIFI_USERNAME and UNIFI_PASSWORD")
 	}
 	if !validURL(rawURL) {
 		return nil, fmt.Errorf("UNIFI_URL is not a valid URL: %s", rawURL)
@@ -255,6 +269,12 @@ func Load(env Env) (*Config, error) {
 	if cfg.Transport == "http" && h.AuthToken == "" && !h.AllowUnauthenticated {
 		return nil, errors.New("MCP_AUTH_TOKEN is required for the http transport (generate one with: openssl rand -hex 32); set MCP_ALLOW_UNAUTHENTICATED=true only behind something else that authenticates")
 	}
+	if cfg.Transport == "http" && h.AuthToken != "" && len(h.AuthToken) < MinAuthTokenLength {
+		return nil, fmt.Errorf("MCP_AUTH_TOKEN must be at least %d characters (generate one with: openssl rand -hex 32)", MinAuthTokenLength)
+	}
+	if cfg.Transport == "http" && h.AuthToken == "" && len(h.AllowedHosts) == 0 {
+		return nil, errors.New(UnauthenticatedNeedsHosts)
+	}
 
 	u := &cfg.Unifi
 	u.CAFile = get("UNIFI_CA_FILE")
@@ -267,7 +287,8 @@ func Load(env Env) (*Config, error) {
 		}
 	}
 	// A custom CA only makes sense with verification on, so it switches it on by default.
-	u.VerifySSL = boolValue(get("UNIFI_VERIFY_SSL"), u.CAFile != "")
+	verifySSL := get("UNIFI_VERIFY_SSL")
+	u.VerifySSL = boolValue(verifySSL, u.CAFile != "")
 	if err := check(); err != nil {
 		return nil, err
 	}
@@ -283,6 +304,12 @@ func Load(env Env) (*Config, error) {
 			return nil, fmt.Errorf("UNIFI_TLS_FINGERPRINT: %s", err.Error())
 		}
 		u.TLSFingerprints = append(u.TLSFingerprints, fp)
+	}
+	// Consoles ship with self-signed certificates, so verification used to be off by
+	// default, which let anyone on the path impersonate the controller and capture
+	// its credentials. Now the choice has to be made explicitly.
+	if verifySSL == "" && u.CAFile == "" && len(u.TLSFingerprints) == 0 && strings.HasPrefix(strings.ToLower(rawURL), "https:") {
+		return nil, errors.New(TLSChoiceRequired)
 	}
 
 	u.URL = trailingSlashes.ReplaceAllString(rawURL, "")
@@ -336,6 +363,21 @@ func NormalizeFingerprint(value string) (string, error) {
 	return strings.Join(pairs, ":"), nil
 }
 
+// TLSChoiceRequired is the startup error for an https controller when none of
+// UNIFI_VERIFY_SSL, UNIFI_CA_FILE and UNIFI_TLS_FINGERPRINT is set.
+const TLSChoiceRequired = "UNIFI_URL is https, but nothing says how to check the controller's certificate. Choose one: " +
+	"(1) pin it with UNIFI_TLS_FINGERPRINT (recommended for a console's self-signed certificate; see docs/security.md), " +
+	"(2) trust its CA with UNIFI_CA_FILE, or set UNIFI_VERIFY_SSL=true if it has a publicly trusted certificate, or " +
+	"(3) set UNIFI_VERIFY_SSL=false to skip the check, which lets anyone on the network path impersonate the controller and capture its credentials"
+
+// PlainHTTPWarning is the startup warning for an http:// controller URL.
+func PlainHTTPWarning(u Unifi) string {
+	if !strings.HasPrefix(strings.ToLower(u.URL), "http:") {
+		return ""
+	}
+	return "UNIFI_URL uses plain http, so the API key or password and all controller traffic travel unencrypted. Use https (with UNIFI_TLS_FINGERPRINT) unless the connection is on a trusted network."
+}
+
 // InsecureTLSWarning is the startup warning for an https controller whose certificate is
 // neither verified nor pinned, so anyone on the path could impersonate it and capture credentials.
 func InsecureTLSWarning(u Unifi) string {
@@ -352,4 +394,35 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// HealthcheckURL is the /health URL the healthcheck command checks, or "" in
+// stdio mode. It connects to MCP_HTTP_HOST when that is a specific address, and
+// to the loopback address when the server listens on every interface.
+func HealthcheckURL(env Env) (string, error) {
+	transport, err := read(env, "MCP_TRANSPORT")
+	if err != nil {
+		return "", err
+	}
+	if transport == "stdio" {
+		return "", nil
+	}
+	host, err := read(env, "MCP_HTTP_HOST")
+	if err != nil {
+		return "", err
+	}
+	switch host {
+	case "", "0.0.0.0", "::", "[::]":
+		host = "127.0.0.1"
+	}
+	host = strings.TrimSuffix(strings.TrimPrefix(host, "["), "]")
+	p, err := read(env, "MCP_HTTP_PORT")
+	if err != nil {
+		return "", err
+	}
+	port, err := positiveInt("MCP_HTTP_PORT", p, 8080)
+	if err != nil {
+		return "", err
+	}
+	return "http://" + net.JoinHostPort(host, strconv.Itoa(port)) + "/health", nil
 }

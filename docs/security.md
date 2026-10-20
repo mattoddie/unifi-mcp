@@ -22,12 +22,12 @@ The best defence against both is to limit what's possible, not to rely on the mo
 |---|---|---|
 | UniFi account permissions | Choice of account or API key | The hard limit. A *View Only* local admin can't change anything, whatever unifi-mcp is configured to allow. |
 | Write switch | `UNIFI_ALLOW_WRITES` (off by default) | When off, no write tools are registered and the raw API tool only allows `GET`. |
-| Delete switch | `UNIFI_ALLOW_DELETES` (off by default) | When off, no delete tools are registered (this includes forgetting clients and revoking vouchers). The raw API tool refuses `DELETE`, and also refuses requests whose JSON `cmd` or path mentions delete, forget, revoke, remove, destroy or reset, such as `{"cmd": "delete-site"}`. |
+| Delete switch | `UNIFI_ALLOW_DELETES` (off by default) | When off, no delete tools are registered (this includes forgetting clients and revoking vouchers). The raw API tool refuses `DELETE`, and also refuses requests whose JSON `cmd` or (percent-decoded) path mentions delete, forget, revoke, remove, destroy, reset, set-default, factory, clear, purge, erase, wipe or `del-`, such as `{"cmd": "delete-site"}` or `{"cmd": "set-default"}` (a factory reset). Commands for the classic `cmd/<manager>` endpoints (`stamgr`, `devmgr`, `sitemgr`, `evtmgr`, `hotspot`, `backup`, `productinfo`, `firmware`) must also be on a list of commands known not to delete anything. Paths that percent-encode letters, digits, `-`, `_` or `~` are refused for every request, so an encoded word can't slip past the check. |
 | Toolsets | `UNIFI_TOOLSETS` | Tools outside the listed toolsets don't exist. The model can't see or call them. |
 | Tool annotations | Built in | Each tool is marked read-only or destructive, so MCP clients can ask for your confirmation before running destructive tools. |
 | Secret redaction | Built in | Passphrases, keys and other `x_*` secret fields, plus fields named like secrets (`password`, `passphrase`, `psk`, `community`, `*secret*`, `*token*`, `private_key`, `*_key`, `configuration_file` and similar), are `[redacted]` in output unless a call asks for `include_secrets`. |
-| Endpoint auth | `MCP_AUTH_TOKEN` | Bearer token required on every request, and required to start in HTTP mode at all (unless you set `MCP_ALLOW_UNAUTHENTICATED=true`). Checked in constant time. Run outside Docker, the server only listens on `127.0.0.1` by default. |
-| Host allow-list | `MCP_ALLOWED_HOSTS` | Rejects requests with an unexpected `Host` header, or with an `Origin` header for another host. This blocks DNS-rebinding and cross-site attacks from browser pages. |
+| Endpoint auth | `MCP_AUTH_TOKEN` | Bearer token required on every request, and required to start in HTTP mode at all (unless you set `MCP_ALLOW_UNAUTHENTICATED=true`). Tokens shorter than 16 characters are refused. Checked in constant time. Run outside Docker, the server only listens on `127.0.0.1` by default. |
+| Host allow-list | `MCP_ALLOWED_HOSTS` | Rejects requests with an unexpected `Host` header, or with an `Origin` header for another host. This blocks DNS-rebinding and cross-site attacks from browser pages. Required when running with `MCP_ALLOW_UNAUTHENTICATED=true`. |
 | Path checks | Built in | API paths with `.` or `..` segments (also percent-encoded, like `%2e%2e`), backslashes or control characters are refused, so no request can leave the Network application. |
 | Container | Built in | Runs as a non-root user. Compatible with a read-only root filesystem and `cap_drop: [ALL]`. |
 
@@ -37,7 +37,7 @@ UniFi API keys carry the full permissions of the admin who created them, and the
 
 ### About TLS to the controller
 
-`UNIFI_VERIFY_SSL` defaults to `false` because UniFi consoles ship with self-signed certificates. Without anything else, though, anyone who can intercept traffic between unifi-mcp and the controller could impersonate it and capture your API key or password. The server logs a warning at startup in this case. Pick one of these instead:
+UniFi consoles ship with self-signed certificates, which normal verification rejects. Skipping the check, though, lets anyone who can intercept traffic between unifi-mcp and the controller impersonate it and capture your API key or password. So for an `https` controller the server refuses to start until you pick one of these:
 
 - **Pin the certificate (recommended for self-signed consoles).** Get its SHA-256 fingerprint and set `UNIFI_TLS_FINGERPRINT`:
 
@@ -49,7 +49,9 @@ UniFi API keys carry the full permissions of the admin who created them, and the
   You can also read it from your browser's certificate viewer. Only that exact certificate is accepted. When the console renews or regenerates its certificate (for example after a factory reset), connections fail with `TLS certificate fingerprint mismatch`, and the message shows the new fingerprint. Check it's genuine, then update the variable. You can list the old and new fingerprints, comma-separated, during a planned change.
 - **Trust a private CA.** If the controller's certificate comes from your own CA, set `UNIFI_CA_FILE` to the CA certificate (PEM). The certificate's name has to match `UNIFI_URL`.
 - **Use a publicly trusted certificate** on the controller and set `UNIFI_VERIFY_SSL=true`.
+- **Skip the check** with an explicit `UNIFI_VERIFY_SSL=false`. Only do this on a network you trust; the server logs a warning at startup. (Older versions did this by default.)
 
+A plain `http://` `UNIFI_URL` is allowed, for example for a controller reached over a trusted LAN or a tunnel, but the credentials and all traffic are unencrypted, and the server logs a warning. `UNIFI_URL` may not contain a username or password.
 ## Recommended setups
 
 **Monitoring only** (lowest risk):

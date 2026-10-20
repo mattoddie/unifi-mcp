@@ -150,8 +150,8 @@ func registerClients(c *Context) {
 		c.add(d)
 	}
 	staCmd("unifi_block_client", "Block client", "Block a client from connecting to the network.", true, "block-sta", "blocked")
-	staCmd("unifi_unblock_client", "Unblock client", "Unblock a previously blocked client.", false, "unblock-sta", "unblocked")
-	staCmd("unifi_reconnect_client", "Reconnect (kick) client", "Disconnect a wireless client so it reconnects (useful to force a roam or re-authentication).", false, "kick-sta", "reconnected")
+	staCmd("unifi_unblock_client", "Unblock client", "Unblock a previously blocked client.", true, "unblock-sta", "unblocked")
+	staCmd("unifi_reconnect_client", "Reconnect (kick) client", "Disconnect a wireless client so it reconnects (useful to force a roam or re-authentication).", true, "kick-sta", "reconnected")
 
 	c.add(Def{
 		Toolset: "clients", Name: "unifi_forget_clients", Title: "Forget clients",
@@ -172,6 +172,7 @@ func registerClients(c *Context) {
 
 	c.add(Def{
 		Toolset: "clients", Name: "unifi_update_client", Title: "Update client settings",
+		Destructive: boolPtr(true),
 		Description: "Set a known client's alias (name) and note, or assign/clear a fixed IP (DHCP reservation). Only the fields given are changed.",
 		Gate:        Write,
 		Input: props(
@@ -216,7 +217,11 @@ func registerClients(c *Context) {
 			if patch.Len() == 0 {
 				return nil, errorf("Nothing to update: pass name, note, fixed_ip or clear_fixed_ip")
 			}
-			res, err := client.SitePut(ctx, s, "rest/user/"+ojson.String(record.Get("_id")), patch)
+			idPath, err := restPath("user", record.Get("_id"))
+			if err != nil {
+				return nil, err
+			}
+			res, err := client.SitePut(ctx, s, idPath, patch)
 			if err != nil {
 				return nil, err
 			}
