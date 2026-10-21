@@ -161,6 +161,7 @@ jobs:
         run: |
           for f in dist/*.mcpb; do
             dir=".build/unpacked/$(basename "$f" .mcpb)"
+            mkdir -p "$dir"
             unzip -q "$f" -d "$dir"
             npx -y @anthropic-ai/mcpb@2.1.2 validate "$dir/manifest.json"
             test "$(jq -r .version "$dir/manifest.json")" = "${TAG#v}"
