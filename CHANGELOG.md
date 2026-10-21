@@ -24,6 +24,7 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - `unifi_set_switch_port` configures port mirroring (`mirror_port_idx`) and link aggregation (`aggregate_ports`). Other ports' overrides are kept, except those of the new group's other members, which the controller manages. `op_mode: switch` turns either off and clears their settings.
 - `unifi_update_client` locks a wireless client to an access point (`fixed_ap_mac`) or unlocks it (`clear_fixed_ap`). Client summaries show `locked_to_ap`.
 - The `security_review` and `troubleshoot_client` prompts look at the new rules and flows.
+- **Claude Desktop extension bundles.** Each release now has a one-click `.mcpb` bundle for macOS (Apple silicon and Intel), Windows (x64 and Arm) and Linux (amd64 and arm64). Open it in Claude Desktop and fill in the settings form: no Docker, service or token needed. The form covers the controller, certificate checks, writes and deletes, toolsets, the tool mode (lazy by default) and the audit log. See `docs/clients.md`. `make mcpb` builds them locally.
 
 ### Changed
 
@@ -33,6 +34,7 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - When `search` is given, `unifi_list_events` and `unifi_list_threats` ask the controller for up to 3000 entries and then apply `limit`, so a search isn't limited to the newest `limit` entries.
 - `unifi_get_speedtest_results` lists the newest results first.
 - The output-size note now suggests `search` and `fields` too.
+- A configuration variable set to exactly `${user_config.<key>}` is treated as unset, like an empty one. Claude Desktop passes an extension setting that was left empty through like that.
 
 ### Fixed
 

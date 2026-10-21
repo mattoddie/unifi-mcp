@@ -45,11 +45,11 @@ See [docs/development.md](docs/development.md) for the architecture, the mock co
    ```sh
    make lint            # gofmt and go vet
    make test            # tests (CI also runs them with -race)
-   make docs-check      # docs/tools.md matches the code
+   make docs-check      # docs/tools.md and mcpb/manifest.json match the code
    docker build .       # optional: the image builds and the tests pass inside it
    ```
 
-4. **Update the docs.** If you changed tools, run `make docs`. Update `README.md` or `docs/` if behaviour changed, and add a line under **Unreleased** in [CHANGELOG.md](CHANGELOG.md) for anything users will notice.
+4. **Update the docs.** If you changed tools or prompts, run `make docs`. Update `README.md` or `docs/` if behaviour changed, and add a line under **Unreleased** in [CHANGELOG.md](CHANGELOG.md) for anything users will notice.
 5. **Open a pull request** against `main` with a [Conventional Commits](#commit-messages) title, and fill in the template.
 
 ## Pull request guidelines

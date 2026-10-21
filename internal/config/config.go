@@ -118,18 +118,34 @@ func MapEnv(m map[string]string) Env {
 	return func(k string) (string, bool) { v, ok := m[k]; return v, ok }
 }
 
-// read returns a trimmed variable (empty when unset or blank), honouring the
-// <NAME>_FILE convention so secrets can be supplied as Docker secrets.
+// placeholder matches a ${user_config.<key>} reference that an MCP Bundle host
+// such as Claude Desktop passed through unchanged because the user left an
+// optional setting empty. It means "not set", not a value.
+var placeholder = regexp.MustCompile(`^\$\{user_config\.[^}]*\}$`)
+
+// lookup returns a trimmed variable, or "" when it is unset, blank or an
+// unsubstituted bundle placeholder.
+func lookup(env Env, name string) string {
+	v, _ := env(name)
+	v = strings.TrimSpace(v)
+	if placeholder.MatchString(v) {
+		return ""
+	}
+	return v
+}
+
+// read returns a trimmed variable (empty when unset, blank or an unfilled
+// bundle placeholder), honouring the <NAME>_FILE convention so secrets can be
+// supplied as Docker secrets.
 func read(env Env, name string) (string, error) {
-	if file, ok := env(name + "_FILE"); ok && file != "" {
+	if file := lookup(env, name+"_FILE"); file != "" {
 		b, err := os.ReadFile(file)
 		if err != nil {
 			return "", fmt.Errorf("Could not read %s_FILE (%s): %s", name, file, errorMessage(err))
 		}
 		return strings.TrimSpace(string(b)), nil
 	}
-	v, _ := env(name)
-	return strings.TrimSpace(v), nil
+	return lookup(env, name), nil
 }
 
 // errorMessage describes a file error the way Node does (ENOENT: no such file or directory, open '...').

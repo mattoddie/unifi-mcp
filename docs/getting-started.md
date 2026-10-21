@@ -16,6 +16,9 @@ This guide takes you from nothing to asking your first question about your netwo
 - **A machine that runs Docker** and can reach the controller over the network. This could be a NAS, a home server, a Raspberry Pi 4/5 or your laptop. The image supports both `amd64` and `arm64`.
 - **An MCP client**, such as [Claude Code](https://claude.com/claude-code), Claude Desktop, VS Code, Cursor or Codex.
 
+> [!TIP]
+> **Using Claude Desktop on a Mac or Windows PC?** You don't need Docker. Do steps 1 and 2, then install the [extension bundle](clients.md#claude-desktop) from the releases page and enter the URL and credentials in its settings, instead of steps 3 and 4.
+
 ## 1. Find your controller URL
 
 This is the address you use to open the UniFi web interface, without any path:

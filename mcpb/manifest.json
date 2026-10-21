@@ -1,0 +1,202 @@
+{
+  "manifest_version": "0.3",
+  "name": "unifi-mcp",
+  "display_name": "UniFi Network (unifi-mcp)",
+  "version": "0.0.0-dev",
+  "description": "Monitor and manage your Ubiquiti UniFi Network: sites, devices, clients, WiFi, firewall and more.",
+  "long_description": "An open-source MCP server for Ubiquiti **UniFi Network**. Ask about your network in plain English: health checks, weak WiFi clients, firmware updates, firewall and port-forward reviews. If you allow it, Claude can also make changes.\n\n- **Read-only by default.** Changes need *Allow changes*, and deleting configuration needs *Allow deletes* as well. Destructive tools are labelled so Claude asks before running them, and passwords and keys are redacted from output.\n- **Works with your controller.** UniFi OS consoles (UDM, UCG, UDR, UX, Cloud Key Gen2+, UniFi OS Server) and legacy self-hosted Network applications, with an API key or a local account.\n- **Pin the certificate.** Consoles use a self-signed certificate: set the *TLS certificate fingerprint* so nobody on the network can impersonate the controller.\n\nunifi-mcp is an independent community project, not affiliated with or endorsed by Ubiquiti Inc.",
+  "author": {
+    "name": "Matt Oddie",
+    "url": "https://github.com/mattoddie"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mattoddie/unifi-mcp"
+  },
+  "homepage": "https://unifi-mcp.mattoddie.dev",
+  "documentation": "https://unifi-mcp.mattoddie.dev/docs/clients/#claude-desktop",
+  "support": "https://github.com/mattoddie/unifi-mcp/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "binary",
+    "entry_point": "server/unifi-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/server/unifi-mcp",
+      "args": [],
+      "env": {
+        "MCP_TRANSPORT": "stdio",
+        "UNIFI_URL": "${user_config.url}",
+        "UNIFI_API_KEY": "${user_config.api_key}",
+        "UNIFI_USERNAME": "${user_config.username}",
+        "UNIFI_PASSWORD": "${user_config.password}",
+        "UNIFI_TLS_FINGERPRINT": "${user_config.tls_fingerprint}",
+        "UNIFI_VERIFY_SSL": "${user_config.verify_ssl}",
+        "UNIFI_CA_FILE": "${user_config.ca_file}",
+        "UNIFI_SITE": "${user_config.site}",
+        "UNIFI_ALLOW_WRITES": "${user_config.allow_writes}",
+        "UNIFI_ALLOW_DELETES": "${user_config.allow_deletes}",
+        "UNIFI_TOOLSETS": "${user_config.toolsets}",
+        "UNIFI_TOOL_MODE": "${user_config.tool_mode}",
+        "UNIFI_AUDIT_LOG": "${user_config.audit_log}"
+      },
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}/server/unifi-mcp.exe"
+        }
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "unifi_call_tool",
+      "description": "Run a read-only UniFi tool found with unifi_search_tools, e.g. {\"name\":\"unifi_list_devices\",\"arguments\":{\"type\":\"switch\"}}. Get its input schema with unifi_search_tools names first unless you already know it. Tools that change state are disabled (UNIFI_ALLOW_WRITES=false)."
+    },
+    {
+      "name": "unifi_search_tools",
+      "description": "Find UniFi Network tools (59 available) and their arguments. Call with: query and/or toolset to list matching tools; names to get each tool's description and input schema before calling it with unifi_call_tool; nothing to list the toolsets."
+    }
+  ],
+  "tools_generated": true,
+  "prompts": [
+    {
+      "name": "network_health_check",
+      "description": "Overall health review of a UniFi site: WAN, devices, clients, alarms and recent problems.",
+      "arguments": [
+        "site"
+      ],
+      "text": "Do a health check of my UniFi network.\n1. unifi_get_site_health: status of WAN/LAN/WLAN/VPN, ISP, latency, throughput.\n2. unifi_list_devices: anything not \"connected\", high CPU/memory, firmware upgrades available, recent reboots (short uptime).\n3. unifi_list_alarms and unifi_list_events (last 24h): recurring or serious issues.\n4. unifi_list_clients (connection: wireless): clients with weak signal (below -70 dBm) or low satisfaction.\n5. unifi_get_speedtest_results if available.\nReport: a one-line verdict, then problems ordered by severity, each with evidence and a suggested fix. Keep healthy areas to one line each. Don't change anything.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+    },
+    {
+      "name": "troubleshoot_client",
+      "description": "Investigate why a specific client (by MAC, name or IP) has connectivity problems.",
+      "arguments": [
+        "client",
+        "site"
+      ],
+      "text": "Troubleshoot connectivity for the client \"${arguments.client}\" on my UniFi network.\n1. Find it: unifi_list_clients (search) if online, otherwise unifi_list_known_clients; then unifi_get_client by MAC.\n2. Check: online state, IP and network/VLAN, fixed IP, blocked/guest status, signal/satisfaction/rates (wireless) or switch port (wired).\n3. The AP or switch it uses: unifi_get_device (port errors/speed, radio channel utilisation, uptime).\n4. History: unifi_list_client_sessions for this MAC (frequent reconnects?), unifi_list_events.\n5. If relevant: unifi_list_firewall_rules / unifi_list_traffic_rules / unifi_list_qos_rules / unifi_list_oon_policies / unifi_list_content_filters for rules affecting it, and unifi_list_traffic_flows (client_mac, action: blocked) for traffic being blocked.\nReport the most likely cause(s) with evidence and concrete next steps. Ask before making any change.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+    },
+    {
+      "name": "security_review",
+      "description": "Review the site's security posture: threat management, firewall, port forwards, WiFi security and admins.",
+      "arguments": [
+        "site"
+      ],
+      "text": "Review the security of my UniFi network.\nCheck:\n- unifi_get_security_settings: is IDS/IPS on, in which mode, on which networks; country blocking.\n- unifi_list_threats (last 7 days, hours: 168): notable signatures, repeat offenders, internal hosts involved.\n- unifi_list_port_forwards: exposed services, forwards open to any source.\n- unifi_list_firewall_rules and unifi_list_firewall_policies: overly broad allow rules, missing inter-VLAN isolation.\n- unifi_list_nat_rules: DNAT rules that expose internal hosts; unifi_list_acl_rules: switch-level isolation inside networks.\n- unifi_list_wlans: open or WPA2-only networks where WPA3 is possible, guest networks without isolation.\n- unifi_list_networks: guest/IoT segmentation.\n- unifi_list_admins: number of admins and roles.\n- unifi_get_system_log (class: admin-activity): recent logins and changes.\nReport findings as High / Medium / Low with the reason and a specific remediation. Don't change anything.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+    },
+    {
+      "name": "firmware_review",
+      "description": "List devices and the controller with available updates and propose a safe upgrade order.",
+      "arguments": [
+        "site"
+      ],
+      "text": "Review firmware on my UniFi network.\n1. unifi_check_updates: controller version and devices with upgrades.\n2. unifi_list_devices: model, current firmware, uptime and client count for each device needing an update.\nPropose an upgrade plan that minimises disruption: access points first (one at a time where they overlap), then switches from the edge inwards, gateway last; note which upgrades will drop clients. Don't start any upgrade unless I confirm.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+    },
+    {
+      "name": "wifi_optimization",
+      "description": "Analyse WiFi channels, utilisation, interference and client experience and suggest improvements.",
+      "arguments": [
+        "site"
+      ],
+      "text": "Analyse and suggest improvements for the WiFi on my UniFi network.\n1. unifi_list_devices (type: access_point), then unifi_get_device for each AP: channel, width, transmit power, channel utilisation, satisfaction, client count per radio.\n2. unifi_list_rogue_aps: strongest neighbouring networks per channel.\n3. unifi_list_clients (connection: wireless): weak-signal and low-rate clients, clients stuck on 2.4 GHz.\n4. unifi_list_wlans: number of SSIDs, bands, minimum data rates.\nRecommend specific changes (channel plan, widths, power levels, SSID consolidation, band steering) with the reason for each, ordered by expected impact. Don't apply changes unless I confirm.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+    }
+  ],
+  "keywords": [
+    "unifi",
+    "ubiquiti",
+    "network",
+    "wifi",
+    "firewall",
+    "homelab",
+    "udm"
+  ],
+  "license": "MIT",
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ]
+  },
+  "user_config": {
+    "url": {
+      "type": "string",
+      "title": "Controller URL",
+      "description": "Address of your UniFi console, e.g. https://192.168.1.1. For a legacy self-hosted Network application, include the port, e.g. https://192.168.1.10:8443.",
+      "required": true
+    },
+    "api_key": {
+      "type": "string",
+      "title": "API key",
+      "description": "Recommended on UniFi OS consoles. Create one in UniFi Network → Settings → Control Plane → Integrations. Leave empty to use a username and password instead.",
+      "sensitive": true,
+      "default": ""
+    },
+    "username": {
+      "type": "string",
+      "title": "Username",
+      "description": "A local (not Ubiquiti cloud) account, used instead of an API key. Required for legacy controllers.",
+      "default": ""
+    },
+    "password": {
+      "type": "string",
+      "title": "Password",
+      "description": "The local account's password, used with the username.",
+      "sensitive": true,
+      "default": ""
+    },
+    "tls_fingerprint": {
+      "type": "string",
+      "title": "TLS certificate fingerprint",
+      "description": "Recommended for an https controller with a self-signed certificate: its SHA-256 fingerprint (AA:BB:…), so nobody on the network can impersonate it. See the security docs for how to get it.",
+      "default": ""
+    },
+    "verify_ssl": {
+      "type": "string",
+      "title": "Verify certificate (true/false)",
+      "description": "Leave empty when you set a fingerprint or CA file. true: the controller has a publicly trusted certificate. false: skip the check (insecure: anyone on the network path could capture your credentials).",
+      "default": ""
+    },
+    "ca_file": {
+      "type": "file",
+      "title": "CA certificate file",
+      "description": "Optional PEM file with the CA that signed the controller's certificate, instead of a fingerprint.",
+      "default": ""
+    },
+    "site": {
+      "type": "string",
+      "title": "Site",
+      "description": "The site's short name (from the URL, e.g. default), used when a request doesn't name a site.",
+      "default": "default"
+    },
+    "allow_writes": {
+      "type": "boolean",
+      "title": "Allow changes",
+      "description": "Let Claude change your network: restart devices, block clients, edit WiFi, firewall and networks. Off means read-only.",
+      "default": false
+    },
+    "allow_deletes": {
+      "type": "boolean",
+      "title": "Allow deletes",
+      "description": "Also let Claude delete configuration and forget clients. Needs Allow changes.",
+      "default": false
+    },
+    "toolsets": {
+      "type": "string",
+      "title": "Toolsets",
+      "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients,wifi,monitoring. Empty means all.",
+      "default": ""
+    },
+    "tool_mode": {
+      "type": "string",
+      "title": "Tool mode (lazy/full)",
+      "description": "Leave empty for lazy, the default: Claude sees three small tools that search for and run the others, which keeps the tool list under 3 KB and leaves more room for your conversation. Changes go through one tool that Claude asks you about every time. full: list every tool directly (about 48 KB read-only, 174 KB with changes allowed), which lets you allow or block each tool separately in Claude Desktop.",
+      "default": ""
+    },
+    "audit_log": {
+      "type": "string",
+      "title": "Audit log file",
+      "description": "Optional full path to a file, e.g. /Users/you/unifi-mcp-audit.jsonl, where every change Claude makes or previews is appended as a JSON line. The file is created if it doesn't exist; its folder must exist. stderr writes the lines to Claude Desktop's MCP log instead. Off when left empty.",
+      "default": ""
+    }
+  }
+}

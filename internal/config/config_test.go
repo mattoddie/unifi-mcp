@@ -160,6 +160,53 @@ func TestFileSecrets(t *testing.T) {
 	}
 }
 
+// An MCP Bundle host sets every variable in the manifest: optional settings the
+// user left empty arrive as "" (the manifest's default) or, in some Claude
+// Desktop versions, as the literal ${user_config.<key>}. Both mean unset.
+func TestBundleUnsetValues(t *testing.T) {
+	fp := strings.TrimSuffix(strings.Repeat("AB:", 32), ":")
+	for _, unset := range []func(key string) string{
+		func(string) string { return "" },
+		func(key string) string { return "${user_config." + key + "}" },
+	} {
+		env := map[string]string{
+			"UNIFI_URL":             "https://10.0.0.1",
+			"UNIFI_API_KEY":         "k",
+			"UNIFI_USERNAME":        unset("username"),
+			"UNIFI_PASSWORD":        unset("password"),
+			"UNIFI_SITE":            unset("site"),
+			"UNIFI_TLS_FINGERPRINT": fp,
+			"UNIFI_VERIFY_SSL":      unset("verify_ssl"),
+			"UNIFI_CA_FILE":         unset("ca_file"),
+			"UNIFI_ALLOW_WRITES":    "false",
+			"UNIFI_ALLOW_DELETES":   "false",
+			"UNIFI_TOOLSETS":        unset("toolsets"),
+		}
+		cfg := mustLoad(t, env)
+		u := cfg.Unifi
+		if u.Site != "default" || u.VerifySSL || u.CAFile != "" || u.Username != "" || u.Password != "" || len(u.TLSFingerprints) != 1 {
+			t.Errorf("%q: unifi: %+v", env["UNIFI_SITE"], u)
+		}
+		if cfg.Tools.AllowWrites || cfg.Tools.AllowDeletes || len(cfg.Tools.Toolsets) != len(Toolsets) {
+			t.Errorf("%q: tools: %+v", env["UNIFI_SITE"], cfg.Tools)
+		}
+		// With nothing to check the certificate, an https controller is still refused.
+		env["UNIFI_TLS_FINGERPRINT"] = unset("tls_fingerprint")
+		if _, err := load(t, env); err == nil || err.Error() != TLSChoiceRequired {
+			t.Errorf("%q: no TLS choice: %v", env["UNIFI_TLS_FINGERPRINT"], err)
+		}
+		// Username and password stand in for an unset API key.
+		env["UNIFI_TLS_FINGERPRINT"], env["UNIFI_API_KEY"], env["UNIFI_USERNAME"], env["UNIFI_PASSWORD"] = fp, unset("api_key"), "u", "p"
+		if cfg := mustLoad(t, env); cfg.Unifi.APIKey != "" || cfg.Unifi.Username != "u" {
+			t.Errorf("%q: password auth: %+v", env["UNIFI_API_KEY"], cfg.Unifi)
+		}
+	}
+	// Only a whole placeholder is treated as unset.
+	if cfg := mustLoad(t, base, "UNIFI_SITE", "x${user_config.site}"); cfg.Unifi.Site != "x${user_config.site}" {
+		t.Errorf("partial placeholder: %q", cfg.Unifi.Site)
+	}
+}
+
 func TestTLSSettings(t *testing.T) {
 	fp := strings.TrimSuffix(strings.Repeat("AB:", 32), ":")
 	for _, in := range []string{fp, strings.ToLower(strings.ReplaceAll(fp, ":", "")), "sha256:" + fp, "SHA-256=" + strings.ReplaceAll(fp, ":", "-")} {

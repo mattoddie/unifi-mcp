@@ -35,7 +35,7 @@ Ask about your network in plain English. The assistant picks from **145 tools** 
 
 ## Highlights
 
-- **🐳 Docker-first.** There's one small distroless image (`ghcr.io/mattoddie/unifi-mcp`, about 22 MB) for `linux/amd64` and `linux/arm64`. It serves Streamable HTTP for a long-running service, or stdio for `docker run -i`.
+- **🐳 Docker-first.** There's one small distroless image (`ghcr.io/mattoddie/unifi-mcp`, about 22 MB) for `linux/amd64` and `linux/arm64`. It serves Streamable HTTP for a long-running service, or stdio for `docker run -i`. For Claude Desktop there's also a one-click extension bundle (`.mcpb`) that needs no Docker.
 - **🛡️ Safe by default.** The server is read-only unless you turn on writes, and deleting configuration needs a second switch. Destructive tools are labelled so your MCP client asks before running them, and passwords and keys are redacted from output.
 - **🔍 Preview and audit.** Every write tool takes `dry_run: true` to show the request it would send, with a field-level diff of what would change, without changing anything. `UNIFI_AUDIT_LOG` records each change in a JSON Lines audit log.
 - **🧰 Broad coverage.** It covers 14 toolsets: devices, clients, switch ports and PoE, WiFi, networks and VLANs, WAN, DNS, legacy and zone-based firewall, traffic rules and routes, IDS/IPS, VPN, RADIUS, hotspot vouchers, statistics, logs, admins and backups.
@@ -73,6 +73,10 @@ claude mcp add --transport http unifi http://<docker-host>:8080/mcp \
 Now ask *"How's my network doing?"* in Claude Code.
 
 Using **Claude Desktop, VS Code, Cursor or Codex**? See [Connecting MCP clients](docs/clients.md). Prefer not to run a service? Use [stdio mode](docs/clients.md#stdio-mode) with `docker run -i`.
+
+### Claude Desktop in one click
+
+On a Mac or Windows PC with Claude Desktop, you don't need Docker at all. Download the `.mcpb` bundle for your computer from the [latest release](https://github.com/mattoddie/unifi-mcp/releases/latest), open it, and enter your controller URL, API key and certificate fingerprint in the settings. See [Claude Desktop](docs/clients.md#claude-desktop).
 
 ## Turning on changes
 

@@ -7,6 +7,8 @@ unifi-mcp supports both standard MCP transports:
 | **Streamable HTTP** (the default in the image) | One long-running container. Clients connect to `http://<host>:8080/mcp`. | Most setups. One server can be shared by several clients and machines. |
 | **stdio** | The client starts a fresh container for each session with `docker run -i`. | A single machine, no network service, or clients that only support stdio. |
 
+On **Claude Desktop** you can skip Docker altogether: install the [extension bundle](#claude-desktop), which runs the server for you over stdio.
+
 The HTTP endpoint is **stateless**: each request is handled on its own, so you can restart the container at any time. Every request must send `Authorization: Bearer <token>` with your `MCP_AUTH_TOKEN`, which the HTTP transport requires.
 
 In the examples below, replace `<docker-host>` with the machine running the container and `<token>` with your `MCP_AUTH_TOKEN`.
@@ -48,7 +50,62 @@ Claude Code already defers large MCP tool lists behind its own tool search, so y
 
 ## Claude Desktop
 
-Claude Desktop starts local MCP servers over stdio, so use [stdio mode](#stdio-mode). Open **Settings → Developer → Edit Config** and add:
+The easiest way is the **extension bundle**: a single `.mcpb` file that installs unifi-mcp into Claude Desktop with a settings form. It needs no Docker, no service and no token, because Claude Desktop runs the server itself over stdio.
+
+### Install the extension
+
+1. Open the [latest release](https://github.com/mattoddie/unifi-mcp/releases/latest) and download the bundle for your computer:
+
+   | Computer | Bundle |
+   |---|---|
+   | Mac with Apple silicon (M1 and later) | `unifi-mcp-<version>-darwin-arm64.mcpb` |
+   | Mac with an Intel processor | `unifi-mcp-<version>-darwin-amd64.mcpb` |
+   | Windows on x64 (most PCs) | `unifi-mcp-<version>-windows-amd64.mcpb` |
+   | Windows on Arm | `unifi-mcp-<version>-windows-arm64.mcpb` |
+
+   There are Linux bundles too (`linux-amd64`, `linux-arm64`) for other clients that install MCP Bundles.
+
+2. Double-click the file, or drag it onto **Settings → Extensions** in Claude Desktop, and click **Install**.
+3. Fill in the settings and turn the extension on. The tools appear under the tools (🔨) menu, and the prompts under the **+** menu. In the default lazy mode the menu shows the three meta-tools (two until you allow changes) rather than every tool.
+
+To update, install the bundle from a newer release the same way.
+
+### Settings
+
+| Setting | Variable | What to enter |
+|---|---|---|
+| **Controller URL** (required) | `UNIFI_URL` | The console's local address, such as `https://192.168.1.1`. See [Getting started](getting-started.md#1-find-your-controller-url). |
+| **API key** | `UNIFI_API_KEY` | An API key from **UniFi Network → Settings → Control Plane → Integrations**. Recommended on UniFi OS consoles. |
+| **Username**, **Password** | `UNIFI_USERNAME`, `UNIFI_PASSWORD` | A local account, instead of an API key. Needed for legacy controllers. |
+| **TLS certificate fingerprint** | `UNIFI_TLS_FINGERPRINT` | **Recommended.** The SHA-256 fingerprint of the console's certificate, so nobody on the network can impersonate it. |
+| **Verify certificate (true/false)** | `UNIFI_VERIFY_SSL` | Leave empty when you set a fingerprint. `true` for a publicly trusted certificate, `false` to skip the check (not recommended). |
+| **CA certificate file** | `UNIFI_CA_FILE` | A PEM file with the CA that signed the controller's certificate, instead of a fingerprint. |
+| **Site** | `UNIFI_SITE` | The site used when a request doesn't name one. Usually `default`. |
+| **Allow changes** | `UNIFI_ALLOW_WRITES` | Off by default, which keeps the assistant read-only. Read [Security](security.md) before turning it on. |
+| **Allow deletes** | `UNIFI_ALLOW_DELETES` | Also allows deleting configuration and forgetting clients. Needs **Allow changes**. |
+| **Toolsets** | `UNIFI_TOOLSETS` | Optional, such as `overview,devices,clients,wifi,monitoring`. Empty means all. See [Configuration](configuration.md#choosing-toolsets). |
+| **Tool mode** | `UNIFI_TOOL_MODE` | Optional. Empty means `lazy`: Claude sees three small tools that search for and run the others, and asks you before every change. `full` lists every tool, so you can allow or block each one separately in Claude Desktop, at the cost of 48–174 KB of the model's context. See [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading). |
+| **Audit log file** | `UNIFI_AUDIT_LOG` | Optional full path to a file, such as `/Users/you/unifi-mcp-audit.jsonl`, that records every change Claude makes or previews. The folder must exist; the file is created. `stderr` writes the entries to the extension's log instead. Off when empty. See [Audit log](configuration.md#audit-log). |
+
+Fill in either the API key or the username and password. Settings you leave empty use their defaults, as described in [Configuration](configuration.md).
+
+For an `https` controller, the server won't start until you say how to check its certificate. Most consoles use a self-signed certificate, so **set the TLS certificate fingerprint**. Get it with:
+
+```sh
+openssl s_client -connect 192.168.1.1:443 </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256
+```
+
+You can also read it from your browser's certificate viewer. See [Security](security.md#about-tls-to-the-controller) for more.
+
+### If it doesn't start
+
+- **Read the error.** Claude Desktop shows that the extension failed to start. The server's log, which says what's wrong (for example a missing certificate choice or a bad fingerprint), is in `~/Library/Logs/Claude/` on macOS and `%APPDATA%\Claude\logs\` on Windows, in a file named after the extension.
+- **macOS blocks the server.** The binary in the bundle isn't notarised by Apple. If macOS says it can't check it for malicious software, open **System Settings → Privacy & Security** and click **Open Anyway** next to the message about `unifi-mcp`, then turn the extension off and on again.
+- **A password with `$` in it fails to log in.** Some Claude Desktop versions alter setting values that contain `$`. Use an API key, or a password without `$`.
+
+### Or run it with Docker
+
+If you'd rather run the container image, use [stdio mode](#stdio-mode). Open **Settings → Developer → Edit Config** and add:
 
 ```json
 {
