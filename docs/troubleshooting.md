@@ -111,7 +111,7 @@ Tools are only registered when they're allowed:
 
 - Some operations are slow by nature: backups, RF scans, large statistics reports and big client lists. Raise `UNIFI_TIMEOUT_MS`, for example to `120000`.
 - Behind a reverse proxy, raise the proxy's read timeout too.
-- Use `limit`, `search` and toolset filtering to keep responses small.
+- Use `search`, `fields`, `limit` and toolset filtering to keep responses small (see [Narrowing list results](usage.md#narrowing-list-results)).
 
 ## Still stuck?
 

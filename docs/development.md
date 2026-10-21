@@ -54,7 +54,8 @@ internal/
     ├── tools.go         # the registration framework: Def, Gate, add(), Args
     ├── guard.go         # dry_run and the audit log for tools that change things
     ├── schema.go        # input schemas (the JSON Schema clients see) and argument validation
-    ├── args.go          # shared arguments: site, mac, id, extra, search, limit, raw
+    ├── args.go          # shared arguments: site, mac, id, extra, raw
+    ├── list.go          # list tools: search, limit, fields, filters and the {total, returned, items} shape
     ├── rest.go          # CRUD helpers for classic REST, v2 and settings endpoints
     ├── server.go        # NewServer(): server instructions, registers every toolset and the prompts
     ├── prompts.go       # the built-in MCP prompts
@@ -119,13 +120,55 @@ The `Def` fields that control registration:
 Checklist for a new tool:
 
 1. Put it in the right `internal/tools/<toolset>.go`. If it needs a new toolset, add it to `Toolsets` in `internal/config` and register it in `server.go`.
-2. Use the shared arguments (`siteArg`, `idArg`, `macArg`, `searchArg`, `limitArg`, `extraArg`) so tools behave consistently.
+2. Use the shared arguments (`siteArg`, `idArg`, `macArg`, `rawArg`, `extraArg`) so tools behave consistently. List tools use a `listing` (see [Adding a list tool](#adding-a-list-tool)).
 3. For configuration objects, follow the **`save_*` convention**: no `id` creates, `id` updates only the fields passed (`restSave`/`v2Save` do this), and offer `extra` for raw fields.
 4. Read before you write, and **mark reads that `POST`**. Any request other than `GET` counts as a change: a dry run stops at the first one and returns it as the preview. For a controller endpoint that only reads but is `POST`ed (`stat/report`, `stat/event`, v2 `system-log`, `cmd/sitemgr get-admins`…), use `SitePostRead`, `V2PostRead` or `CmdRead` (or `Options.Read`). `TestDryRunEveryWriteTool` fails if a dry run stops at a read.
 5. Return a **compact summary** and offer `raw: true` for the full object. Run anything that might contain secrets through `unifi.RedactSecrets()`.
 6. Write descriptions for the model. In lazy mode `unifi_search_tools` matches keywords against the name, title and description, and shows only the description's first sentence, so make that sentence say what the tool does on its own. Then say when to use it, units, side effects (*"clients will briefly disconnect"*), and any version requirement (*"Network 9.0+"*).
 7. Add tests in `internal/tools` using the mock controller.
 8. Run `make docs` and commit the updated `docs/tools.md`. If it's a notable feature, update the README table and [CHANGELOG](../CHANGELOG.md).
+
+### Adding a list tool
+
+Every `unifi_list_*` tool returns `{total, returned, items}` and takes the same narrowing arguments: `search`, `fields` and, for lists that can grow long, `limit`. Don't write these by hand. Describe the tool's list with a `listing` (in `internal/tools/list.go`), put `listing.args()` in its `Input` and return `listing.result()`:
+
+```go
+qosList := listing{
+	Search:  []string{"name", "target_devices.client_mac"}, // dot paths; arrays are walked
+	Filters: map[string]string{"enabled": "enabled"},        // argument -> summary field
+	// Limit: 100, // only for lists that can grow long; omit for configuration lists
+}
+c.add(Def{
+	Toolset: "networks", Name: "unifi_list_qos_rules", Title: "List QoS rules",
+	Description: "List QoS rules ...",
+	Input: props(
+		siteArg(),
+		P("enabled", Bool().Opt().D("Only enabled (true) or disabled (false) rules")),
+		qosList.args(),
+		rawArg(),
+	),
+	Handler: func(ctx context.Context, a Args) (any, error) {
+		rules, err := v2List(ctx, client, c.site(a), "qos-rules")
+		if err != nil {
+			return nil, err
+		}
+		return qosList.result(a, rules, func(r *Obj) any { return summarizeQosRule(r) }, redacted), nil
+	},
+})
+```
+
+`result(a, items, summarize, raw)` does the rest, in this order:
+
+1. **Summarise** each controller object with `summarize` (pass `nil` if the items are already in their final form).
+2. **Search** (`search`): case-insensitive substring match on the `Search` paths, looked up in both the summary and the controller object, so `hostname` matches even when the summary only shows `name`. With no `Search` paths, every top-level string field of the summary is searched. Don't list secret fields.
+3. **Filter**: each argument in `Filters` that was given must equal the summary field (case-insensitively for strings; `false` also matches a missing field, since summaries drop false flags). Declare the filter argument yourself, and add one only when the controller data supports it reliably. Tool-specific filtering, like the device `type` mapping, can still happen on the controller objects before `result`.
+4. **Limit**: `total` counts the matches, then `limit` (if the listing has one) cuts the list.
+5. **Raw**: with `raw: true`, return `raw(object)` instead of the summary. Pass `asIs`, `redacted` or `rawWithSecrets(a)`, or `nil` if the tool has no `raw` argument.
+6. **Fields** (`fields`): keep only the requested dot paths in each item. If no item has any of them, a `hint` lists the fields of the first item.
+
+Extra top-level keys go next to the list: `ojson.New("switch", …).Assign(list.result(…))`. For endpoints that apply a limit themselves (like `stat/event`'s `_limit`), send `listing.fetch(a)`, which asks for more when search or filters will drop items afterwards.
+
+The list arguments have no per-tool descriptions on purpose: they appear on about 40 tools, and descriptions would add kilobytes to every `tools/list`. The server instructions explain them once, and `make docs` fills in their descriptions in `docs/tools.md`.
 
 ## Tool design guidelines
 

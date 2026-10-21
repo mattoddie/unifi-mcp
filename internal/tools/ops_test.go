@@ -93,7 +93,7 @@ func TestCountryBlocking(t *testing.T) {
 
 func TestThreats(t *testing.T) {
 	env := opsEnv(t)
-	res := env.call("unifi_list_threats", `{"hours":1}`)
+	res := env.list("unifi_list_threats", `{"hours":1}`)
 	eq(t, "newest first", get(res, 0, "signature"), "ET MALWARE")
 	eq(t, "action", get(res, 1, "action"), "blocked")
 	eq(t, "time", get(res, 1, "time"), "2023-11-14T22:13:20.000Z")
@@ -105,7 +105,7 @@ func TestThreats(t *testing.T) {
 
 func TestContentFilters(t *testing.T) {
 	env := opsEnv(t)
-	eq(t, "name", get(env.call("unifi_list_content_filters", nil), 0, "name"), "Kids")
+	eq(t, "name", get(env.list("unifi_list_content_filters", nil), 0, "name"), "Kids")
 	env.call("unifi_save_content_filter", `{"id":"cf1","enabled":false}`)
 	eq(t, "kept", get(lastTo(env.mock, "/v2/api/site/default/content-filtering/cf1").Body, "blocked_categories"), js(`["ADULT"]`))
 	created := env.call("unifi_save_content_filter", `{"name":"Office","safe_search":["GOOGLE"]}`)
@@ -149,7 +149,7 @@ func TestSites(t *testing.T) {
 
 func TestAdmins(t *testing.T) {
 	env := opsEnv(t)
-	eq(t, "admins", get(env.call("unifi_list_admins", nil), 0), js(`{"id":"a1","name":"Matt","email":"m@example.com","role":"admin","super_admin":true}`))
+	eq(t, "admins", get(env.list("unifi_list_admins", nil), 0), js(`{"id":"a1","name":"Matt","email":"m@example.com","role":"admin","super_admin":true}`))
 	env.call("unifi_invite_admin", `{"name":" Sam ","email":"sam@example.com","role":"readonly","allow_restart":true}`)
 	body := lastTo(env.mock, "/api/s/default/cmd/sitemgr").Body
 	if s, _ := ojson.Stringify(body); s != `{"cmd":"invite-admin","name":"Sam","email":"sam@example.com","for_sso":true,"role":"readonly","permissions":["API_DEVICE_RESTART"]}` {
@@ -161,7 +161,7 @@ func TestAdmins(t *testing.T) {
 
 func TestBackups(t *testing.T) {
 	env := opsEnv(t)
-	eq(t, "list", get(env.call("unifi_list_backups", nil), 0), js(`{"filename":"autobackup_9.0.unf","time":"2023-11-14T22:13:20.000Z","version":"9.0.114","size_mb":2}`))
+	eq(t, "list", get(env.list("unifi_list_backups", nil), 0), js(`{"filename":"autobackup_9.0.unf","time":"2023-11-14T22:13:20.000Z","version":"9.0.114","size_mb":2}`))
 	created := env.call("unifi_create_backup", `{"days":0}`)
 	eq(t, "path", get(created, "download_path"), "/dl/backup/9.0.unf")
 	eq(t, "body", lastTo(env.mock, "/api/s/default/cmd/backup").Body, js(`{"cmd":"backup","days":0}`))
@@ -181,17 +181,17 @@ func TestEventsFallBackToSystemLog(t *testing.T) {
 	env := opsEnv(t)
 	res := env.call("unifi_list_events", `{"hours":2}`)
 	contains(t, "source", ojson.String(get(res, "source")), "system-log")
-	if n, _ := ojson.Len(get(res, "events")); n != 2 {
+	if n, _ := ojson.Len(get(res, "items")); n != 2 {
 		t.Errorf("events: %d", n)
 	}
-	eq(t, "newest", get(res, "events", 0, "key"), "client-alert-key")
+	eq(t, "newest", get(res, "items", 0, "key"), "client-alert-key")
 	contains(t, "legacy error", ojson.String(get(res, "legacy_error")), "POST /api/s/default/stat/event failed with HTTP 404: gone (endpoint not found")
 }
 
 func TestClassicEvents(t *testing.T) {
 	env := startMock(t, toolOptions(false, false))
 	env.mock.On("POST", `^/api/s/default/stat/event$`, fixed(unifitest.OK(js(`[{"time":1700000000,"key":"EVT_X","subsystem":"lan","msg":"hello"}]`))))
-	eq(t, "events", env.call("unifi_list_events", nil), js(`[{"time":"2023-11-14T22:13:20.000Z","key":"EVT_X","subsystem":"lan","message":"hello"}]`))
+	eq(t, "events", env.list("unifi_list_events", nil), js(`[{"time":"2023-11-14T22:13:20.000Z","key":"EVT_X","subsystem":"lan","message":"hello"}]`))
 	eq(t, "body", env.mock.Last().Body, js(`{"within":24,"_limit":100,"_sort":"-time"}`))
 }
 
@@ -209,7 +209,7 @@ func TestDPIAndSessions(t *testing.T) {
 	dpi := env.call("unifi_get_dpi_stats", `{"by":"app","macs":["11-22-33-44-55-66"]}`)
 	eq(t, "mac", get(dpi, 0, "mac"), "11:22:33:44:55:66")
 	eq(t, "body", lastTo(env.mock, "/api/s/default/stat/stadpi").Body, js(`{"type":"by_app","macs":["11:22:33:44:55:66"]}`))
-	sessions := env.call("unifi_list_client_sessions", `{"mac":"11:22:33:44:55:66","hours":1}`)
+	sessions := env.list("unifi_list_client_sessions", `{"mac":"11:22:33:44:55:66","hours":1}`)
 	eq(t, "duration", get(sessions, 0, "duration"), "1h 0m")
 	body := lastTo(env.mock, "/api/s/default/stat/session").Body
 	if d := ojson.ToNumber(get(body, "end")) - ojson.ToNumber(get(body, "start")); d != 3600 {
@@ -235,7 +235,7 @@ func TestReportsUseFixedClock(t *testing.T) {
 
 func TestHotspot(t *testing.T) {
 	env := opsEnv(t)
-	eq(t, "ops", env.call("unifi_list_hotspot_operators", nil), js(`[{"id":"op1","name":"Front desk"}]`))
+	eq(t, "ops", env.list("unifi_list_hotspot_operators", nil), js(`[{"id":"op1","name":"Front desk"}]`))
 	created := env.call("unifi_save_hotspot_operator", `{"name":"Night","password":"pw123"}`)
 	eq(t, "name", get(created, "name"), "Night")
 	eq(t, "password sent", get(lastTo(env.mock, "/api/s/default/rest/hotspotop").Body, "x_password"), "pw123")
@@ -256,7 +256,7 @@ func TestHotspot(t *testing.T) {
 	vouchers := env.call("unifi_create_vouchers", `{"minutes":1440,"note":"lobby"}`)
 	eq(t, "vouchers", vouchers, js(`{"created":1,"vouchers":[{"id":"v1","code":"12345-67890","minutes":1440,"uses":"unlimited","created":"2023-11-14T22:13:20.000Z"}]}`))
 	eq(t, "voucher cmd", lastTo(env.mock, "/api/s/default/cmd/hotspot").Body, js(`{"cmd":"create-voucher","n":1,"expire":1440,"quota":1,"note":"lobby"}`))
-	eq(t, "list", env.call("unifi_list_vouchers", nil), js(`[{"id":"v1","code":"12345-67890","duration":"1d 0h 0m","quota":1,"used":0,"created":"2023-11-14T22:13:20.000Z"}]`))
+	eq(t, "list", env.list("unifi_list_vouchers", nil), js(`[{"id":"v1","code":"12345-67890","duration":"1d 0h 0m","quota":1,"used":0,"created":"2023-11-14T22:13:20.000Z"}]`))
 	env.call("unifi_authorize_guest", `{"mac":"AA:BB:CC:DD:EE:FF","minutes":60}`)
 	eq(t, "authorize", lastTo(env.mock, "/api/s/default/cmd/stamgr").Body, js(`{"cmd":"authorize-guest","mac":"aa:bb:cc:dd:ee:ff","minutes":60}`))
 }
@@ -282,12 +282,12 @@ func TestAlarmsAndRogues(t *testing.T) {
 	env := opsEnv(t)
 	env.mock.On("GET", `^/api/s/default/list/alarm$`, fixed(unifitest.OK(js(`[{"_id":"a","time":1,"msg":"old"},{"_id":"b","time":3,"archived":true},{"_id":"c","time":2,"msg":"new"}]`)))).
 		On("POST", `^/api/s/default/stat/rogueap$`, fixed(unifitest.OK(js(`[{"essid":"weak","rssi":10},{"essid":"strong","rssi":40,"is_rogue":true},{"essid":"none"}]`))))
-	eq(t, "alarms", env.call("unifi_list_alarms", nil), js(`[{"id":"c","time":"1970-01-01T00:00:02.000Z","message":"new"},{"id":"a","time":"1970-01-01T00:00:01.000Z","message":"old"}]`))
-	if n, _ := ojson.Len(env.call("unifi_list_alarms", `{"include_archived":true,"limit":5}`)); n != 3 {
+	eq(t, "alarms", env.list("unifi_list_alarms", nil), js(`[{"id":"c","time":"1970-01-01T00:00:02.000Z","message":"new"},{"id":"a","time":"1970-01-01T00:00:01.000Z","message":"old"}]`))
+	if n, _ := ojson.Len(env.list("unifi_list_alarms", `{"include_archived":true,"limit":5}`)); n != 3 {
 		t.Errorf("archived alarms: %d", n)
 	}
-	eq(t, "rogues", env.call("unifi_list_rogue_aps", nil), js(`[{"ssid":"strong","rssi":40,"rogue":true},{"ssid":"weak","rssi":10},{"ssid":"none"}]`))
-	eq(t, "rogue only", env.call("unifi_list_rogue_aps", `{"rogue_only":true}`), js(`[{"ssid":"strong","rssi":40,"rogue":true}]`))
+	eq(t, "rogues", env.list("unifi_list_rogue_aps", nil), js(`[{"ssid":"strong","rssi":40,"rogue":true},{"ssid":"weak","rssi":10},{"ssid":"none"}]`))
+	eq(t, "rogue only", env.list("unifi_list_rogue_aps", `{"rogue_only":true}`), js(`[{"ssid":"strong","rssi":40,"rogue":true}]`))
 	env.call("unifi_archive_alarms", nil)
 	eq(t, "archive all", env.mock.Last().Body, js(`{"cmd":"archive-all-alarms"}`))
 }

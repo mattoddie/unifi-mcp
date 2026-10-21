@@ -18,6 +18,8 @@ By default (`UNIFI_TOOL_MODE=lazy`) clients don't list these tools directly. The
 
 Every write and delete tool, and `unifi_api_request` when writes are enabled, also takes an optional `dry_run` argument (boolean), left out of the tables below. With `dry_run: true` the tool reads the current state and returns the first request it would send, with a field-level diff for updates, without changing anything. See [Previewing changes](usage.md#previewing-changes-with-dry_run).
 
+List tools return `{total, returned, items}`: `total` counts the matches and `returned` the items sent after `limit`. They take `search`, `fields` and, on lists that can grow long, `limit`. See [Narrowing list results](usage.md#narrowing-list-results).
+
 ## Contents
 
 - [`overview`](#overview): Sites, controller information and site health.
@@ -52,7 +54,10 @@ Sites, controller information and site health.
 
 List the UniFi sites on the controller. The `name` field is the site ID used by the `site` argument of other tools.
 
-_No arguments._
+| Argument | Type | Required | Description |
+|---|---|---|---|
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_get_system_info
 
@@ -110,8 +115,11 @@ List UniFi network devices (gateways, switches, access points...) with state, mo
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `type` | `"access_point"` \| `"switch"` \| `"gateway"` \| `"other"` |  | Only devices of this type |
-| `search` | string |  | Case-insensitive substring filter on name, hostname, MAC, IP and similar fields |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `state` | string |  | Only this state: connected, disconnected, upgrading... |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 500. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_get_device
 
@@ -123,7 +131,7 @@ Get detailed information about one device by MAC: summary, switch ports, radio c
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `mac` | string | yes | MAC address, e.g. aa:bb:cc:dd:ee:ff |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_get_firmware_status
 
@@ -157,6 +165,8 @@ List access point groups (used to choose which APs broadcast each WiFi network).
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_update_device
 
@@ -363,9 +373,12 @@ List clients that are currently connected, with IP, network, AP/switch port, sig
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `connection` | `"all"` \| `"wired"` \| `"wireless"` |  | Filter by connection type (default all) |
 | `guests_only` | boolean |  | Only guest clients |
-| `search` | string |  | Case-insensitive substring filter on name, hostname, MAC, IP and similar fields |
-| `limit` | integer |  | Maximum number of results (default 200) |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `network` | string |  | Only clients on this network (name) |
+| `ap_mac` | string |  | Only clients of this access point |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 200. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_list_known_clients
 
@@ -377,9 +390,10 @@ List all clients the controller has ever seen (including offline ones), with ali
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `filter` | `"all"` \| `"blocked"` \| `"fixed_ip"` \| `"noted"` \| `"named"` |  | Only blocked clients, clients with a fixed IP, clients with a note, or clients with an alias |
-| `search` | string |  | Case-insensitive substring filter on name, hostname, MAC, IP and similar fields |
-| `limit` | integer |  | Maximum number of results (default 200) |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 200. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_get_client
 
@@ -391,7 +405,7 @@ Get everything known about a client by MAC: stored settings plus live connection
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `mac` | string | yes | MAC address, e.g. aa:bb:cc:dd:ee:ff |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_block_client
 
@@ -476,6 +490,8 @@ List switch port profiles (port configurations) with native/tagged networks and 
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_save_port_profile
 
@@ -520,6 +536,9 @@ List a switch's ports with link state, speed, PoE, assigned profile and any per-
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `mac` | string | yes | MAC address of the switch |
+| `up` | boolean |  | Only ports whose link is up (true) or down (false) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_set_switch_port
 
@@ -590,7 +609,9 @@ List wireless networks (SSIDs) with security, bands, linked network and enabled 
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 | `include_secrets` | boolean |  | Include secret fields such as passphrases and shared keys (redacted by default) |
 
 ### unifi_save_wlan
@@ -675,7 +696,9 @@ List configured networks (LANs/VLANs, WANs, VPNs) with subnet, VLAN ID and DHCP 
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 | `include_secrets` | boolean |  | Include secret fields such as passphrases and shared keys (redacted by default) |
 
 ### unifi_save_network
@@ -726,6 +749,8 @@ List WAN interfaces with connection type, VLAN, static/PPPoE settings, failover/
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_update_wan
 
@@ -762,6 +787,8 @@ List local DNS records served by the gateway (v2 static-dns; UniFi Network 8.2+)
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_save_dns_record
 
@@ -803,6 +830,8 @@ List bandwidth profiles (user groups) that cap client download/upload rates; ass
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_save_bandwidth_profile
 
@@ -838,6 +867,8 @@ List dynamic DNS configurations (passwords redacted unless include_secrets).
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 | `include_secrets` | boolean |  | Include secret fields such as passphrases and shared keys (redacted by default) |
 
 ### unifi_save_dynamic_dns
@@ -894,6 +925,8 @@ List port forwarding rules.
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_save_port_forward
 
@@ -937,7 +970,9 @@ List classic firewall rules (WAN_IN, LAN_IN, ...). On Network 9+ with zone-based
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_save_firewall_rule
 
@@ -991,6 +1026,8 @@ List firewall groups (address groups, IPv6 address groups and port groups) refer
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_save_firewall_group
 
@@ -1028,7 +1065,9 @@ List zone-based firewall policies (UniFi Network 9.0+). Predefined (system) poli
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `include_predefined` | boolean |  | Also return predefined/system policies |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_save_firewall_policy
 
@@ -1101,7 +1140,9 @@ List zone-based firewall zones and the networks in each (UniFi Network 9.0+).
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_save_firewall_zone
 
@@ -1136,7 +1177,9 @@ List traffic management rules (block/allow/limit by app, domain, IP, region or i
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_save_traffic_rule
 
@@ -1200,6 +1243,8 @@ List user-defined static routes. With active=true, return the gateway's live rou
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `active` | boolean |  | Return the active routing table (including system routes) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_save_route
 
@@ -1240,7 +1285,9 @@ List traffic routes (policy-based routing): which clients/networks and destinati
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `raw` | boolean |  | Return the full unprocessed objects |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_save_traffic_route
 
@@ -1342,7 +1389,9 @@ List IDS/IPS threat events detected by the gateway (newest first): signature, ca
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `hours` | number |  | Look back this many hours (default 24) |
-| `limit` | integer |  | Maximum number of results (default 100) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 100. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_list_content_filters
 
@@ -1353,7 +1402,9 @@ List content filtering profiles (blocked categories, safe search, target network
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `raw` | boolean |  | Return the full controller objects |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 
 ### unifi_save_content_filter
 
@@ -1411,7 +1462,9 @@ List VPN servers (WireGuard, OpenVPN, L2TP), VPN clients and site-to-site VPNs c
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `raw` | boolean |  | Return the full unprocessed objects from the controller (large) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
+| `raw` | boolean |  | Return the full controller objects (large) |
 | `include_secrets` | boolean |  | Include secret fields such as pre-shared keys, private keys and passwords (redacted by default) |
 
 ### unifi_save_vpn
@@ -1458,6 +1511,8 @@ List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP V
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 | `include_secrets` | boolean |  | Include secret fields such as pre-shared keys, private keys and passwords (redacted by default) |
 
 ### unifi_save_radius_profile
@@ -1497,6 +1552,8 @@ List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise).
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 | `include_secrets` | boolean |  | Include secret fields such as pre-shared keys, private keys and passwords (redacted by default) |
 
 ### unifi_save_radius_account
@@ -1553,6 +1610,9 @@ List guest hotspot vouchers with code, duration, usage and status.
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 200. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_create_vouchers
 
@@ -1617,6 +1677,8 @@ List hotspot operator accounts (staff who can log in to the hotspot manager to i
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_save_hotspot_operator
 
@@ -1702,7 +1764,9 @@ List recent controller events (client connects/roams, device restarts, upgrades.
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `hours` | integer |  | Look back this many hours (default 24) |
-| `limit` | integer |  | Maximum number of results (default 100) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 100. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_list_alarms
 
@@ -1714,7 +1778,9 @@ List controller alarms (alerts). By default only active (unarchived) alarms are 
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `include_archived` | boolean |  | Include archived alarms |
-| `limit` | integer |  | Maximum number of results (default 100) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 100. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_archive_alarms
 
@@ -1764,6 +1830,9 @@ Get historical WAN speed test results run by the gateway.
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `hours` | number |  | Look back this many hours (default 168) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 100. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_run_speedtest
 
@@ -1786,7 +1855,9 @@ List nearby access points seen by your APs (neighbours and potential rogue APs).
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `hours` | integer |  | Seen within this many hours (default 24) |
 | `rogue_only` | boolean |  | Only APs flagged as rogue |
-| `limit` | integer |  | Maximum number of results (default 100) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 100. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_get_system_log
 
@@ -1815,7 +1886,9 @@ List client connection sessions (association history): when each client connecte
 | `mac` | string |  | Only sessions for this client |
 | `type` | `"all"` \| `"user"` \| `"guest"` |  | Client type (default all) |
 | `hours` | number |  | Look back this many hours (default 168) |
-| `limit` | integer |  | Maximum number of results (default 100) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 100. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_list_guest_authorizations
 
@@ -1827,7 +1900,9 @@ List hotspot/guest portal authorizations (who was authorized, how, when and unti
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `hours` | number |  | Look back this many hours (default 168) |
-| `limit` | integer |  | Maximum number of results (default 100) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 100. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_list_anomalies
 
@@ -1839,7 +1914,9 @@ List anomalies the controller detected (e.g. high latency, DNS timeouts, poor Wi
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `hours` | number |  | Look back this many hours (default 24) |
-| `limit` | integer |  | Maximum number of results (default 100) |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `limit` | integer |  | Maximum number of items to return. Default 100. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_get_dashboard
 
@@ -1936,6 +2013,8 @@ List administrator accounts for a site, or for all sites (all_sites: true).
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `all_sites` | boolean |  | List admins across all sites |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_invite_admin
 
@@ -1973,6 +2052,8 @@ List the controller's stored (auto) backups.
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
+| `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
+| `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 
 ### unifi_create_backup
 

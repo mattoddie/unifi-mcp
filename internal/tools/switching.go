@@ -103,13 +103,13 @@ func registerSwitching(c *Context) {
 	c.add(Def{
 		Toolset: "switching", Name: "unifi_list_port_profiles", Title: "List switch port profiles",
 		Description: "List switch port profiles (port configurations) with native/tagged networks and PoE settings.",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "portconf")
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(list, func(p *Obj) any { return summarizeProfile(p) }), nil
+			return listing{}.result(a, list, func(p *Obj) any { return summarizeProfile(p) }, nil), nil
 		},
 	})
 
@@ -156,10 +156,11 @@ func registerSwitching(c *Context) {
 
 	// ---------------------------------------------------------------- ports
 
+	portList := listing{Search: []string{"name", "profile_name", "media", "poe_mode"}, Filters: map[string]string{"up": "up"}}
 	c.add(Def{
 		Toolset: "switching", Name: "unifi_list_switch_ports", Title: "List switch ports",
 		Description: "List a switch's ports with link state, speed, PoE, assigned profile and any per-port overrides configured on the device.",
-		Input:       props(siteArg(), switchMac),
+		Input:       props(siteArg(), switchMac, P("up", Bool().Opt().D("Only ports whose link is up (true) or down (false)")), portList.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
 			device, err := getSwitch(ctx, client, s, a.Str("mac"))
@@ -178,7 +179,7 @@ func registerSwitching(c *Context) {
 			for _, o := range objs(ojson.Coalesce(device.Get("port_overrides"), []any{})) {
 				overrides[ojson.String(o.Get("port_idx"))] = o
 			}
-			ports := mapObjs(device.Get("port_table"), func(p *Obj) any {
+			ports := portList.result(a, arr(device.Get("port_table")), func(p *Obj) any {
 				o := overrides[ojson.String(p.Get("port_idx"))]
 				profileID := p.Get("portconf_id")
 				if o != nil && !ojson.IsNullish(o.Get("portconf_id")) {
@@ -219,11 +220,10 @@ func registerSwitching(c *Context) {
 					"errors", ojson.OrUndefined(ojson.ToNumber(ojson.Coalesce(p.Get("rx_errors"), 0.0))+ojson.ToNumber(ojson.Coalesce(p.Get("tx_errors"), 0.0))),
 					"override", override,
 				)
-			})
+			}, nil)
 			return ojson.New(
 				"switch", unifi.Compact("name", device.Get("name"), "mac", device.Get("mac"), "model", ojson.Coalesce(device.Get("model_name"), device.Get("model"))),
-				"ports", ports,
-			), nil
+			).Assign(ports), nil
 		},
 	})
 
