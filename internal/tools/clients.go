@@ -22,7 +22,13 @@ func findClientRecord(ctx context.Context, client *unifi.Client, site, m string)
 
 func registerClients(c *Context) {
 	client := c.Client
-	raw := P("raw", Bool().Opt().D("Return the full unprocessed objects from the controller (large)"))
+	raw := rawArg()
+	clientSearch := []string{"name", "hostname", "mac", "ip", "fixed_ip", "last_ip", "oui", "essid", "network", "note"}
+	clientList := listing{
+		Search:  clientSearch,
+		Filters: map[string]string{"network": "network", "ap_mac": "ap_mac"},
+		Limit:   200,
+	}
 
 	c.add(Def{
 		Toolset: "clients", Name: "unifi_list_clients", Title: "List connected clients",
@@ -31,8 +37,9 @@ func registerClients(c *Context) {
 			siteArg(),
 			P("connection", Enum("all", "wired", "wireless").Opt().D("Filter by connection type (default all)")),
 			P("guests_only", Bool().Opt().D("Only guest clients")),
-			searchArg(),
-			limitArg(200),
+			P("network", Str().Opt().D("Only clients on this network (name)")),
+			P("ap_mac", Str().Opt().D("Only clients of this access point")),
+			clientList.args(),
 			raw,
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -50,24 +57,18 @@ func registerClients(c *Context) {
 			if a.Truthy("guests_only") {
 				clients = ojson.Filter(clients, func(x any) bool { return ojson.Truthy(ojson.Get(x, "is_guest")) })
 			}
-			out := filterAndLimit(clients, a.Str("search"), optLimit(a, 200), func(x *Obj) []any {
-				return []any{x.Get("name"), x.Get("hostname"), x.Get("mac"), x.Get("ip"), x.Get("oui"), x.Get("essid"), x.Get("network")}
-			})
-			if !a.Truthy("raw") {
-				out.Set("items", mapObjs(out.Get("items"), func(x *Obj) any { return unifi.SummarizeClient(x) }))
-			}
-			return out, nil
+			return clientList.result(a, clients, func(x *Obj) any { return unifi.SummarizeClient(x) }, asIs), nil
 		},
 	})
 
+	knownList := listing{Search: clientSearch, Limit: 200}
 	c.add(Def{
 		Toolset: "clients", Name: "unifi_list_known_clients", Title: "List known clients",
 		Description: "List all clients the controller has ever seen (including offline ones), with alias, note, fixed IP and block status.",
 		Input: props(
 			siteArg(),
 			P("filter", Enum("all", "blocked", "fixed_ip", "noted", "named").Opt().D("Only blocked clients, clients with a fixed IP, clients with a note, or clients with an alias")),
-			searchArg(),
-			limitArg(200),
+			knownList.args(),
 			raw,
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -92,13 +93,7 @@ func registerClients(c *Context) {
 			ojson.SortStable(users, func(x, y any) float64 {
 				return ojson.ToNumber(ojson.Coalesce(ojson.Get(y, "last_seen"), 0.0)) - ojson.ToNumber(ojson.Coalesce(ojson.Get(x, "last_seen"), 0.0))
 			})
-			out := filterAndLimit(users, a.Str("search"), optLimit(a, 200), func(u *Obj) []any {
-				return []any{u.Get("name"), u.Get("hostname"), u.Get("mac"), u.Get("fixed_ip"), u.Get("last_ip"), u.Get("oui"), u.Get("note")}
-			})
-			if !a.Truthy("raw") {
-				out.Set("items", mapObjs(out.Get("items"), func(x *Obj) any { return unifi.SummarizeClient(x) }))
-			}
-			return out, nil
+			return knownList.result(a, users, func(x *Obj) any { return unifi.SummarizeClient(x) }, asIs), nil
 		},
 	})
 
@@ -173,7 +168,7 @@ func registerClients(c *Context) {
 	c.add(Def{
 		Toolset: "clients", Name: "unifi_update_client", Title: "Update client settings",
 		Destructive: boolPtr(true),
-		Description: "Set a known client's alias (name) and note, or assign/clear a fixed IP (DHCP reservation). Only the fields given are changed.",
+		Description: "Set a known client's alias (name) and note, assign/clear a fixed IP (DHCP reservation), or lock a wireless client to one access point. Only the fields given are changed.",
 		Gate:        Write,
 		Input: props(
 			siteArg(),
@@ -183,6 +178,8 @@ func registerClients(c *Context) {
 			P("fixed_ip", Str().Opt().D("IPv4 address to reserve for this client")),
 			P("network_id", Str().Opt().D("Network ID the fixed IP belongs to (defaults to the client's current network; see unifi_list_networks)")),
 			P("clear_fixed_ip", Bool().Opt().D("Remove the fixed IP reservation")),
+			P("fixed_ap_mac", Str().Opt().D("Lock this wireless client to the access point with this MAC address (see unifi_list_devices). It won't roam to other APs.")),
+			P("clear_fixed_ap", Bool().Opt().D("Remove the AP lock so the client can roam again")),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
@@ -214,8 +211,24 @@ func registerClients(c *Context) {
 			if a.Truthy("clear_fixed_ip") {
 				patch.Set("use_fixedip", false)
 			}
+			if a.Truthy("fixed_ap_mac") && a.Truthy("clear_fixed_ap") {
+				return nil, errorf("Pass either fixed_ap_mac or clear_fixed_ap, not both")
+			}
+			if a.Truthy("fixed_ap_mac") {
+				if ojson.Truthy(record.Get("is_wired")) {
+					return nil, errorf("Only wireless clients can be locked to an access point")
+				}
+				apMac, err := mac(a.Get("fixed_ap_mac"))
+				if err != nil {
+					return nil, err
+				}
+				patch.Set("fixed_ap_enabled", true).Set("fixed_ap_mac", apMac)
+			}
+			if a.Truthy("clear_fixed_ap") {
+				patch.Set("fixed_ap_enabled", false)
+			}
 			if patch.Len() == 0 {
-				return nil, errorf("Nothing to update: pass name, note, fixed_ip or clear_fixed_ip")
+				return nil, errorf("Nothing to update: pass name, note, fixed_ip, clear_fixed_ip, fixed_ap_mac or clear_fixed_ap")
 			}
 			idPath, err := restPath("user", record.Get("_id"))
 			if err != nil {

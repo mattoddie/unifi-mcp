@@ -104,10 +104,10 @@ func TestDeleteLAN(t *testing.T) {
 func TestWANs(t *testing.T) {
 	env := networksEnv(t)
 	list := env.call("unifi_list_wans", nil)
-	if n, _ := ojson.Len(get(list, "wans")); n != 1 {
+	if n, _ := ojson.Len(get(list, "items")); n != 1 {
 		t.Errorf("wans: %d", n)
 	}
-	eq(t, "isp down", get(list, "wans", 0, "isp_download_kbps"), 100000.0)
+	eq(t, "isp down", get(list, "items", 0, "isp_download_kbps"), 100000.0)
 
 	res := env.call("unifi_update_wan", `{"id":"net-wan","type":"static","static_ip":"203.0.113.10","netmask":"255.255.255.0","gateway":"203.0.113.1","dns":["9.9.9.9"],"smart_queues":true,"download_kbps":90000}`)
 	body := lastBody(env.mock, "PUT")
@@ -172,7 +172,7 @@ func TestDNSRecords(t *testing.T) {
 	id := ojson.String(get(created, "id"))
 	env.call("unifi_save_dns_record", `{"id":"`+id+`","value":"192.168.1.11"}`)
 	eq(t, "stored", ojson.Get(env.mock.Store("v2/static-dns")[0], "value"), "192.168.1.11")
-	list := env.call("unifi_list_dns_records", nil)
+	list := env.list("unifi_list_dns_records", nil)
 	eq(t, "list", get(list, 0), js(`{"id":"`+id+`","type":"A","name":"nas.home.arpa","value":"192.168.1.11","ttl":0,"enabled":true}`))
 	env.call("unifi_delete_dns_record", `{"id":"`+id+`"}`)
 	if n := len(env.mock.Store("v2/static-dns")); n != 0 {
@@ -187,7 +187,7 @@ func TestBandwidthProfiles(t *testing.T) {
 	eq(t, "body", lastBody(env.mock, "POST"), js(`{"name":"Kids","qos_rate_max_down":10000,"qos_rate_max_up":-1}`))
 	eq(t, "upload", get(created, "upload_kbps"), "unlimited")
 	contains(t, "default", env.callErr("unifi_delete_bandwidth_profile", `{"id":"ug-default"}`), "cannot be deleted")
-	list := env.call("unifi_list_bandwidth_profiles", nil)
+	list := env.list("unifi_list_bandwidth_profiles", nil)
 	eq(t, "default", get(list, 0), js(`{"id":"ug-default","name":"Default","download_kbps":"unlimited","upload_kbps":"unlimited","default":true}`))
 }
 
@@ -195,8 +195,8 @@ func TestDynamicDNS(t *testing.T) {
 	env := networksEnv(t)
 	env.call("unifi_save_dynamic_dns", `{"service":"duckdns","hostname":"me.duckdns.org","password":"tok"}`)
 	eq(t, "interface", get(lastBody(env.mock, "POST"), "interface"), "wan")
-	eq(t, "redacted", get(env.call("unifi_list_dynamic_dns", nil), 0, "password"), "[redacted]")
-	eq(t, "secret", get(env.call("unifi_list_dynamic_dns", `{"include_secrets":true}`), 0, "password"), "tok")
+	eq(t, "redacted", get(env.list("unifi_list_dynamic_dns", nil), 0, "password"), "[redacted]")
+	eq(t, "secret", get(env.list("unifi_list_dynamic_dns", `{"include_secrets":true}`), 0, "password"), "tok")
 }
 
 func TestVPNs(t *testing.T) {
@@ -212,14 +212,14 @@ func TestVPNs(t *testing.T) {
 	env.call("unifi_save_vpn", `{"kind":"l2tp-server","name":"L2TP","subnet":"192.168.5.1/24","pre_shared_key":"psk"}`)
 	eq(t, "radius", get(lastBody(env.mock, "POST"), "radiusprofile_id"), "rp-default")
 
-	list := env.call("unifi_list_vpns", nil)
+	list := env.list("unifi_list_vpns", nil)
 	var kinds []string
 	for _, v := range list.([]any) {
 		kinds = append(kinds, ojson.String(ojson.Get(v, "kind")))
 	}
 	sort.Strings(kinds)
 	eq(t, "kinds", ojson.Strings(kinds), js(`["l2tp-server","wireguard-server","wireguard-server"]`))
-	raw := env.call("unifi_list_vpns", `{"raw":true}`)
+	raw := env.list("unifi_list_vpns", `{"raw":true}`)
 	wg := ojson.Find(raw.([]any), func(v any) bool { return ojson.Get(v, "_id") == "net-wg" })
 	eq(t, "private key", ojson.Get(wg, "x_wireguard_private_key"), "[redacted]")
 
@@ -236,15 +236,15 @@ func TestRadius(t *testing.T) {
 	env := networksEnv(t)
 	env.call("unifi_save_radius_profile", `{"name":"NPS","auth_servers":[{"ip":"10.0.0.5","secret":"s3"}]}`)
 	eq(t, "servers", get(lastBody(env.mock, "POST"), "auth_servers"), js(`[{"ip":"10.0.0.5","port":1812,"x_secret":"s3"}]`))
-	profiles := env.call("unifi_list_radius_profiles", nil)
+	profiles := env.list("unifi_list_radius_profiles", nil)
 	eq(t, "summary", get(profiles, 1, "auth_servers"), js(`[{"ip":"10.0.0.5","port":1812}]`))
 	contains(t, "built-in", env.callErr("unifi_delete_radius_profile", `{"id":"rp-default"}`), "built-in RADIUS profile")
 
 	contains(t, "together", env.callErr("unifi_save_radius_account", `{"name":"bob","password":"pw","tunnel_type":13}`), "set together")
 	env.call("unifi_save_radius_account", `{"name":"bob","password":"pw","vlan":30,"tunnel_type":13,"tunnel_medium_type":6}`)
-	accounts := env.call("unifi_list_radius_accounts", nil)
+	accounts := env.list("unifi_list_radius_accounts", nil)
 	eq(t, "account", get(accounts, 0), js(`{"id":`+mustJSON(get(accounts, 0, "id"))+`,"name":"bob","vlan":30,"tunnel_type":13,"tunnel_medium_type":6}`))
-	eq(t, "password", get(env.call("unifi_list_radius_accounts", `{"include_secrets":true}`), 0, "password"), "pw")
+	eq(t, "password", get(env.list("unifi_list_radius_accounts", `{"include_secrets":true}`), 0, "password"), "pw")
 }
 
 func mustJSON(v any) string {

@@ -110,21 +110,14 @@ func registerWifi(c *Context) {
 	c.add(Def{
 		Toolset: "wifi", Name: "unifi_list_wlans", Title: "List WiFi networks",
 		Description: "List wireless networks (SSIDs) with security, bands, linked network and enabled state.",
-		Input:       props(siteArg(), rawArg(), secretsArg(secretsPassphrases)),
+		Input:       props(siteArg(), listing{}.args(), rawArg(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "rest/wlanconf", nil)
 			if err != nil {
 				return nil, err
 			}
-			wlans := arr(res)
-			if a.Truthy("raw") {
-				if a.Truthy("include_secrets") {
-					return wlans, nil
-				}
-				return unifi.RedactSecrets(wlans), nil
-			}
 			include := a.Truthy("include_secrets")
-			return mapObjs(wlans, func(w *Obj) any { return summarizeWlanFull(w, include) }), nil
+			return listing{}.result(a, arr(res), func(w *Obj) any { return summarizeWlanFull(w, include) }, rawWithSecrets(a)), nil
 		},
 	})
 

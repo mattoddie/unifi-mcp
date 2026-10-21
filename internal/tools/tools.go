@@ -42,6 +42,10 @@ type Context struct {
 	config.Tools
 	// Registered records each registered tool in order, for the docs generator.
 	Registered *[]Info
+	// lazy holds the tools behind the meta-tools in lazy mode (nil in full mode).
+	lazy *registry
+	// audit is the UNIFI_AUDIT_LOG writer, or nil.
+	audit *auditLog
 }
 
 // Info describes a registered tool.
@@ -66,9 +70,20 @@ type Def struct {
 	Destructive *bool
 	Input       []Prop
 	Handler     func(ctx context.Context, a Args) (any, error)
+	// Reads, for a tool that changes things, reports whether these arguments
+	// only read (unifi_api_request with GET); such calls aren't audited.
+	Reads func(a Args) bool
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+// readOnly is the tool's readOnlyHint: Gate == Read unless ReadOnly overrides it.
+func (d Def) readOnly() bool {
+	if d.ReadOnly != nil {
+		return *d.ReadOnly
+	}
+	return d.Gate == Read
+}
 
 // site returns the site argument or the configured default.
 func (c *Context) site(a Args) string {
@@ -78,22 +93,58 @@ func (c *Context) site(a Args) string {
 	return c.Client.DefaultSite()
 }
 
-// add registers a tool if its toolset and gate are enabled.
+// disabledReason says why a tool isn't registered, or returns "" when its toolset and gate are enabled.
+func (c *Context) disabledReason(d Def) string {
+	switch {
+	case !c.Toolsets[d.Toolset]:
+		return fmt.Sprintf("its toolset %q is not enabled in UNIFI_TOOLSETS", d.Toolset)
+	case d.Gate != Read && !c.AllowWrites:
+		return "it changes state and writes are disabled (UNIFI_ALLOW_WRITES=false)"
+	case d.Gate == Delete && !c.AllowDeletes:
+		return "it deletes configuration and deletes are disabled (UNIFI_ALLOW_DELETES=false)"
+	}
+	return ""
+}
+
+// add registers a tool if its toolset and gate are enabled: directly in full
+// mode, or in the registry behind the meta-tools in lazy mode.
 func (c *Context) add(d Def) {
-	if !c.Toolsets[d.Toolset] {
+	if reason := c.disabledReason(d); reason != "" {
+		if c.lazy != nil {
+			c.lazy.off[d.Name] = reason
+		}
 		return
 	}
-	write := d.Gate != Read
-	if write && !c.AllowWrites {
-		return
+	// Tools that change things get dry_run and the audit log here, around the
+	// runner, so calls in full mode and through the lazy meta-tools are treated alike.
+	var guard *writeGuard
+	if !d.readOnly() {
+		guard = c.guardWrites(&d)
 	}
-	if d.Gate == Delete && !c.AllowDeletes {
-		return
+	tool, run, schema := c.build(d)
+	run = guard.wrap(run)
+	if c.lazy != nil {
+		c.lazy.add(d, tool, run, schema)
+	} else {
+		c.Server.AddTool(tool, handler(run))
 	}
-	readOnly := !write
-	if d.ReadOnly != nil {
-		readOnly = *d.ReadOnly
+	if c.Registered != nil {
+		*c.Registered = append(*c.Registered, Info{Name: d.Name, Toolset: d.Toolset, Gate: d.Gate, Schema: schema})
 	}
+}
+
+// runner runs a tool with its raw JSON arguments, validating them first.
+type runner func(ctx context.Context, raw json.RawMessage) *mcp.CallToolResult
+
+func handler(run runner) mcp.ToolHandler {
+	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return run(ctx, req.Params.Arguments), nil
+	}
+}
+
+// build makes the MCP tool (annotations and input schema) and its runner.
+func (c *Context) build(d Def) (*mcp.Tool, runner, *ojson.Obj) {
+	readOnly := d.readOnly()
 	ann := &mcp.ToolAnnotations{Title: d.Title, ReadOnlyHint: readOnly, OpenWorldHint: boolPtr(false)}
 	if !readOnly {
 		ann.DestructiveHint = boolPtr(d.Gate == Delete)
@@ -105,12 +156,12 @@ func (c *Context) add(d Def) {
 	raw, _ := ojson.Stringify(schema)
 	tool := &mcp.Tool{Name: d.Name, Title: d.Title, Description: d.Description, Annotations: ann, InputSchema: json.RawMessage(raw)}
 	input := Object(d.Input...)
-	c.Server.AddTool(tool, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	run := func(ctx context.Context, raw json.RawMessage) *mcp.CallToolResult {
 		var args any = ojson.New()
-		if raw := req.Params.Arguments; len(raw) > 0 && strings.TrimSpace(string(raw)) != "null" {
+		if len(raw) > 0 && strings.TrimSpace(string(raw)) != "null" {
 			parsed, err := ojson.Parse(raw)
 			if err != nil {
-				return fail("MCP error -32602: Input validation error: Invalid arguments for tool " + d.Name + ": " + err.Error()), nil
+				return fail("MCP error -32602: Input validation error: Invalid arguments for tool " + d.Name + ": " + err.Error())
 			}
 			args = parsed
 		}
@@ -121,18 +172,20 @@ func (c *Context) add(d Def) {
 			for i, is := range issues {
 				msgs[i] = is.String()
 			}
-			return fail("MCP error -32602: Input validation error: Invalid arguments for tool " + d.Name + ": " + strings.Join(msgs, "\n")), nil
+			return fail("MCP error -32602: Input validation error: Invalid arguments for tool " + d.Name + ": " + strings.Join(msgs, "\n"))
 		}
 		obj, _ := parsed.(*Obj)
 		out, err := d.Handler(ctx, Args{obj})
 		if err != nil {
-			return fail("Error: " + err.Error()), nil
+			return fail("Error: " + err.Error())
 		}
-		return ok(out), nil
-	})
-	if c.Registered != nil {
-		*c.Registered = append(*c.Registered, Info{Name: d.Name, Toolset: d.Toolset, Gate: d.Gate, Schema: schema})
+		// The meta-tools pass on the result of the tool they called.
+		if res, isResult := out.(*mcp.CallToolResult); isResult {
+			return res
+		}
+		return ok(out)
 	}
+	return tool, run, schema
 }
 
 // MaxOutputBytes caps the text a tool returns, so one huge response (a raw API call,
@@ -152,7 +205,7 @@ func truncateOutput(text string) string {
 	for cut > 0 && !utf8.RuneStart(text[cut]) {
 		cut--
 	}
-	return text[:cut] + fmt.Sprintf("\n\n[Output truncated: the result is %d bytes, more than the %d-byte limit. Narrow the request, for example with a filter, a limit or a specific id.]", len(text), MaxOutputBytes)
+	return text[:cut] + fmt.Sprintf("\n\n[Output truncated: the result is %d bytes, more than the %d-byte limit. Narrow the request, for example with search, fields, a filter, a limit or a specific id.]", len(text), MaxOutputBytes)
 }
 
 func fail(text string) *mcp.CallToolResult {
@@ -253,32 +306,4 @@ func mapObjs(v any, f func(*Obj) any) []any {
 		out[i] = f(o)
 	}
 	return out
-}
-
-// filterAndLimit applies a case-insensitive substring search over some fields, then a limit.
-func filterAndLimit(items []any, search string, limit *float64, fields func(*Obj) []any) *Obj {
-	out := items
-	if search != "" {
-		q := strings.ToLower(search)
-		out = ojson.Filter(items, func(item any) bool {
-			o, _ := ojson.AsObj(item)
-			for _, f := range fields(o) {
-				if !ojson.IsNullish(f) && strings.Contains(strings.ToLower(ojson.String(f)), q) {
-					return true
-				}
-			}
-			return false
-		})
-	}
-	total := len(out)
-	if limit != nil && int(*limit) < len(out) {
-		out = out[:int(*limit)]
-	}
-	return ojson.New("total", total, "returned", len(out), "items", out)
-}
-
-// optLimit returns a pointer to a limit argument or its default.
-func optLimit(a Args, def float64) *float64 {
-	v := a.NumOr("limit", def)
-	return &v
 }

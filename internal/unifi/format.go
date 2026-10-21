@@ -270,6 +270,7 @@ func SummarizeClient(c *Obj) *Obj {
 		"connection", connection,
 		"ssid", ojson.If(wired, U, g("essid")),
 		"ap_mac", ojson.If(wired, U, g("ap_mac")),
+		"locked_to_ap", ojson.If(ojson.Truthy(g("fixed_ap_enabled")), g("fixed_ap_mac"), U),
 		"switch_mac", ojson.If(wired, g("sw_mac"), U),
 		"switch_port", ojson.If(wired, g("sw_port"), U),
 		"radio", ojson.Coalesce(g("radio_proto"), g("radio")),

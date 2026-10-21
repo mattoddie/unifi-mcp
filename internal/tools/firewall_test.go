@@ -118,7 +118,7 @@ func TestPortForwards(t *testing.T) {
 			t.Error("p1 not deleted")
 		}
 	}
-	list := env.call("unifi_list_port_forwards", nil)
+	list := env.list("unifi_list_port_forwards", nil)
 	if n, _ := ojson.Len(list); n != 1 {
 		t.Errorf("forwards: %d", n)
 	}
@@ -126,10 +126,10 @@ func TestPortForwards(t *testing.T) {
 
 func TestFirewallPolicies(t *testing.T) {
 	env := firewallEnv(t)
-	list := env.call("unifi_list_firewall_policies", nil)
+	list := env.list("unifi_list_firewall_policies", nil)
 	eq(t, "ids", ojson.Map(list.([]any), func(p any) any { return ojson.Get(p, "id") }), js(`["fp1"]`))
 	eq(t, "zone", get(list, 0, "source", "zone_id"), "z1")
-	all := env.call("unifi_list_firewall_policies", `{"include_predefined":true}`)
+	all := env.list("unifi_list_firewall_policies", `{"include_predefined":true}`)
 	if n, _ := ojson.Len(all); n != 2 {
 		t.Errorf("all policies: %d", n)
 	}
@@ -250,7 +250,7 @@ func TestTrafficRules(t *testing.T) {
 
 func TestTrafficRoutes(t *testing.T) {
 	env := firewallEnv(t)
-	list := env.call("unifi_list_traffic_routes", nil)
+	list := env.list("unifi_list_traffic_routes", nil)
 	eq(t, "domains", get(list, 0, "domains"), js(`["netflix.com"]`))
 
 	env.call("unifi_save_traffic_route", `{"description":"Work VPN","matching_target":"IP","network_id":"vpn2","ip_addresses":["192.168.50.0/24"],"network_ids":["n2"],"kill_switch":true}`)
@@ -275,7 +275,7 @@ func TestTrafficRoutes(t *testing.T) {
 
 func TestStaticRoutes(t *testing.T) {
 	env := firewallEnv(t)
-	list := env.call("unifi_list_routes", nil)
+	list := env.list("unifi_list_routes", nil)
 	eq(t, "summary", get(list, 0), js(`{"id":"s1","name":"Lab","enabled":true,"type":"nexthop","destination":"10.9.0.0/16","next_hop":"10.0.0.254","distance":1}`))
 
 	created := env.call("unifi_save_route", `{"name":"Null","type":"blackhole","destination":"10.66.0.0/16"}`)
@@ -303,7 +303,7 @@ func TestActiveRoutingTable(t *testing.T) {
 	env.mock.On("GET", `^/api/s/default/stat/routing$`, func(any, []string, url.Values) (int, any) {
 		return 200, js(`{"meta":{"rc":"ok"},"data":[{"pfx":"0.0.0.0/0","nh":[{"intf":"eth8"}]}]}`)
 	})
-	res := env.call("unifi_list_routes", `{"active":true}`)
+	res := env.list("unifi_list_routes", `{"active":true}`)
 	eq(t, "prefix", get(res, 0, "pfx"), "0.0.0.0/0")
 }
 
@@ -314,7 +314,7 @@ func TestFirewallRuleOrdering(t *testing.T) {
 		{"_id":"b","ruleset":"LANv6_IN","rule_index":2000},
 		{"_id":"c","ruleset":"LAN_IN","rule_index":2005},
 		{"_id":"d","ruleset":"LAN_IN","rule_index":2001}]`)
-	res := env.call("unifi_list_firewall_rules", nil)
+	res := env.list("unifi_list_firewall_rules", nil)
 	eq(t, "order", ojson.Map(res.([]any), func(r any) any { return ojson.Get(r, "id") }), js(`["d","c","b","a"]`))
 	eq(t, "states", get(res, 0, "states"), js(`[]`))
 }

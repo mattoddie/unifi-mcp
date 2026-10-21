@@ -18,16 +18,17 @@ func voucherCode(v any) any {
 func registerHotspot(c *Context) {
 	client := c.Client
 
+	voucherList := listing{Search: []string{"code", "note", "status"}, Limit: 200}
 	c.add(Def{
 		Toolset: "hotspot", Name: "unifi_list_vouchers", Title: "List hotspot vouchers",
 		Description: "List guest hotspot vouchers with code, duration, usage and status.",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), voucherList.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "stat/voucher", nil)
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(res, func(v *Obj) any {
+			return voucherList.result(a, arr(res), func(v *Obj) any {
 				g := v.Get
 				return unifi.Compact(
 					"id", g("_id"),
@@ -42,7 +43,7 @@ func registerHotspot(c *Context) {
 					"data_limit_mb", g("qos_usage_quota"),
 					"created", unifi.IsoTime(g("create_time")),
 				)
-			}), nil
+			}, nil), nil
 		},
 	})
 
@@ -73,7 +74,7 @@ func registerHotspot(c *Context) {
 			created := first(res)
 			vouchers := []any{}
 			if ct := ojson.Get(created, "create_time"); ojson.Truthy(ct) {
-				list, err := client.SitePost(ctx, s, "stat/voucher", ojson.New("create_time", ct))
+				list, err := client.SitePostRead(ctx, s, "stat/voucher", ojson.New("create_time", ct))
 				if err != nil {
 					return nil, err
 				}
@@ -163,15 +164,15 @@ func registerHotspot(c *Context) {
 	c.add(Def{
 		Toolset: "hotspot", Name: "unifi_list_hotspot_operators", Title: "List hotspot operators",
 		Description: "List hotspot operator accounts (staff who can log in to the hotspot manager to issue vouchers).",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			ops, err := restList(ctx, client, c.site(a), "hotspotop")
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(ops, func(o *Obj) any {
+			return listing{}.result(a, ops, func(o *Obj) any {
 				return unifi.Compact("id", o.Get("_id"), "name", o.Get("name"), "note", o.Get("note"))
-			}), nil
+			}, nil), nil
 		},
 	})
 

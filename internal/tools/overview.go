@@ -13,15 +13,15 @@ func registerOverview(c *Context) {
 	c.add(Def{
 		Toolset: "overview", Name: "unifi_list_sites", Title: "List sites",
 		Description: "List the UniFi sites on the controller. The `name` field is the site ID used by the `site` argument of other tools.",
-		Input:       props(),
+		Input:       props(listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			sites, err := client.Request(ctx, "GET", "/api/self/sites", nil)
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(sites, func(s *Obj) any {
+			return listing{}.result(a, arr(sites), func(s *Obj) any {
 				return unifi.Compact("id", s.Get("_id"), "name", s.Get("name"), "description", s.Get("desc"), "role", s.Get("role"), "device_count", s.Get("device_count"))
-			}), nil
+			}, nil), nil
 		},
 	})
 

@@ -120,26 +120,24 @@ func serverArg() *Schema {
 
 func registerVPN(c *Context) {
 	client := c.Client
+	// Explicit search fields keep secrets (shown with include_secrets) out of search.
+	vpnList := listing{Search: []string{"name", "kind", "subnet", "peer_ip", "remote_subnets"}}
+	radiusProfileList := listing{Search: []string{"name", "auth_servers.ip"}}
+	nameList := listing{Search: []string{"name"}}
 
 	// ---------------------------------------------------------------- VPN networks
 
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_list_vpns", Title: "List VPNs",
 		Description: "List VPN servers (WireGuard, OpenVPN, L2TP), VPN clients and site-to-site VPNs configured on the gateway. Use raw: true to see every field.",
-		Input:       props(siteArg(), rawArg(), secretsArg(secretsVPN)),
+		Input:       props(siteArg(), vpnList.args(), rawArg(), secretsArg(secretsVPN)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "networkconf")
 			if err != nil {
 				return nil, err
 			}
 			vpns := ojson.Filter(list, func(n any) bool { return ojson.Includes(vpnPurposes, ojson.Get(n, "purpose")) })
-			if a.Truthy("raw") {
-				if a.Truthy("include_secrets") {
-					return vpns, nil
-				}
-				return unifi.RedactSecrets(vpns), nil
-			}
-			return mapObjs(vpns, func(n *Obj) any { return summarizeVPN(n) }), nil
+			return vpnList.result(a, vpns, func(n *Obj) any { return summarizeVPN(n) }, rawWithSecrets(a)), nil
 		},
 	})
 
@@ -297,14 +295,14 @@ func registerVPN(c *Context) {
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_list_radius_profiles", Title: "List RADIUS profiles",
 		Description: "List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP VPN (secrets redacted unless include_secrets).",
-		Input:       props(siteArg(), secretsArg(secretsVPN)),
+		Input:       props(siteArg(), radiusProfileList.args(), secretsArg(secretsVPN)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "radiusprofile")
 			if err != nil {
 				return nil, err
 			}
 			include := a.Truthy("include_secrets")
-			return mapObjs(list, func(p *Obj) any { return summarizeRadiusProfile(p, include) }), nil
+			return radiusProfileList.result(a, list, func(p *Obj) any { return summarizeRadiusProfile(p, include) }, nil), nil
 		},
 	})
 
@@ -384,14 +382,14 @@ func registerVPN(c *Context) {
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_list_radius_accounts", Title: "List RADIUS accounts",
 		Description: "List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise). Passwords redacted unless include_secrets.",
-		Input:       props(siteArg(), secretsArg(secretsVPN)),
+		Input:       props(siteArg(), nameList.args(), secretsArg(secretsVPN)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "account")
 			if err != nil {
 				return nil, err
 			}
 			include := a.Truthy("include_secrets")
-			return mapObjs(list, func(x *Obj) any { return summarizeRadiusAccount(x, include) }), nil
+			return nameList.result(a, list, func(x *Obj) any { return summarizeRadiusAccount(x, include) }, nil), nil
 		},
 	})
 

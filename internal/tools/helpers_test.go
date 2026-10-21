@@ -100,6 +100,17 @@ func callWith(t *testing.T, s *mcp.ClientSession, name string, args any) any {
 	return v
 }
 
+// list runs a list tool that must succeed and returns its items array.
+func (e *testEnv) list(name string, args any) any {
+	e.t.Helper()
+	res := e.call(name, args)
+	items, ok := ojson.Arr(get(res, "items"))
+	if !ok {
+		e.t.Fatalf("%s: no items array in %v", name, res)
+	}
+	return items
+}
+
 // callErr runs a tool that must fail and returns its error text.
 func (e *testEnv) callErr(name string, args any) string {
 	e.t.Helper()

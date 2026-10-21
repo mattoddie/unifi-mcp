@@ -379,13 +379,13 @@ func registerFirewall(c *Context) {
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_port_forwards", Title: "List port forwards",
 		Description: "List port forwarding rules.",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "portforward")
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(list, func(r *Obj) any { return summarizePortForward(r) }), nil
+			return listing{}.result(a, list, func(r *Obj) any { return summarizePortForward(r) }, nil), nil
 		},
 	})
 
@@ -449,7 +449,7 @@ func registerFirewall(c *Context) {
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_firewall_rules", Title: "List firewall rules (legacy)",
 		Description: "List classic firewall rules (WAN_IN, LAN_IN, ...). On Network 9+ with zone-based firewall use unifi_list_firewall_policies instead.",
-		Input:       props(siteArg(), rawArg()),
+		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			rules, err := restList(ctx, client, c.site(a), "firewallrule")
 			if err != nil {
@@ -461,10 +461,7 @@ func registerFirewall(c *Context) {
 				}
 				return ojson.ToNumber(ojson.Coalesce(ojson.Get(x, "rule_index"), 0.0)) - ojson.ToNumber(ojson.Coalesce(ojson.Get(y, "rule_index"), 0.0))
 			})
-			if a.Truthy("raw") {
-				return rules, nil
-			}
-			return mapObjs(rules, func(r *Obj) any { return summarizeRule(r) }), nil
+			return listing{}.result(a, rules, func(r *Obj) any { return summarizeRule(r) }, asIs), nil
 		},
 	})
 
@@ -604,17 +601,18 @@ func registerFirewall(c *Context) {
 	groupSummary := func(g *Obj) *Obj {
 		return unifi.Compact("id", g.Get("_id"), "name", g.Get("name"), "type", g.Get("group_type"), "members", g.Get("group_members"))
 	}
+	groupList := listing{Search: []string{"name", "type", "members"}}
 
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_firewall_groups", Title: "List firewall groups",
 		Description: "List firewall groups (address groups, IPv6 address groups and port groups) referenced by firewall rules and policies.",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), groupList.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "firewallgroup")
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(list, func(g *Obj) any { return groupSummary(g) }), nil
+			return groupList.result(a, list, func(g *Obj) any { return groupSummary(g) }, nil), nil
 		},
 	})
 
@@ -674,6 +672,7 @@ func registerFirewall(c *Context) {
 		Input: props(
 			siteArg(),
 			P("include_predefined", Bool().Opt().D("Also return predefined/system policies")),
+			listing{}.args(),
 			rawArg(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -687,10 +686,7 @@ func registerFirewall(c *Context) {
 			ojson.SortStable(policies, func(x, y any) float64 {
 				return ojson.ToNumber(ojson.Coalesce(ojson.Get(x, "index"), 0.0)) - ojson.ToNumber(ojson.Coalesce(ojson.Get(y, "index"), 0.0))
 			})
-			if a.Truthy("raw") {
-				return policies, nil
-			}
-			return mapObjs(policies, func(p *Obj) any { return summarizePolicy(p) }), nil
+			return listing{}.result(a, policies, func(p *Obj) any { return summarizePolicy(p) }, asIs), nil
 		},
 	})
 
@@ -922,16 +918,13 @@ func registerFirewall(c *Context) {
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_firewall_zones", Title: "List firewall zones",
 		Description: "List zone-based firewall zones and the networks in each (UniFi Network 9.0+).",
-		Input:       props(siteArg(), rawArg()),
+		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := v2List(ctx, client, c.site(a), "firewall/zone")
 			if err != nil {
 				return nil, err
 			}
-			if a.Truthy("raw") {
-				return list, nil
-			}
-			return mapObjs(list, func(z *Obj) any {
+			return listing{}.result(a, list, func(z *Obj) any {
 				return unifi.Compact(
 					"id", z.Get("_id"),
 					"name", z.Get("name"),
@@ -940,7 +933,7 @@ func registerFirewall(c *Context) {
 					"network_ids", ojson.If(ojson.HasLength(z.Get("network_ids")), z.Get("network_ids"), U),
 					"integration_id", z.Get("external_id"),
 				)
-			}), nil
+			}, asIs), nil
 		},
 	})
 
@@ -1012,16 +1005,13 @@ func registerFirewall(c *Context) {
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_traffic_rules", Title: "List traffic rules",
 		Description: "List traffic management rules (block/allow/limit by app, domain, IP, region or internet) from the v2 API.",
-		Input:       props(siteArg(), rawArg()),
+		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			rules, err := v2List(ctx, client, c.site(a), "trafficrules")
 			if err != nil {
 				return nil, err
 			}
-			if a.Truthy("raw") {
-				return unifi.RedactSecrets(rules), nil
-			}
-			return mapObjs(rules, func(r *Obj) any { return summarizeTrafficRule(r) }), nil
+			return listing{}.result(a, rules, func(r *Obj) any { return summarizeTrafficRule(r) }, redacted), nil
 		},
 	})
 
@@ -1132,6 +1122,8 @@ func registerFirewall(c *Context) {
 		Input:       props(siteArg(), idArg("Traffic rule")),
 		Handler:     deleteHandler(c, "trafficrules", true),
 	})
+
+	registerPolicyTable(c)
 }
 
 // deleteHandler deletes a rest (or v2) object by id and returns {deleted: id}.

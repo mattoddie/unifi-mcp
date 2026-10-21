@@ -78,7 +78,7 @@ The full guide is in [docs/development.md](docs/development.md#adding-a-tool). T
 - Put the tool in the right toolset file under `internal/tools/`, using `c.add()`.
 - Mark it correctly. `Gate: Write` for anything that changes state, `Gate: Delete` for deletes, and `Destructive: boolPtr(true)` for writes that disconnect clients, reboot devices or change configuration. **This gating is the project's main safety feature, so reviewers check it carefully.**
 - Follow the `save_*` convention for configuration objects: no `id` creates, and an `id` updates only the fields passed.
-- Return compact summaries, offer `raw: true`, and redact secrets.
+- Return compact summaries, offer `raw: true`, and redact secrets. List tools use a `listing`, so they share `search`, `fields` and `limit` and return `{total, returned, items}`.
 - Write the description for an AI model: what the tool does, side effects, units and version requirements.
 - Add tests against the mock controller, then run `make docs`.
 

@@ -137,23 +137,17 @@ func registerNetworks(c *Context) {
 
 	// ---------------------------------------------------------------- LANs / VLANs
 
+	netList := listing{Search: []string{"name", "purpose", "subnet", "vlan", "domain_name"}}
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_networks", Title: "List networks",
 		Description: "List configured networks (LANs/VLANs, WANs, VPNs) with subnet, VLAN ID and DHCP settings.",
-		Input:       props(siteArg(), rawArg(), secretsArg(secretsPassphrases)),
+		Input:       props(siteArg(), netList.args(), rawArg(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "rest/networkconf", nil)
 			if err != nil {
 				return nil, err
 			}
-			nets := arr(res)
-			if a.Truthy("raw") {
-				if a.Truthy("include_secrets") {
-					return nets, nil
-				}
-				return unifi.RedactSecrets(nets), nil
-			}
-			return mapObjs(nets, func(n *Obj) any { return unifi.SummarizeNetwork(n) }), nil
+			return netList.result(a, arr(res), func(n *Obj) any { return unifi.SummarizeNetwork(n) }, rawWithSecrets(a)), nil
 		},
 	})
 
@@ -320,7 +314,7 @@ func registerNetworks(c *Context) {
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_wans", Title: "List WAN connections",
 		Description: "List WAN interfaces with connection type, VLAN, static/PPPoE settings, failover/load-balancing and Smart Queues, plus live WAN health.",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
 			nets, err := restList(ctx, client, s, "networkconf")
@@ -344,7 +338,7 @@ func registerNetworks(c *Context) {
 				)
 			}
 			wans := ojson.Filter(nets, func(n any) bool { return ojson.StrictEq(ojson.Get(n, "purpose"), "wan") })
-			return ojson.New("wans", mapObjs(wans, func(n *Obj) any { return summarizeWan(n) }), "health", healthOut), nil
+			return listing{}.result(a, wans, func(n *Obj) any { return summarizeWan(n) }, nil).Set("health", healthOut), nil
 		},
 	})
 
@@ -447,13 +441,13 @@ func registerNetworks(c *Context) {
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_dns_records", Title: "List local DNS records",
 		Description: "List local DNS records served by the gateway (v2 static-dns; UniFi Network 8.2+).",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := v2List(ctx, client, c.site(a), "static-dns")
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(list, func(r *Obj) any { return summarizeDNSRecord(r) }), nil
+			return listing{}.result(a, list, func(r *Obj) any { return summarizeDNSRecord(r) }, nil), nil
 		},
 	})
 
@@ -523,13 +517,13 @@ func registerNetworks(c *Context) {
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_bandwidth_profiles", Title: "List bandwidth profiles",
 		Description: "List bandwidth profiles (user groups) that cap client download/upload rates; assign them to WLANs or clients.",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "usergroup")
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(list, func(g *Obj) any { return summarizeUsergroup(g) }), nil
+			return listing{}.result(a, list, func(g *Obj) any { return summarizeUsergroup(g) }, nil), nil
 		},
 	})
 
@@ -585,10 +579,11 @@ func registerNetworks(c *Context) {
 
 	// ---------------------------------------------------------------- dynamic DNS
 
+	ddnsList := listing{Search: []string{"service", "hostname", "server", "interface"}}
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_dynamic_dns", Title: "List dynamic DNS",
 		Description: "List dynamic DNS configurations (passwords redacted unless include_secrets).",
-		Input:       props(siteArg(), secretsArg(secretsPassphrases)),
+		Input:       props(siteArg(), ddnsList.args(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			entries, err := restList(ctx, client, c.site(a), "dynamicdns")
 			if err != nil {
@@ -598,7 +593,7 @@ func registerNetworks(c *Context) {
 			if !a.Truthy("include_secrets") {
 				shown = arr(unifi.RedactSecrets(entries))
 			}
-			return mapObjs(shown, func(d *Obj) any {
+			return ddnsList.result(a, shown, func(d *Obj) any {
 				return unifi.Compact(
 					"id", d.Get("_id"),
 					"service", d.Get("service"),
@@ -609,7 +604,7 @@ func registerNetworks(c *Context) {
 					"interface", d.Get("interface"),
 					"options", ojson.If(ojson.HasLength(d.Get("options")), d.Get("options"), U),
 				)
-			}), nil
+			}, nil), nil
 		},
 	})
 

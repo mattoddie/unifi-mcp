@@ -37,6 +37,11 @@ type Options struct {
 	// Body is sent as JSON unless it is ojson.Undefined (or the Options are nil).
 	Body  any
 	Query []Param
+	// Read marks a request that only reads even though it isn't a GET, such as
+	// a POST to stat/report or a v2 log query. A dry run still sends it, and it
+	// isn't recorded as a change. Every other non-GET request is treated as
+	// changing state.
+	Read bool
 }
 
 // MaxResponseBytes is the largest controller response read; anything bigger is an error.
@@ -145,6 +150,38 @@ func (c *Client) SitePut(ctx context.Context, site, path string, body any) (any,
 	return c.Request(ctx, "PUT", "/api/s/"+seg+"/"+path, &Options{Body: body})
 }
 
+// SitePostRead POSTs a query that only reads, such as stat/report or
+// stat/event; see Options.Read. A null or undefined body is sent as {}.
+func (c *Client) SitePostRead(ctx context.Context, site, path string, body any) (any, error) {
+	seg, err := PathSegment(site, "site")
+	if err != nil {
+		return nil, err
+	}
+	if ojson.IsNullish(body) {
+		body = ojson.New()
+	}
+	return c.Request(ctx, "POST", "/api/s/"+seg+"/"+path, &Options{Body: body, Read: true})
+}
+
+// CmdRead issues a manager command that only reads, such as sitemgr
+// get-admins or backup list-backups; see Options.Read.
+func (c *Client) CmdRead(ctx context.Context, site, manager, cmd string, params *ojson.Obj) (any, error) {
+	seg, err := PathSegment(site, "site")
+	if err != nil {
+		return nil, err
+	}
+	return c.Request(ctx, "POST", "/api/s/"+seg+"/cmd/"+manager, &Options{Body: ojson.New("cmd", cmd).Assign(params), Read: true})
+}
+
+// V2PostRead POSTs a v2 query that only reads, such as system-log/<class>; see Options.Read.
+func (c *Client) V2PostRead(ctx context.Context, site, path string, body any) (any, error) {
+	seg, err := PathSegment(site, "site")
+	if err != nil {
+		return nil, err
+	}
+	return c.Request(ctx, "POST", "/v2/api/site/"+seg+"/"+path, &Options{Body: body, Read: true})
+}
+
 // Cmd issues a command to one of the classic API managers (stamgr, devmgr, hotspot, evtmgr...).
 func (c *Client) Cmd(ctx context.Context, site, manager, cmd string, params *ojson.Obj) (any, error) {
 	return c.SitePost(ctx, site, "cmd/"+manager, ojson.New("cmd", cmd).Assign(params))
@@ -176,6 +213,13 @@ func (c *Client) Request(ctx context.Context, method, path string, opts *Options
 	if err := AssertSafePath(path); err != nil {
 		return nil, err
 	}
+	call := CallFrom(ctx)
+	changes := method != "GET" && !opts.Read
+	if changes && call != nil && call.DryRun() {
+		// Stopped before logging in, so a dry run never sends anything but
+		// reads (and the login those need).
+		return nil, call.intercept(method, path, opts)
+	}
 	if err := c.ensureReady(ctx); err != nil {
 		return nil, err
 	}
@@ -188,7 +232,18 @@ func (c *Client) Request(ctx context.Context, method, path string, opts *Options
 	generation := c.generation
 	c.mu.Unlock()
 
-	res, err := c.send(ctx, method, prefix+path, opts, prefix)
+	send := func() (*response, error) {
+		res, err := c.send(ctx, method, prefix+path, opts, prefix)
+		if changes && call != nil {
+			status := 0
+			if res != nil {
+				status = res.status
+			}
+			call.recordSent(method, path, status)
+		}
+		return res, err
+	}
+	res, err := send()
 	if err != nil {
 		return nil, err
 	}
@@ -198,11 +253,15 @@ func (c *Client) Request(ctx context.Context, method, path string, opts *Options
 		if err := c.reauthenticate(ctx, generation); err != nil {
 			return nil, err
 		}
-		if res, err = c.send(ctx, method, prefix+path, opts, prefix); err != nil {
+		if res, err = send(); err != nil {
 			return nil, err
 		}
 	}
-	return c.parse(res, method, path)
+	data, err := c.parse(res, method, path)
+	if err == nil && method == "GET" && call != nil {
+		call.remember(path, data)
+	}
+	return data, err
 }
 
 // reauthenticate replaces a session the controller rejected. generation is the

@@ -71,6 +71,7 @@ type Mock struct {
 	store      map[string][]any
 	handlers   []route
 	delays     []delay
+	observers  []func(Request)
 	nextID     int
 }
 
@@ -108,6 +109,15 @@ func (m *Mock) Delay(pattern string, d time.Duration) *Mock {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.delays = append(m.delays, delay{regexp.MustCompile(pattern), d})
+	return m
+}
+
+// Observe calls fn with every request as it arrives, for example to fail a
+// test the moment something other than a GET is sent.
+func (m *Mock) Observe(fn func(Request)) *Mock {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.observers = append(m.observers, fn)
 	return m
 }
 
@@ -212,8 +222,13 @@ func (m *Mock) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.RequestURI
 	m.mu.Lock()
-	m.requests = append(m.requests, Request{Method: r.Method, Path: path, Header: r.Header.Clone(), Body: body})
+	req := Request{Method: r.Method, Path: path, Header: r.Header.Clone(), Body: body}
+	m.requests = append(m.requests, req)
+	observers := append([]func(Request){}, m.observers...)
 	m.mu.Unlock()
+	for _, fn := range observers {
+		fn(req)
+	}
 	// The response is decided on arrival (so auth uses the session sent), then optionally delayed.
 	status, payload, headers := m.route(r, path, body)
 	m.mu.Lock()

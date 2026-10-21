@@ -13,6 +13,8 @@ The HTTP endpoint is **stateless**: each request is handled on its own, so you c
 
 In the examples below, replace `<docker-host>` with the machine running the container and `<token>` with your `MCP_AUTH_TOKEN`.
 
+By default (`UNIFI_TOOL_MODE=lazy`) a client sees three meta-tools that search for and call the others, which keeps the tool list under 3 KB. Most clients load every tool into the model's context, so keep this default for them. Claude Code is the exception: see [below](#claude-code) and [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading).
+
 - [Claude Code](#claude-code)
 - [Claude Desktop](#claude-desktop)
 - [VS Code (GitHub Copilot)](#vs-code-github-copilot)
@@ -44,6 +46,8 @@ Add `--scope user` to make it available in every project, or `--scope project` t
 
 Run `claude mcp list` to check the connection, and `/mcp` inside Claude Code to see the tools. The built-in prompts are available as slash commands, such as `/mcp__unifi__security_review`.
 
+Claude Code already defers large MCP tool lists behind its own tool search, so you can set `UNIFI_TOOL_MODE=full` on the server to list every tool directly. That lets you write permission rules for individual tools, such as `mcp__unifi__unifi_list_devices`. The default lazy mode works too. See [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading).
+
 ## Claude Desktop
 
 The easiest way is the **extension bundle**: a single `.mcpb` file that installs unifi-mcp into Claude Desktop with a settings form. It needs no Docker, no service and no token, because Claude Desktop runs the server itself over stdio.
@@ -62,7 +66,7 @@ The easiest way is the **extension bundle**: a single `.mcpb` file that installs
    There are Linux bundles too (`linux-amd64`, `linux-arm64`) for other clients that install MCP Bundles.
 
 2. Double-click the file, or drag it onto **Settings → Extensions** in Claude Desktop, and click **Install**.
-3. Fill in the settings and turn the extension on. The tools appear under the tools (🔨) menu, and the prompts under the **+** menu.
+3. Fill in the settings and turn the extension on. The tools appear under the tools (🔨) menu, and the prompts under the **+** menu. In the default lazy mode the menu shows the three meta-tools (two until you allow changes) rather than every tool.
 
 To update, install the bundle from a newer release the same way.
 
@@ -80,6 +84,8 @@ To update, install the bundle from a newer release the same way.
 | **Allow changes** | `UNIFI_ALLOW_WRITES` | Off by default, which keeps the assistant read-only. Read [Security](security.md) before turning it on. |
 | **Allow deletes** | `UNIFI_ALLOW_DELETES` | Also allows deleting configuration and forgetting clients. Needs **Allow changes**. |
 | **Toolsets** | `UNIFI_TOOLSETS` | Optional, such as `overview,devices,clients,wifi,monitoring`. Empty means all. See [Configuration](configuration.md#choosing-toolsets). |
+| **Tool mode** | `UNIFI_TOOL_MODE` | Optional. Empty means `lazy`: Claude sees three small tools that search for and run the others, and asks you before every change. `full` lists every tool, so you can allow or block each one separately in Claude Desktop, at the cost of 48–174 KB of the model's context. See [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading). |
+| **Audit log file** | `UNIFI_AUDIT_LOG` | Optional full path to a file, such as `/Users/you/unifi-mcp-audit.jsonl`, that records every change Claude makes or previews. The folder must exist; the file is created. `stderr` writes the entries to the extension's log instead. Off when empty. See [Audit log](configuration.md#audit-log). |
 
 Fill in either the API key or the username and password. Settings you leave empty use their defaults, as described in [Configuration](configuration.md).
 

@@ -70,16 +70,20 @@ func registerRouting(c *Context) {
 	c.add(Def{
 		Toolset: "routing", Name: "unifi_list_routes", Title: "List static routes",
 		Description: "List user-defined static routes. With active=true, return the gateway's live routing table instead (stat/routing; not available on every version).",
-		Input:       props(siteArg(), P("active", Bool().Opt().D("Return the active routing table (including system routes)"))),
+		Input:       props(siteArg(), P("active", Bool().Opt().D("Return the active routing table (including system routes)")), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			if a.Truthy("active") {
-				return client.SiteGet(ctx, c.site(a), "stat/routing", nil)
+				res, err := client.SiteGet(ctx, c.site(a), "stat/routing", nil)
+				if err != nil {
+					return nil, err
+				}
+				return listing{}.result(a, arr(res), nil, nil), nil
 			}
 			list, err := restList(ctx, client, c.site(a), "routing")
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(list, func(r *Obj) any { return summarizeRoute(r) }), nil
+			return listing{}.result(a, list, func(r *Obj) any { return summarizeRoute(r) }, nil), nil
 		},
 	})
 
@@ -157,16 +161,13 @@ func registerRouting(c *Context) {
 	c.add(Def{
 		Toolset: "routing", Name: "unifi_list_traffic_routes", Title: "List traffic routes",
 		Description: "List traffic routes (policy-based routing): which clients/networks and destinations are sent out a specific WAN or VPN client.",
-		Input:       props(siteArg(), P("raw", Bool().Opt().D("Return the full unprocessed objects"))),
+		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			routes, err := v2List(ctx, client, c.site(a), "trafficroutes")
 			if err != nil {
 				return nil, err
 			}
-			if a.Truthy("raw") {
-				return routes, nil
-			}
-			return mapObjs(routes, func(r *Obj) any { return summarizeTrafficRoute(r) }), nil
+			return listing{}.result(a, routes, func(r *Obj) any { return summarizeTrafficRoute(r) }, asIs), nil
 		},
 	})
 

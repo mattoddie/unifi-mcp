@@ -23,16 +23,16 @@ import (
 var toolsetInfo = map[string]string{
 	"overview":   "Sites, controller information and site health.",
 	"devices":    "UniFi devices (gateways, switches, access points, PDUs): status, firmware, radios, adoption and maintenance.",
-	"clients":    "Connected and known clients: lookup, blocking, reconnecting and naming.",
-	"switching":  "Switch ports and port profiles, including PoE.",
+	"clients":    "Connected and known clients: lookup, blocking, reconnecting, naming and locking to an access point.",
+	"switching":  "Switch ports and port profiles, including PoE, port mirroring, link aggregation and LLDP neighbours.",
 	"wifi":       "WiFi networks (WLANs) and join QR codes.",
 	"networks":   "Networks/VLANs, WAN links, local DNS records, bandwidth profiles and dynamic DNS.",
-	"firewall":   "Port forwards, legacy firewall rules and groups, zone-based firewall policies and zones, and traffic rules.",
+	"firewall":   "Port forwards, legacy firewall rules and groups, zone-based firewall policies and zones, traffic rules, and the policy table: QoS rules, NAT rules, switch ACL rules and object-oriented network policies.",
 	"routing":    "Static routes and policy-based traffic routes.",
 	"security":   "Threat management (IDS/IPS), country blocking and content filtering.",
 	"vpn":        "VPN servers and site-to-site VPNs, RADIUS profiles and RADIUS accounts.",
 	"hotspot":    "Hotspot vouchers, operators, guest authorization and the guest portal.",
-	"monitoring": "Events, alarms, traffic and DPI statistics, speed tests, logs and dashboards.",
+	"monitoring": "Events, alarms, traffic and DPI statistics, traffic flows, speed tests, logs and dashboards.",
 	"admin":      "Site settings, administrators, backups, controller updates and site management.",
 	"raw":        "A raw API escape hatch for anything the other tools don't cover. It is limited to GET requests unless writes are enabled.",
 }
@@ -154,6 +154,9 @@ func main() {
 		"| 🟠 write | `UNIFI_ALLOW_WRITES=true` |",
 		"| 🔴 delete | `UNIFI_ALLOW_WRITES=true` and `UNIFI_ALLOW_DELETES=true` |", "",
 		"Every tool also needs its toolset to be enabled in `UNIFI_TOOLSETS`, which enables all toolsets by default. Most tools take an optional `site` argument, which defaults to `UNIFI_SITE`.", "",
+		"By default (`UNIFI_TOOL_MODE=lazy`) clients don't list these tools directly. They see three meta-tools instead: `unifi_search_tools` finds tools and returns their arguments, `unifi_call_tool` runs read tools and `unifi_call_write_tool` runs the others. The names, arguments and results below are the same in both modes. See [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading).", "",
+		"Every write and delete tool, and `unifi_api_request` when writes are enabled, also takes an optional `dry_run` argument (boolean), left out of the tables below. With `dry_run: true` the tool reads the current state and returns the first request it would send, with a field-level diff for updates, without changing anything. See [Previewing changes](usage.md#previewing-changes-with-dry_run).", "",
+		"List tools return `{total, returned, items}`: `total` counts the matches and `returned` the items sent after `limit`. They take `search`, `fields` and, on lists that can grow long, `limit`. See [Narrowing list results](usage.md#narrowing-list-results).", "",
 		"## Contents", "")
 	for _, ts := range config.Toolsets {
 		w(fmt.Sprintf("- [`%s`](#%s): %s", ts, ts, toolsetInfo[ts]))
@@ -185,6 +188,8 @@ func main() {
 			}
 			w("### "+t.Name, "", label, "", t.Description, "")
 			props, _ := ojson.AsObj(info.Schema.Get("properties"))
+			// dry_run is described once, at the top.
+			props = props.Without("dry_run")
 			if props.Len() == 0 {
 				w("_No arguments._", "")
 				continue
@@ -197,6 +202,12 @@ func main() {
 			for _, name := range props.Keys() {
 				p := props.Get(name)
 				desc, _ := ojson.Get(p, "description").(string)
+				if doc, ok := tools.ListArgDocs[name]; ok && (desc == "" || strings.HasPrefix(desc, "Default ")) {
+					if desc != "" {
+						desc += "."
+					}
+					desc = strings.TrimSpace(doc + " " + desc)
+				}
 				if def := ojson.Get(p, "default"); !ojson.IsUndefined(def) {
 					j, _ := ojson.Stringify(def)
 					if desc != "" {

@@ -193,21 +193,21 @@ func registerSecurity(c *Context) {
 		},
 	})
 
+	threatList := listing{Search: []string{"signature", "category", "action", "src.ip", "dst.ip", "host"}, Limit: 100}
 	c.add(Def{
 		Toolset: "security", Name: "unifi_list_threats", Title: "List detected threats",
 		Description: "List IDS/IPS threat events detected by the gateway (newest first): signature, category, source/destination, action taken.",
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Max(24*90).Opt().D("Look back this many hours (default 24)")),
-			limitArg(100),
+			threatList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := nowMs()
-			limit := a.NumOr("limit", 100)
-			res, err := client.SitePost(ctx, c.site(a), "stat/ips/event", ojson.New(
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/ips/event", ojson.New(
 				"start", end-a.NumOr("hours", 24)*3600000,
 				"end", end,
-				"_limit", limit,
+				"_limit", threatList.fetch(a),
 			))
 			if err != nil {
 				return nil, err
@@ -217,10 +217,7 @@ func registerSecurity(c *Context) {
 				return ojson.ToNumber(ojson.Coalesce(ojson.Get(e, "timestamp"), ojson.Get(e, "time"), 0.0))
 			}
 			ojson.SortStable(events, func(x, y any) float64 { return ts(y) - ts(x) })
-			if int(limit) < len(events) {
-				events = events[:int(limit)]
-			}
-			return mapObjs(events, func(e *Obj) any {
+			return threatList.result(a, events, func(e *Obj) any {
 				g := e.Get
 				return unifi.Compact(
 					"time", ojson.Coalesce(unifi.IsoTime(ojson.Coalesce(g("timestamp"), g("time"))), g("datetime")),
@@ -234,7 +231,7 @@ func registerSecurity(c *Context) {
 					"dst", unifi.Compact("ip", ojson.Coalesce(g("dest_ip"), g("dst_ip")), "port", ojson.Coalesce(g("dest_port"), g("dst_port")), "mac", g("dst_mac"), "country", g("dstipCountry")),
 					"host", g("host"),
 				)
-			}), nil
+			}, nil), nil
 		},
 	})
 
@@ -243,16 +240,13 @@ func registerSecurity(c *Context) {
 	c.add(Def{
 		Toolset: "security", Name: "unifi_list_content_filters", Title: "List content filters",
 		Description: "List content filtering profiles (blocked categories, safe search, target networks/clients). v2 API, Network 8.1+.",
-		Input:       props(siteArg(), P("raw", Bool().Opt().D("Return the full controller objects"))),
+		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			filters, err := v2List(ctx, client, c.site(a), "content-filtering")
 			if err != nil {
 				return nil, err
 			}
-			if a.Truthy("raw") {
-				return filters, nil
-			}
-			return mapObjs(filters, func(f *Obj) any { return summarizeContentFilter(f) }), nil
+			return listing{}.result(a, filters, func(f *Obj) any { return summarizeContentFilter(f) }, asIs), nil
 		},
 	})
 

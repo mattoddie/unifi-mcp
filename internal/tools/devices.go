@@ -85,19 +85,24 @@ func resolveSiteID(ctx context.Context, client *unifi.Client, ref string) (any, 
 
 func registerDevices(c *Context) {
 	client := c.Client
-	rawDesc := "Return the full unprocessed objects from the controller (large)"
 	apMac := P("mac", macSchema().D("MAC address of the access point"))
 
 	// ---------------------------------------------------------------- read
 
+	deviceList := listing{
+		Search:  []string{"name", "hostname", "mac", "ip", "model", "model_name"},
+		Filters: map[string]string{"state": "state"},
+		Limit:   500,
+	}
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_list_devices", Title: "List devices",
 		Description: "List UniFi network devices (gateways, switches, access points...) with state, model, firmware, uptime, load and client counts.",
 		Input: props(
 			siteArg(),
 			P("type", Enum("access_point", "switch", "gateway", "other").Opt().D("Only devices of this type")),
-			searchArg(),
-			P("raw", Bool().Opt().D(rawDesc)),
+			P("state", Str().Opt().D("Only this state: connected, disconnected, upgrading...")),
+			deviceList.args(),
+			rawArg(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "stat/device", nil)
@@ -118,23 +123,14 @@ func registerDevices(c *Context) {
 					return ojson.Includes(ojson.Strings(deviceTypeCodes[t]), dt)
 				})
 			}
-			out := filterAndLimit(devices, a.Str("search"), nil, func(d *Obj) []any {
-				return []any{d.Get("name"), d.Get("hostname"), d.Get("mac"), d.Get("ip"), d.Get("model"), d.Get("model_name")}
-			})
-			items := arr(out.Get("items"))
-			if a.Truthy("raw") {
-				out.Set("items", unifi.RedactSecrets(items))
-			} else {
-				out.Set("items", mapObjs(items, func(d *Obj) any { return unifi.SummarizeDevice(d) }))
-			}
-			return out, nil
+			return deviceList.result(a, devices, func(d *Obj) any { return unifi.SummarizeDevice(d) }, redacted), nil
 		},
 	})
 
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_get_device", Title: "Get device details",
 		Description: "Get detailed information about one device by MAC: summary, switch ports, radio config and stats, uplink, LED and system stats.",
-		Input:       props(siteArg(), macArg(), P("raw", Bool().Opt().D(rawDesc))),
+		Input:       props(siteArg(), macArg(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			device, err := getDevice(ctx, client, c.site(a), a.Str("mac"))
 			if err != nil {
@@ -217,7 +213,7 @@ func registerDevices(c *Context) {
 			devices := arr(res)
 			var available any = U
 			if a.Truthy("include_available") {
-				available, err = client.Cmd(ctx, s, "firmware", "list-available", nil)
+				available, err = client.CmdRead(ctx, s, "firmware", "list-available", nil)
 				if err != nil {
 					available = ojson.New("error", err.Error())
 				}
@@ -279,16 +275,17 @@ func registerDevices(c *Context) {
 		},
 	})
 
+	apGroupList := listing{Search: []string{"name", "device_macs"}}
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_list_ap_groups", Title: "List AP groups",
 		Description: "List access point groups (used to choose which APs broadcast each WiFi network). Network 7.x+ (v2 API).",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), apGroupList.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			groups, err := v2List(ctx, client, c.site(a), "apgroups")
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(groups, func(g *Obj) any { return summarizeAPGroup(g) }), nil
+			return apGroupList.result(a, groups, func(g *Obj) any { return summarizeAPGroup(g) }, nil), nil
 		},
 	})
 

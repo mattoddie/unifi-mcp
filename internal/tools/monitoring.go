@@ -74,42 +74,37 @@ func sortDesc(list []any, fallback float64, fields ...string) {
 	ojson.SortStable(list, func(x, y any) float64 { return val(y) - val(x) })
 }
 
-func limitList(list []any, limit float64) []any {
-	if int(limit) < len(list) {
-		return list[:int(limit)]
-	}
-	return list
-}
-
 func registerMonitoring(c *Context) {
 	client := c.Client
+	recent := func(search ...string) listing { return listing{Search: search, Limit: 100} }
 
+	eventList := recent("key", "subsystem", "message", "title", "category", "device", "client")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_events", Title: "List recent events",
 		Description: "List recent controller events (client connects/roams, device restarts, upgrades...). Uses the classic event log and falls back to the v2 system log (device and client alerts) on Network versions where the classic log is gone or empty. For other log classes use unifi_get_system_log.",
 		Input: props(
 			siteArg(),
 			P("hours", Int().Positive().Max(24*30).Opt().D("Look back this many hours (default 24)")),
-			limitArg(100),
+			eventList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
 			hours := a.NumOr("hours", 24)
-			limit := a.NumOr("limit", 100)
+			limit := eventList.fetch(a)
 			var legacyError any = U
-			res, err := client.SitePost(ctx, s, "stat/event", ojson.New("within", hours, "_limit", limit, "_sort", "-time"))
+			res, err := client.SitePostRead(ctx, s, "stat/event", ojson.New("within", hours, "_limit", limit, "_sort", "-time"))
 			if err != nil {
 				legacyError = err.Error()
 			} else if events := arr(res); len(events) > 0 {
-				return mapObjs(events, func(e *Obj) any {
+				return eventList.result(a, events, func(e *Obj) any {
 					return unifi.Compact("time", ojson.Coalesce(unifi.IsoTime(e.Get("time")), e.Get("datetime")), "key", e.Get("key"), "subsystem", e.Get("subsystem"), "message", e.Get("msg"))
-				}), nil
+				}, nil), nil
 			}
 			end := nowMs()
 			start := end - hours*3600000
 			var entries []any
 			for _, cls := range []string{"device-alert", "client-alert"} {
-				r, err := client.V2(ctx, "POST", s, "system-log/"+cls, systemLogPayload(cls, start, end, 0, limit))
+				r, err := client.V2PostRead(ctx, s, "system-log/"+cls, systemLogPayload(cls, start, end, 0, limit))
 				if err != nil {
 					continue
 				}
@@ -119,22 +114,21 @@ func registerMonitoring(c *Context) {
 				entries = []any{}
 			}
 			sortDesc(entries, 0, "timestamp")
-			entries = limitList(entries, limit)
 			return ojson.New(
 				"source", "v2 system-log (device-alert, client-alert)",
 				"legacy_error", legacyError,
-				"events", mapObjs(entries, func(e *Obj) any { return summarizeLogEntry(e) }),
-			), nil
+			).Assign(eventList.result(a, entries, func(e *Obj) any { return summarizeLogEntry(e) }, nil)), nil
 		},
 	})
 
+	alarmList := recent("key", "subsystem", "message")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_alarms", Title: "List alarms",
 		Description: "List controller alarms (alerts). By default only active (unarchived) alarms are returned.",
 		Input: props(
 			siteArg(),
 			P("include_archived", Bool().Opt().D("Include archived alarms")),
-			limitArg(100),
+			alarmList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "list/alarm", nil)
@@ -146,7 +140,7 @@ func registerMonitoring(c *Context) {
 				alarms = ojson.Filter(alarms, func(x any) bool { return !ojson.Truthy(ojson.Get(x, "archived")) })
 			}
 			sortDesc(alarms, 0, "time")
-			return mapObjs(limitList(alarms, a.NumOr("limit", 100)), func(x *Obj) any {
+			return alarmList.result(a, alarms, func(x *Obj) any {
 				return unifi.Compact(
 					"id", x.Get("_id"),
 					"time", ojson.Coalesce(unifi.IsoTime(x.Get("time")), x.Get("datetime")),
@@ -155,7 +149,7 @@ func registerMonitoring(c *Context) {
 					"message", x.Get("msg"),
 					"archived", ojson.OrUndefined(x.Get("archived")),
 				)
-			}), nil
+			}, nil), nil
 		},
 	})
 
@@ -212,7 +206,7 @@ func registerMonitoring(c *Context) {
 				}
 				body.Set("macs", norm)
 			}
-			res, err := client.SitePost(ctx, c.site(a), "stat/report/"+interval+"."+scope, body)
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/report/"+interval+"."+scope, body)
 			if err != nil {
 				return nil, err
 			}
@@ -243,22 +237,24 @@ func registerMonitoring(c *Context) {
 				if err != nil {
 					return nil, err
 				}
-				return client.SitePost(ctx, c.site(a), "stat/stadpi", ojson.New("type", typ, "macs", norm))
+				return client.SitePostRead(ctx, c.site(a), "stat/stadpi", ojson.New("type", typ, "macs", norm))
 			}
-			return client.SitePost(ctx, c.site(a), "stat/sitedpi", ojson.New("type", typ))
+			return client.SitePostRead(ctx, c.site(a), "stat/sitedpi", ojson.New("type", typ))
 		},
 	})
 
+	speedtestList := recent("server")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_get_speedtest_results", Title: "Get speed test history",
 		Description: "Get historical WAN speed test results run by the gateway.",
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Opt().D("Look back this many hours (default 168)")),
+			speedtestList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := nowMs()
-			res, err := client.SitePost(ctx, c.site(a), "stat/report/archive.speedtest", ojson.New(
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/report/archive.speedtest", ojson.New(
 				"attrs", ojson.Strings([]string{"xput_download", "xput_upload", "latency", "rundate", "server", "time"}),
 				"start", end-a.NumOr("hours", 168)*3600000,
 				"end", end,
@@ -266,7 +262,9 @@ func registerMonitoring(c *Context) {
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(res, func(r *Obj) any {
+			results := arr(res)
+			sortDesc(results, 0, "time", "rundate")
+			return speedtestList.result(a, results, func(r *Obj) any {
 				return unifi.Compact(
 					"time", unifi.IsoTime(ojson.Coalesce(r.Get("time"), r.Get("rundate"))),
 					"download_mbps", r.Get("xput_download"),
@@ -274,7 +272,7 @@ func registerMonitoring(c *Context) {
 					"latency_ms", r.Get("latency"),
 					"server", ojson.Coalesce(ojson.Get(r.Get("server"), "city"), ojson.Get(r.Get("server"), "name")),
 				)
-			}), nil
+			}, nil), nil
 		},
 	})
 
@@ -291,6 +289,7 @@ func registerMonitoring(c *Context) {
 		},
 	})
 
+	rogueList := recent("ssid", "bssid", "vendor", "seen_by_ap")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_rogue_aps", Title: "List neighbouring/rogue APs",
 		Description: "List nearby access points seen by your APs (neighbours and potential rogue APs).",
@@ -298,10 +297,10 @@ func registerMonitoring(c *Context) {
 			siteArg(),
 			P("hours", Int().Positive().Opt().D("Seen within this many hours (default 24)")),
 			P("rogue_only", Bool().Opt().D("Only APs flagged as rogue")),
-			limitArg(100),
+			rogueList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
-			res, err := client.SitePost(ctx, c.site(a), "stat/rogueap", ojson.New("within", a.NumOr("hours", 24)))
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/rogueap", ojson.New("within", a.NumOr("hours", 24)))
 			if err != nil {
 				return nil, err
 			}
@@ -310,7 +309,7 @@ func registerMonitoring(c *Context) {
 				aps = ojson.Filter(aps, func(x any) bool { return ojson.Truthy(ojson.Get(x, "is_rogue")) })
 			}
 			sortDesc(aps, -999, "rssi")
-			return mapObjs(limitList(aps, a.NumOr("limit", 100)), func(x *Obj) any {
+			return rogueList.result(a, aps, func(x *Obj) any {
 				return unifi.Compact(
 					"ssid", x.Get("essid"),
 					"bssid", x.Get("bssid"),
@@ -324,7 +323,7 @@ func registerMonitoring(c *Context) {
 					"rogue", ojson.OrUndefined(x.Get("is_rogue")),
 					"last_seen", unifi.IsoTime(x.Get("last_seen")),
 				)
-			}), nil
+			}, nil), nil
 		},
 	})
 
@@ -347,7 +346,7 @@ func registerMonitoring(c *Context) {
 			end := nowMs()
 			start := end - a.NumOr("hours", 168)*3600000
 			page := a.NumOr("page", 0)
-			res, err := client.V2(ctx, "POST", c.site(a), "system-log/"+cls, systemLogPayload(cls, start, end, page, a.NumOr("page_size", 50)))
+			res, err := client.V2PostRead(ctx, c.site(a), "system-log/"+cls, systemLogPayload(cls, start, end, page, a.NumOr("page_size", 50)))
 			if err != nil {
 				return nil, err
 			}
@@ -361,6 +360,7 @@ func registerMonitoring(c *Context) {
 		},
 	})
 
+	sessionList := recent("name", "hostname", "mac", "ip", "ssid", "network", "ap_mac")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_client_sessions", Title: "List client sessions",
 		Description: "List client connection sessions (association history): when each client connected, for how long, to which AP/network, and traffic used.",
@@ -369,7 +369,7 @@ func registerMonitoring(c *Context) {
 			P("mac", Str().Opt().D("Only sessions for this client")),
 			P("type", Enum("all", "user", "guest").Opt().D("Client type (default all)")),
 			P("hours", Number().Positive().Max(24*90).Opt().D("Look back this many hours (default 168)")),
-			limitArg(100),
+			sessionList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := math.Floor(nowMs() / 1000)
@@ -381,13 +381,13 @@ func registerMonitoring(c *Context) {
 				}
 				body.Set("mac", m)
 			}
-			res, err := client.SitePost(ctx, c.site(a), "stat/session", body)
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/session", body)
 			if err != nil {
 				return nil, err
 			}
 			sessions := arr(res)
 			sortDesc(sessions, 0, "assoc_time")
-			return mapObjs(limitList(sessions, a.NumOr("limit", 100)), func(x *Obj) any {
+			return sessionList.result(a, sessions, func(x *Obj) any {
 				return unifi.Compact(
 					"mac", x.Get("mac"),
 					"name", ojson.Coalesce(x.Get("name"), x.Get("hostname")),
@@ -402,27 +402,28 @@ func registerMonitoring(c *Context) {
 					"rx_bytes", x.Get("rx_bytes"),
 					"tx_bytes", x.Get("tx_bytes"),
 				)
-			}), nil
+			}, nil), nil
 		},
 	})
 
+	authList := recent("mac", "ip", "method", "voucher")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_guest_authorizations", Title: "List guest authorizations",
 		Description: "List hotspot/guest portal authorizations (who was authorized, how, when and until when).",
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Max(24*365).Opt().D("Look back this many hours (default 168)")),
-			limitArg(100),
+			authList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := math.Floor(nowMs() / 1000)
-			res, err := client.SitePost(ctx, c.site(a), "stat/authorization", ojson.New("start", end-ojson.Round(a.NumOr("hours", 168)*3600), "end", end))
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/authorization", ojson.New("start", end-ojson.Round(a.NumOr("hours", 168)*3600), "end", end))
 			if err != nil {
 				return nil, err
 			}
 			auths := arr(res)
 			sortDesc(auths, 0, "start")
-			return mapObjs(limitList(auths, a.NumOr("limit", 100)), func(x *Obj) any {
+			return authList.result(a, auths, func(x *Obj) any {
 				return unifi.Compact(
 					"id", x.Get("_id"),
 					"mac", x.Get("mac"),
@@ -435,31 +436,32 @@ func registerMonitoring(c *Context) {
 					"tx_bytes", x.Get("tx_bytes"),
 					"expired", ojson.OrUndefined(x.Get("expired")),
 				)
-			}), nil
+			}, nil), nil
 		},
 	})
 
+	anomalyList := recent()
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_anomalies", Title: "List anomalies",
 		Description: "List anomalies the controller detected (e.g. high latency, DNS timeouts, poor WiFi experience) per client/device. Not available on every Network version.",
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Max(24*30).Opt().D("Look back this many hours (default 24)")),
-			limitArg(100),
+			anomalyList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := nowMs()
-			res, err := client.SitePost(ctx, c.site(a), "stat/anomalies", ojson.New("start", end-a.NumOr("hours", 24)*3600000, "end", end))
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/anomalies", ojson.New("start", end-a.NumOr("hours", 24)*3600000, "end", end))
 			if err != nil {
 				return nil, err
 			}
 			// Row shape varies by version, so rows are returned as-is apart from readable timestamps.
-			return mapObjs(limitList(arr(res), a.NumOr("limit", 100)), func(r *Obj) any {
+			return anomalyList.result(a, arr(res), func(r *Obj) any {
 				t := r.Get("time")
 				out := ojson.New("time", ojson.Coalesce(unifi.IsoTime(t), t))
 				out.Assign(r.Without("time"))
 				return unifi.CompactObj(out)
-			}), nil
+			}, nil), nil
 		},
 	})
 
@@ -475,4 +477,6 @@ func registerMonitoring(c *Context) {
 			return client.V2Query(ctx, "GET", c.site(a), "aggregated-dashboard", []unifi.Param{{Key: "historySeconds", Value: seconds}})
 		},
 	})
+
+	registerTrafficFlows(c)
 }

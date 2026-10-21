@@ -24,7 +24,7 @@ An open-source [Model Context Protocol](https://modelcontextprotocol.io) server 
 > **"Why is the lounge TV buffering?"**
 > *The TV is on the Lounge AP at -78 dBm and 12 Mbps, and that AP's 5 GHz radio is at 81% channel utilisation on channel 36. Moving the AP to channel 149 or adding a wired backhaul should fix it. Want me to change the channel?*
 
-Ask about your network in plain English. The assistant picks from **132 tools** to look things up and, if you allow it, make changes. Some examples:
+Ask about your network in plain English. The assistant picks from **145 tools** to look things up and, if you allow it, make changes. Some examples:
 
 - 🩺 *"Give me a health check of the network."*
 - 🔎 *"Which clients have a weak WiFi signal right now?"*
@@ -37,8 +37,10 @@ Ask about your network in plain English. The assistant picks from **132 tools** 
 
 - **🐳 Docker-first.** There's one small distroless image (`ghcr.io/mattoddie/unifi-mcp`, about 22 MB) for `linux/amd64` and `linux/arm64`. It serves Streamable HTTP for a long-running service, or stdio for `docker run -i`. For Claude Desktop there's also a one-click extension bundle (`.mcpb`) that needs no Docker.
 - **🛡️ Safe by default.** The server is read-only unless you turn on writes, and deleting configuration needs a second switch. Destructive tools are labelled so your MCP client asks before running them, and passwords and keys are redacted from output.
+- **🔍 Preview and audit.** Every write tool takes `dry_run: true` to show the request it would send, with a field-level diff of what would change, without changing anything. `UNIFI_AUDIT_LOG` records each change in a JSON Lines audit log.
 - **🧰 Broad coverage.** It covers 14 toolsets: devices, clients, switch ports and PoE, WiFi, networks and VLANs, WAN, DNS, legacy and zone-based firewall, traffic rules and routes, IDS/IPS, VPN, RADIUS, hotspot vouchers, statistics, logs, admins and backups.
-- **🎛️ Tunable.** Expose only the toolsets you need, which keeps the model's context small and focused.
+- **🪶 Light on context.** By default the client sees three small meta-tools (under 3 KB) that search for and call the 145 tools, instead of 48–174 KB of tool definitions. Reads and writes go through separate meta-tools, so your client still asks before every change. Set `UNIFI_TOOL_MODE=full` to list every tool directly.
+- **🎛️ Tunable.** Expose only the toolsets you need, which keeps the model focused.
 - **🔌 Works with your controller.** Supports UniFi OS consoles (UDM, UDM Pro/SE, UCG, UDR, UX, Cloud Key Gen2+, UniFi OS Server) and legacy self-hosted Network applications. Auth is an API key or a local account.
 - **🧪 Tested.** The test suite runs against a mock controller on every build.
 
@@ -84,9 +86,12 @@ Out of the box the assistant can look but not touch. To let it make changes, add
 UNIFI_ALLOW_WRITES=true      # restart devices, block clients, edit WiFi/firewall/networks…
 UNIFI_ALLOW_DELETES=true     # also allow deleting configuration, forgetting clients… (needs writes too)
 UNIFI_TOOLSETS=overview,devices,clients,wifi,monitoring   # optional: expose fewer tools
+UNIFI_AUDIT_LOG=stderr       # optional: log every change (or a file path; see docs/configuration.md)
 ```
 
-Read [Security](docs/security.md) before turning on writes for a production network.
+In the default lazy mode, changes go through the `unifi_call_write_tool` meta-tool, which clients treat as destructive, so they ask you before each one.
+
+Ask for a dry run to preview a change first: *"Dry run: disable the guest WiFi. What would change?"* Read [Security](docs/security.md) before turning on writes for a production network.
 
 ## What it can do
 
@@ -94,17 +99,17 @@ Read [Security](docs/security.md) before turning on writes for a production netw
 |---|---|
 | `overview` | Sites, controller info, site health |
 | `devices` | Device status and details, restart/locate/provision, firmware upgrades (also rolling), radios, PoE outlets, adoption, RF scans, AP groups |
-| `clients` | Online and known clients, block/unblock, reconnect, names, fixed IPs, forget |
-| `switching` | Switch ports, port profiles, PoE power-cycling |
+| `clients` | Online and known clients, block/unblock, reconnect, names, fixed IPs, lock to an AP, forget |
+| `switching` | Switch ports, port profiles, PoE power-cycling, port mirroring, link aggregation, LLDP neighbours |
 | `wifi` | WLANs (SSIDs, security, VLANs, bands), WiFi QR codes |
 | `networks` | Networks/VLANs and DHCP, WAN, local DNS records, bandwidth profiles, dynamic DNS |
-| `firewall` | Port forwards, firewall rules and groups, zone-based policies and zones, traffic rules |
+| `firewall` | Port forwards, firewall rules and groups, zone-based policies and zones, traffic rules, QoS rules, NAT rules, switch ACL rules, object-oriented network policies |
 | `routing` | Static routes, policy-based traffic routes |
 | `security` | IDS/IPS threat management, threat log, country blocking, content filtering |
 | `vpn` | VPN servers and site-to-site VPNs, RADIUS profiles and accounts |
 | `hotspot` | Vouchers, hotspot operators, guest authorization, guest portal |
-| `monitoring` | Events, alarms, traffic reports, DPI, speed tests, rogue APs, system log, sessions, anomalies, dashboards |
-| `admin` | Site settings, admins, backups, controller updates, sites |
+| `monitoring` | Events, alarms, traffic reports, traffic flows, DPI, speed tests, rogue APs, system log, sessions, anomalies, dashboards |
+| `admin` | Site settings (including SNMP, mDNS and auto-backup), admins, backups, controller updates, sites |
 | `raw` | An escape hatch that calls any controller API path |
 
 See the **[tool reference](docs/tools.md)** for every tool and argument. Ready-made prompts like `network_health_check`, `troubleshoot_client` and `security_review` chain the tools together for common jobs.
@@ -120,7 +125,7 @@ The docs are also published at **[unifi-mcp.mattoddie.dev/docs](https://unifi-mc
 | ⚙️ [Configuration](docs/configuration.md) | Every environment variable, Docker secrets, toolsets |
 | 🐳 [Deployment](docs/deployment.md) | Compose, image tags, upgrades, TLS reverse proxy, hardening |
 | 💬 [Using unifi-mcp](docs/usage.md) | Example conversations, prompts, how saves and secrets work |
-| 🧰 [Tool reference](docs/tools.md) | All 132 tools and 5 prompts, generated from the code |
+| 🧰 [Tool reference](docs/tools.md) | All 145 tools and 5 prompts, generated from the code |
 | 🛡️ [Security](docs/security.md) | Threat model, least privilege, safe write setups |
 | 📡 [Compatibility](docs/compatibility.md) | Supported controllers and versions, API caveats |
 | 🩹 [Troubleshooting](docs/troubleshooting.md) | Common errors and how to fix them |

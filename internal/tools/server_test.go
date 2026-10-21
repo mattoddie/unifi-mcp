@@ -42,9 +42,9 @@ func TestRawOutputIsRedacted(t *testing.T) {
 	env := startMock(t, toolOptions(false, false))
 	dev := env.call("unifi_get_device", `{"mac":"AA-BB-CC-00-00-01","raw":true}`)
 	eq(t, "x_authkey", get(dev, "x_authkey"), "[redacted]")
-	wlans := env.call("unifi_list_wlans", nil)
+	wlans := env.list("unifi_list_wlans", nil)
 	eq(t, "no passphrase", get(wlans, 0, "passphrase"), nil)
-	withSecrets := env.call("unifi_list_wlans", `{"include_secrets":true}`)
+	withSecrets := env.list("unifi_list_wlans", `{"include_secrets":true}`)
 	eq(t, "passphrase", get(withSecrets, 0, "passphrase"), "hunter22")
 }
 
@@ -122,7 +122,7 @@ func TestGatesAndAnnotations(t *testing.T) {
 	reads := toolMap(t, env.mcp)
 	writes := toolMap(t, connect(t, env.client, toolOptions(true, false)))
 	all := toolMap(t, connect(t, env.client, toolOptions(true, true)))
-	if len(reg) != 132 || len(all) != 132 || len(reads) != 54 || len(writes) != 107 {
+	if len(reg) != 145 || len(all) != 145 || len(reads) != 59 || len(writes) != 116 {
 		t.Errorf("counts: registered %d, all %d, read %d, write %d", len(reg), len(all), len(reads), len(writes))
 	}
 	for _, info := range reg {

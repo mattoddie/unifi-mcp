@@ -55,7 +55,7 @@ Report: a one-line verdict, then problems ordered by severity, each with evidenc
 2. Check: online state, IP and network/VLAN, fixed IP, blocked/guest status, signal/satisfaction/rates (wireless) or switch port (wired).
 3. The AP or switch it uses: unifi_get_device (port errors/speed, radio channel utilisation, uptime).
 4. History: unifi_list_client_sessions for this MAC (frequent reconnects?), unifi_list_events.
-5. If relevant: unifi_list_firewall_rules / unifi_list_traffic_rules / unifi_list_content_filters for rules affecting it.
+5. If relevant: unifi_list_firewall_rules / unifi_list_traffic_rules / unifi_list_qos_rules / unifi_list_oon_policies / unifi_list_content_filters for rules affecting it, and unifi_list_traffic_flows (client_mac, action: blocked) for traffic being blocked.
 Report the most likely cause(s) with evidence and concrete next steps. Ask before making any change.`
 		},
 	},
@@ -70,6 +70,7 @@ Check:
 - unifi_list_threats (last 7 days, hours: 168): notable signatures, repeat offenders, internal hosts involved.
 - unifi_list_port_forwards: exposed services, forwards open to any source.
 - unifi_list_firewall_rules and unifi_list_firewall_policies: overly broad allow rules, missing inter-VLAN isolation.
+- unifi_list_nat_rules: DNAT rules that expose internal hosts; unifi_list_acl_rules: switch-level isolation inside networks.
 - unifi_list_wlans: open or WPA2-only networks where WPA3 is possible, guest networks without isolation.
 - unifi_list_networks: guest/IoT segmentation.
 - unifi_list_admins: number of admins and roles.
@@ -103,7 +104,10 @@ Recommend specific changes (channel plan, widths, power levels, SSID consolidati
 	},
 }
 
-func registerPrompts(s *mcp.Server) {
+// lazyPromptNote tells the model how to reach the tools a prompt names in lazy mode.
+const lazyPromptNote = "\nThe tools above are reached through " + callToolName + " {name, arguments}; look up their arguments with " + searchToolName + " names if needed."
+
+func registerPrompts(s *mcp.Server, lazy bool) {
 	for _, p := range prompts {
 		s.AddPrompt(&mcp.Prompt{Name: p.name, Title: p.title, Description: p.description, Arguments: p.args},
 			func(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
@@ -119,8 +123,12 @@ func registerPrompts(s *mcp.Server) {
 						}
 					}
 				}
+				text := p.text(args)
+				if lazy {
+					text += lazyPromptNote
+				}
 				return &mcp.GetPromptResult{
-					Messages: []*mcp.PromptMessage{{Role: "user", Content: &mcp.TextContent{Text: p.text(args)}}},
+					Messages: []*mcp.PromptMessage{{Role: "user", Content: &mcp.TextContent{Text: text}}},
 				}, nil
 			})
 	}
