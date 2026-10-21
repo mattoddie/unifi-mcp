@@ -6,6 +6,14 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Added
+
+- **Claude Desktop extension bundles.** Each release now has a one-click `.mcpb` bundle for macOS (Apple silicon and Intel), Windows (x64 and Arm) and Linux (amd64 and arm64). Open it in Claude Desktop and fill in the settings form: no Docker, service or token needed. See `docs/clients.md`. `make mcpb` builds them locally.
+
+### Changed
+
+- A configuration variable set to exactly `${user_config.<key>}` is treated as unset, like an empty one. Claude Desktop passes an extension setting that was left empty through like that.
+
 ## [0.4.0] - 2026-10-20
 
 ### Security

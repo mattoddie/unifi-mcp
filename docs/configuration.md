@@ -28,6 +28,8 @@ The server checks the configuration at startup. If something is wrong, it exits 
 
 Boolean variables accept `true`/`false`, `1`/`0`, `yes`/`no` and `on`/`off`.
 
+A variable set to an empty value counts as unset and gets its default. So does one set to exactly `${user_config.<key>}`, which is how Claude Desktop passes an [extension setting](clients.md#claude-desktop) that was left empty.
+
 ### How authentication works
 
 - **API key:** every request sends an `X-API-KEY` header. There are no sessions and no logins.
