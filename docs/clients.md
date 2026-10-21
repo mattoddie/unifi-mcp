@@ -11,6 +11,8 @@ The HTTP endpoint is **stateless**: each request is handled on its own, so you c
 
 In the examples below, replace `<docker-host>` with the machine running the container and `<token>` with your `MCP_AUTH_TOKEN`.
 
+By default (`UNIFI_TOOL_MODE=lazy`) a client sees three meta-tools that search for and call the others, which keeps the tool list under 3 KB. Most clients load every tool into the model's context, so keep this default for them. Claude Code is the exception: see [below](#claude-code) and [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading).
+
 - [Claude Code](#claude-code)
 - [Claude Desktop](#claude-desktop)
 - [VS Code (GitHub Copilot)](#vs-code-github-copilot)
@@ -41,6 +43,8 @@ Add `--scope user` to make it available in every project, or `--scope project` t
 ```
 
 Run `claude mcp list` to check the connection, and `/mcp` inside Claude Code to see the tools. The built-in prompts are available as slash commands, such as `/mcp__unifi__security_review`.
+
+Claude Code already defers large MCP tool lists behind its own tool search, so you can set `UNIFI_TOOL_MODE=full` on the server to list every tool directly. That lets you write permission rules for individual tools, such as `mcp__unifi__unifi_list_devices`. The default lazy mode works too. See [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading).
 
 ## Claude Desktop
 

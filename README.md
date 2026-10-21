@@ -38,7 +38,8 @@ Ask about your network in plain English. The assistant picks from **132 tools** 
 - **🐳 Docker-first.** There's one small distroless image (`ghcr.io/mattoddie/unifi-mcp`, about 22 MB) for `linux/amd64` and `linux/arm64`. It serves Streamable HTTP for a long-running service, or stdio for `docker run -i`.
 - **🛡️ Safe by default.** The server is read-only unless you turn on writes, and deleting configuration needs a second switch. Destructive tools are labelled so your MCP client asks before running them, and passwords and keys are redacted from output.
 - **🧰 Broad coverage.** It covers 14 toolsets: devices, clients, switch ports and PoE, WiFi, networks and VLANs, WAN, DNS, legacy and zone-based firewall, traffic rules and routes, IDS/IPS, VPN, RADIUS, hotspot vouchers, statistics, logs, admins and backups.
-- **🎛️ Tunable.** Expose only the toolsets you need, which keeps the model's context small and focused.
+- **🪶 Light on context.** By default the client sees three small meta-tools (under 3 KB) that search for and call the 132 tools, instead of 40–132 KB of tool definitions. Reads and writes go through separate meta-tools, so your client still asks before every change. Set `UNIFI_TOOL_MODE=full` to list every tool directly.
+- **🎛️ Tunable.** Expose only the toolsets you need, which keeps the model focused.
 - **🔌 Works with your controller.** Supports UniFi OS consoles (UDM, UDM Pro/SE, UCG, UDR, UX, Cloud Key Gen2+, UniFi OS Server) and legacy self-hosted Network applications. Auth is an API key or a local account.
 - **🧪 Tested.** The test suite runs against a mock controller on every build.
 
@@ -81,6 +82,8 @@ UNIFI_ALLOW_WRITES=true      # restart devices, block clients, edit WiFi/firewal
 UNIFI_ALLOW_DELETES=true     # also allow deleting configuration, forgetting clients… (needs writes too)
 UNIFI_TOOLSETS=overview,devices,clients,wifi,monitoring   # optional: expose fewer tools
 ```
+
+In the default lazy mode, changes go through the `unifi_call_write_tool` meta-tool, which clients treat as destructive, so they ask you before each one.
 
 Read [Security](docs/security.md) before turning on writes for a production network.
 

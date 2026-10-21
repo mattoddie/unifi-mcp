@@ -154,6 +154,7 @@ func main() {
 		"| 🟠 write | `UNIFI_ALLOW_WRITES=true` |",
 		"| 🔴 delete | `UNIFI_ALLOW_WRITES=true` and `UNIFI_ALLOW_DELETES=true` |", "",
 		"Every tool also needs its toolset to be enabled in `UNIFI_TOOLSETS`, which enables all toolsets by default. Most tools take an optional `site` argument, which defaults to `UNIFI_SITE`.", "",
+		"By default (`UNIFI_TOOL_MODE=lazy`) clients don't list these tools directly. They see three meta-tools instead: `unifi_search_tools` finds tools and returns their arguments, `unifi_call_tool` runs read tools and `unifi_call_write_tool` runs the others. The names, arguments and results below are the same in both modes. See [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading).", "",
 		"## Contents", "")
 	for _, ts := range config.Toolsets {
 		w(fmt.Sprintf("- [`%s`](#%s): %s", ts, ts, toolsetInfo[ts]))

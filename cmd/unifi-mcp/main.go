@@ -84,7 +84,7 @@ func serve() error {
 	if cfg.Tools.AllowDeletes {
 		writes += " (with deletes)"
 	}
-	log.Printf(`unifi-mcp %s: controller %s, site "%s", auth %s, writes %s, transport %s`, tools.Version, cfg.Unifi.URL, cfg.Unifi.Site, auth, writes, cfg.Transport)
+	log.Printf(`unifi-mcp %s: controller %s, site "%s", auth %s, writes %s, tool mode %s, transport %s`, tools.Version, cfg.Unifi.URL, cfg.Unifi.Site, auth, writes, cfg.Tools.Mode, cfg.Transport)
 	for _, warning := range []string{config.InsecureTLSWarning(cfg.Unifi), config.PlainHTTPWarning(cfg.Unifi)} {
 		if warning == "" {
 			continue

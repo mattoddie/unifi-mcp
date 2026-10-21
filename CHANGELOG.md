@@ -6,6 +6,11 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: tools are now loaded lazily by default.** Instead of listing every enabled tool (about 40 KB of definitions read-only, 132 KB with writes and deletes), the server lists three meta-tools, under 3 KB in all: `unifi_search_tools` finds tools by keyword or toolset and returns their full description and input schema, `unifi_call_tool` runs read-only tools, and `unifi_call_write_tool` (only with `UNIFI_ALLOW_WRITES=true`) runs tools that change state. `unifi_call_write_tool` is marked destructive, so clients ask before every change, while reads never prompt. Toolsets, the write and delete switches, argument validation and results are unchanged. To keep the old behaviour, set `UNIFI_TOOL_MODE=full`, which also suits Claude Code (it defers large tool lists itself) and lets you write permission rules for individual tools. See `docs/configuration.md`.
+- The startup log line includes the tool mode.
+
 ### Security
 
 - Built with Go 1.27.3, which fixes a `crypto/x509` vulnerability in the standard library (GO-2026-6809).

@@ -103,7 +103,10 @@ Recommend specific changes (channel plan, widths, power levels, SSID consolidati
 	},
 }
 
-func registerPrompts(s *mcp.Server) {
+// lazyPromptNote tells the model how to reach the tools a prompt names in lazy mode.
+const lazyPromptNote = "\nThe tools above are reached through " + callToolName + " {name, arguments}; look up their arguments with " + searchToolName + " names if needed."
+
+func registerPrompts(s *mcp.Server, lazy bool) {
 	for _, p := range prompts {
 		s.AddPrompt(&mcp.Prompt{Name: p.name, Title: p.title, Description: p.description, Arguments: p.args},
 			func(_ context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
@@ -119,8 +122,12 @@ func registerPrompts(s *mcp.Server) {
 						}
 					}
 				}
+				text := p.text(args)
+				if lazy {
+					text += lazyPromptNote
+				}
 				return &mcp.GetPromptResult{
-					Messages: []*mcp.PromptMessage{{Role: "user", Content: &mcp.TextContent{Text: p.text(args)}}},
+					Messages: []*mcp.PromptMessage{{Role: "user", Content: &mcp.TextContent{Text: text}}},
 				}, nil
 			})
 	}
