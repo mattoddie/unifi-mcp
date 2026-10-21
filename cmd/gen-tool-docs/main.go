@@ -155,6 +155,7 @@ func main() {
 		"| 🔴 delete | `UNIFI_ALLOW_WRITES=true` and `UNIFI_ALLOW_DELETES=true` |", "",
 		"Every tool also needs its toolset to be enabled in `UNIFI_TOOLSETS`, which enables all toolsets by default. Most tools take an optional `site` argument, which defaults to `UNIFI_SITE`.", "",
 		"By default (`UNIFI_TOOL_MODE=lazy`) clients don't list these tools directly. They see three meta-tools instead: `unifi_search_tools` finds tools and returns their arguments, `unifi_call_tool` runs read tools and `unifi_call_write_tool` runs the others. The names, arguments and results below are the same in both modes. See [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading).", "",
+		"Every write and delete tool, and `unifi_api_request` when writes are enabled, also takes an optional `dry_run` argument (boolean), left out of the tables below. With `dry_run: true` the tool reads the current state and returns the first request it would send, with a field-level diff for updates, without changing anything. See [Previewing changes](usage.md#previewing-changes-with-dry_run).", "",
 		"## Contents", "")
 	for _, ts := range config.Toolsets {
 		w(fmt.Sprintf("- [`%s`](#%s): %s", ts, ts, toolsetInfo[ts]))
@@ -186,6 +187,8 @@ func main() {
 			}
 			w("### "+t.Name, "", label, "", t.Description, "")
 			props, _ := ojson.AsObj(info.Schema.Get("properties"))
+			// dry_run is described once, at the top.
+			props = props.Without("dry_run")
 			if props.Len() == 0 {
 				w("_No arguments._", "")
 				continue

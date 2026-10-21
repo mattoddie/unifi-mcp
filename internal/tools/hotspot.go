@@ -73,7 +73,7 @@ func registerHotspot(c *Context) {
 			created := first(res)
 			vouchers := []any{}
 			if ct := ojson.Get(created, "create_time"); ojson.Truthy(ct) {
-				list, err := client.SitePost(ctx, s, "stat/voucher", ojson.New("create_time", ct))
+				list, err := client.SitePostRead(ctx, s, "stat/voucher", ojson.New("create_time", ct))
 				if err != nil {
 					return nil, err
 				}

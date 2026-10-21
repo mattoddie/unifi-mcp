@@ -175,7 +175,7 @@ func registerAdmin(c *Context) {
 			if a.Truthy("all_sites") {
 				admins, err = client.Request(ctx, "GET", "/api/stat/admin", nil)
 			} else {
-				admins, err = client.Cmd(ctx, c.site(a), "sitemgr", "get-admins", nil)
+				admins, err = client.CmdRead(ctx, c.site(a), "sitemgr", "get-admins", nil)
 			}
 			if err != nil {
 				return nil, err
@@ -240,7 +240,7 @@ func registerAdmin(c *Context) {
 		Description: "List the controller's stored (auto) backups.",
 		Input:       props(siteArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
-			res, err := client.Cmd(ctx, c.site(a), "backup", "list-backups", nil)
+			res, err := client.CmdRead(ctx, c.site(a), "backup", "list-backups", nil)
 			if err != nil {
 				return nil, err
 			}

@@ -23,6 +23,8 @@ The best defence against both is to limit what's possible, not to rely on the mo
 | UniFi account permissions | Choice of account or API key | The hard limit. A *View Only* local admin can't change anything, whatever unifi-mcp is configured to allow. |
 | Write switch | `UNIFI_ALLOW_WRITES` (off by default) | When off, no write tools are registered and the raw API tool only allows `GET`. |
 | Delete switch | `UNIFI_ALLOW_DELETES` (off by default) | When off, no delete tools are registered (this includes forgetting clients and revoking vouchers). The raw API tool refuses `DELETE`, and also refuses requests whose JSON `cmd` or (percent-decoded) path mentions delete, forget, revoke, remove, destroy, reset, set-default, factory, clear, purge, erase, wipe or `del-`, such as `{"cmd": "delete-site"}` or `{"cmd": "set-default"}` (a factory reset). Commands for the classic `cmd/<manager>` endpoints (`stamgr`, `devmgr`, `sitemgr`, `evtmgr`, `hotspot`, `backup`, `productinfo`, `firmware`) must also be on a list of commands known not to delete anything. Paths that percent-encode letters, digits, `-`, `_` or `~` are refused for every request, so an encoded word can't slip past the check. |
+| Dry runs | Built in | Every write and delete tool takes `dry_run: true`. The tool reads the current state but sends nothing that changes it, and returns the request it would send, with a field-level diff for updates. Ask for a preview before a big change. In a dry run the server stops the first state-changing request before it logs in or sends anything, so a bug in a tool can't turn a preview into a change. |
+| Audit log | `UNIFI_AUDIT_LOG` (off by default) | Appends a JSON line for every call of a tool that changes things, including dry runs, failures and refused calls: the tool, its arguments (secrets redacted) and each state-changing request sent with its HTTP status. Use it to review what an assistant did. See [Audit log](configuration.md#audit-log). |
 | Toolsets | `UNIFI_TOOLSETS` | Tools outside the listed toolsets don't exist. The model can't see or call them. |
 | Tool annotations | Built in | Each tool is marked read-only or destructive, so MCP clients can ask for your confirmation before running destructive tools. In the default lazy mode (`UNIFI_TOOL_MODE`), read-only tools run through `unifi_call_tool`, which refuses anything else, and every tool that changes state runs through `unifi_call_write_tool`, which is marked destructive, so clients ask before each change. |
 | Secret redaction | Built in | Passphrases, keys and other `x_*` secret fields, plus fields named like secrets (`password`, `passphrase`, `psk`, `community`, `*secret*`, `*token*`, `private_key`, `*_key`, `configuration_file` and similar), are `[redacted]` in output unless a call asks for `include_secrets`. |
@@ -66,6 +68,7 @@ A plain `http://` `UNIFI_URL` is allowed, for example for a controller reached o
 - `UNIFI_ALLOW_WRITES=true`, deletes off
 - Only the toolsets you work with, and leave `raw` out
 - Keep tool confirmations on in your MCP client, so you approve each destructive call
+- Ask for a dry run before big changes, and turn on `UNIFI_AUDIT_LOG` so you can review what was changed
 
 **Full control** (for experienced users only):
 
@@ -82,5 +85,6 @@ A plain `http://` `UNIFI_URL` is allowed, for example for a controller reached o
 - [ ] The UniFi account has the least privilege that does the job.
 - [ ] Writes and deletes are only enabled if you need them.
 - [ ] `UNIFI_TOOLSETS` lists only the toolsets you use.
+- [ ] With writes on, `UNIFI_AUDIT_LOG` records what the assistant changed.
 - [ ] `.env` and secret files aren't committed anywhere. Use `_FILE` variables with Docker secrets where you can.
 - [ ] The image is pinned to a version, and you update when security releases come out (watch the repository's releases).

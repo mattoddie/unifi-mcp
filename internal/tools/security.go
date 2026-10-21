@@ -204,7 +204,7 @@ func registerSecurity(c *Context) {
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := nowMs()
 			limit := a.NumOr("limit", 100)
-			res, err := client.SitePost(ctx, c.site(a), "stat/ips/event", ojson.New(
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/ips/event", ojson.New(
 				"start", end-a.NumOr("hours", 24)*3600000,
 				"end", end,
 				"_limit", limit,

@@ -14,3 +14,8 @@ services:
       # needs access, publish on localhost instead: "127.0.0.1:8080:8080"
       # (recommended with MCP_ALLOW_UNAUTHENTICATED=true behind an authenticating proxy)
       - "8080:8080"
+    # To keep an audit log in a file, set UNIFI_AUDIT_LOG=/audit/unifi-mcp.jsonl in .env and
+    # mount a directory the container's user (UID 65532) can write to
+    # (mkdir audit && sudo chown 65532 audit):
+    # volumes:
+    #   - ./audit:/audit

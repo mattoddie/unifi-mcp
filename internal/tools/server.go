@@ -28,7 +28,9 @@ func instructions(opts config.Tools) string {
 	s += "Most tools take an optional `site`; use unifi_list_sites to find site names. " +
 		"unifi_save_* tools create an object when no id is given and update it (changing only the fields passed) when an id is given. "
 	if opts.AllowWrites {
-		s += "Write tools are enabled: confirm with the user before restarting devices, blocking clients or changing configuration."
+		s += "Write tools are enabled: confirm with the user before restarting devices, blocking clients or changing configuration. " +
+			"Every tool that changes something accepts dry_run: true, which reads the current state and returns the request it would send (with a field-level diff for updates) without changing anything. " +
+			"Preview big or risky changes with dry_run first and show the user the result before making them."
 	} else {
 		s += "The server is read-only; write tools are disabled (UNIFI_ALLOW_WRITES=false)."
 	}
@@ -39,7 +41,7 @@ func instructions(opts config.Tools) string {
 // registered, when non-nil, receives each registered tool in order.
 func NewServer(client *unifi.Client, opts config.Tools, registered *[]Info) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: Name, Version: Version}, &mcp.ServerOptions{Instructions: instructions(opts)})
-	c := &Context{Server: s, Client: client, Tools: opts, Registered: registered}
+	c := &Context{Server: s, Client: client, Tools: opts, Registered: registered, audit: newAuditLog(opts.AuditLog)}
 	if opts.Lazy() {
 		c.lazy = newRegistry()
 	}
