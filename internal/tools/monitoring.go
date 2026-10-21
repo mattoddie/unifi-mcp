@@ -477,4 +477,6 @@ func registerMonitoring(c *Context) {
 			return client.V2Query(ctx, "GET", c.site(a), "aggregated-dashboard", []unifi.Param{{Key: "historySeconds", Value: seconds}})
 		},
 	})
+
+	registerTrafficFlows(c)
 }

@@ -168,7 +168,7 @@ func registerClients(c *Context) {
 	c.add(Def{
 		Toolset: "clients", Name: "unifi_update_client", Title: "Update client settings",
 		Destructive: boolPtr(true),
-		Description: "Set a known client's alias (name) and note, or assign/clear a fixed IP (DHCP reservation). Only the fields given are changed.",
+		Description: "Set a known client's alias (name) and note, assign/clear a fixed IP (DHCP reservation), or lock a wireless client to one access point. Only the fields given are changed.",
 		Gate:        Write,
 		Input: props(
 			siteArg(),
@@ -178,6 +178,8 @@ func registerClients(c *Context) {
 			P("fixed_ip", Str().Opt().D("IPv4 address to reserve for this client")),
 			P("network_id", Str().Opt().D("Network ID the fixed IP belongs to (defaults to the client's current network; see unifi_list_networks)")),
 			P("clear_fixed_ip", Bool().Opt().D("Remove the fixed IP reservation")),
+			P("fixed_ap_mac", Str().Opt().D("Lock this wireless client to the access point with this MAC address (see unifi_list_devices). It won't roam to other APs.")),
+			P("clear_fixed_ap", Bool().Opt().D("Remove the AP lock so the client can roam again")),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
@@ -209,8 +211,24 @@ func registerClients(c *Context) {
 			if a.Truthy("clear_fixed_ip") {
 				patch.Set("use_fixedip", false)
 			}
+			if a.Truthy("fixed_ap_mac") && a.Truthy("clear_fixed_ap") {
+				return nil, errorf("Pass either fixed_ap_mac or clear_fixed_ap, not both")
+			}
+			if a.Truthy("fixed_ap_mac") {
+				if ojson.Truthy(record.Get("is_wired")) {
+					return nil, errorf("Only wireless clients can be locked to an access point")
+				}
+				apMac, err := mac(a.Get("fixed_ap_mac"))
+				if err != nil {
+					return nil, err
+				}
+				patch.Set("fixed_ap_enabled", true).Set("fixed_ap_mac", apMac)
+			}
+			if a.Truthy("clear_fixed_ap") {
+				patch.Set("fixed_ap_enabled", false)
+			}
 			if patch.Len() == 0 {
-				return nil, errorf("Nothing to update: pass name, note, fixed_ip or clear_fixed_ip")
+				return nil, errorf("Nothing to update: pass name, note, fixed_ip, clear_fixed_ip, fixed_ap_mac or clear_fixed_ap")
 			}
 			idPath, err := restPath("user", record.Get("_id"))
 			if err != nil {

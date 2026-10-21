@@ -15,15 +15,28 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - New exact-match filters: `state` on `unifi_list_devices`, `network` and `ap_mac` on `unifi_list_clients`, and `up` on `unifi_list_switch_ports`.
 - `limit` on `unifi_list_devices` (default 500), `unifi_list_vouchers` (default 200) and `unifi_get_speedtest_results` (default 100).
 - The server instructions explain the list arguments once, instead of every tool repeating the descriptions. In full mode `tools/list` grows by about 2.7 KB (6.7%) with the read-only tools and 2% with writes and deletes enabled; in lazy mode it is unchanged and the instructions grow by about 270 bytes.
+- QoS rules: `unifi_list_qos_rules`, `unifi_save_qos_rule` and `unifi_delete_qos_rule` limit or prioritise traffic by client, network, app, IP, region or domain.
+- NAT rules (DNAT, SNAT and masquerade, separate from port forwards): `unifi_list_nat_rules`, `unifi_save_nat_rule` and `unifi_delete_nat_rule`. Predefined rules can't be changed or deleted.
+- Switch ACL rules (MAC ACLs): `unifi_list_acl_rules`, `unifi_save_acl_rule` and `unifi_delete_acl_rule`.
+- Object-oriented network policies: `unifi_list_oon_policies`, `unifi_save_oon_policy` and `unifi_delete_oon_policy`.
+- `unifi_list_traffic_flows` lists recent flows filtered by client, action, risk, domain or free text. It looks back 15 minutes and returns 50 flows unless asked for more.
+- `unifi_list_switch_ports` shows each port's LLDP neighbours and the port that aggregates it.
+- `unifi_set_switch_port` configures port mirroring (`mirror_port_idx`) and link aggregation (`aggregate_ports`). Other ports' overrides are kept, except those of the new group's other members, which the controller manages. `op_mode: switch` turns either off and clears their settings.
+- `unifi_update_client` locks a wireless client to an access point (`fixed_ap_mac`) or unlocks it (`clear_fixed_ap`). Client summaries show `locked_to_ap`.
+- The `security_review` and `troubleshoot_client` prompts look at the new rules and flows.
 
 ### Changed
 
-- **Breaking: tools are now loaded lazily by default.** Instead of listing every enabled tool (about 40 KB of definitions read-only, 132 KB with writes and deletes), the server lists three meta-tools, under 3 KB in all: `unifi_search_tools` finds tools by keyword or toolset and returns their full description and input schema, `unifi_call_tool` runs read-only tools, and `unifi_call_write_tool` (only with `UNIFI_ALLOW_WRITES=true`) runs tools that change state. `unifi_call_write_tool` is marked destructive, so clients ask before every change, while reads never prompt. Toolsets, the write and delete switches, argument validation and results are unchanged. To keep the old behaviour, set `UNIFI_TOOL_MODE=full`, which also suits Claude Code (it defers large tool lists itself) and lets you write permission rules for individual tools. See `docs/configuration.md`.
+- **Breaking: tools are now loaded lazily by default.** Instead of listing every enabled tool (about 48 KB of definitions read-only, 174 KB with writes and deletes), the server lists three meta-tools, under 3 KB in all: `unifi_search_tools` finds tools by keyword or toolset and returns their full description and input schema, `unifi_call_tool` runs read-only tools, and `unifi_call_write_tool` (only with `UNIFI_ALLOW_WRITES=true`) runs tools that change state. `unifi_call_write_tool` is marked destructive, so clients ask before every change, while reads never prompt. Toolsets, the write and delete switches, argument validation and results are unchanged. To keep the old behaviour, set `UNIFI_TOOL_MODE=full`, which also suits Claude Code (it defers large tool lists itself) and lets you write permission rules for individual tools. See `docs/configuration.md`.
 - The startup log line includes the tool mode.
 - **Breaking:** every list tool now returns `{total, returned, items}`, as `unifi_list_devices` and `unifi_list_clients` already did. Before, most returned a bare array, so a model couldn't tell when `limit` had cut the list. Tools that returned an object keep their other keys next to the list: `unifi_list_switch_ports` returns `{switch, total, returned, items}` instead of `{switch, ports}`, `unifi_list_wans` `{total, returned, items, health}` instead of `{wans, health}`, and `unifi_list_events` keeps `source` and `legacy_error` when it falls back to the system log, with the events in `items` instead of `events`.
 - When `search` is given, `unifi_list_events` and `unifi_list_threats` ask the controller for up to 3000 entries and then apply `limit`, so a search isn't limited to the newest `limit` entries.
 - `unifi_get_speedtest_results` lists the newest results first.
 - The output-size note now suggests `search` and `fields` too.
+
+### Fixed
+
+- `unifi_update_site_setting` writes `super_*` settings such as `super_mgmt` (auto-backup) through `set/setting/<key>/<id>`, as the UniFi UI does, instead of `rest/setting`.
 
 ### Security
 

@@ -122,7 +122,7 @@ func TestGatesAndAnnotations(t *testing.T) {
 	reads := toolMap(t, env.mcp)
 	writes := toolMap(t, connect(t, env.client, toolOptions(true, false)))
 	all := toolMap(t, connect(t, env.client, toolOptions(true, true)))
-	if len(reg) != 132 || len(all) != 132 || len(reads) != 54 || len(writes) != 107 {
+	if len(reg) != 145 || len(all) != 145 || len(reads) != 59 || len(writes) != 116 {
 		t.Errorf("counts: registered %d, all %d, read %d, write %d", len(reg), len(all), len(reads), len(writes))
 	}
 	for _, info := range reg {
