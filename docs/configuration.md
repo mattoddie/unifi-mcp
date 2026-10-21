@@ -45,6 +45,46 @@ Boolean variables accept `true`/`false`, `1`/`0`, `yes`/`no` and `on`/`off`.
 
 Tools that aren't allowed are **not registered at all**. The assistant can't find them, so it can't call them or be talked into calling them.
 
+## Audit log
+
+| Variable | Default | Description |
+|---|---|---|
+| `UNIFI_AUDIT_LOG` | (off) | Record every call of a tool that changes things. A file path appends JSON Lines to that file, which is created with mode `0600` if it doesn't exist. `stderr` writes the lines to standard error, next to the server's other logs. |
+
+Each line is one call of a write or delete tool, or of `unifi_api_request` with a method other than `GET`. Dry runs, calls that failed and calls refused for invalid arguments are all logged:
+
+```json
+{"time":"2026-10-21T09:14:03.120Z","tool":"unifi_save_wlan","dry_run":false,"arguments":{"id":"64f0c2…","name":"Guest","passphrase":"[redacted]"},"requests":[{"method":"PUT","path":"/api/s/default/rest/wlanconf/64f0c2…","status":200}],"outcome":"ok"}
+```
+
+| Field | Meaning |
+|---|---|
+| `time` | When the call finished, in UTC (RFC 3339). |
+| `tool` | The tool name. In lazy mode this is the tool that `unifi_call_write_tool` ran, such as `unifi_save_wlan`. |
+| `dry_run` | Whether the call was a [dry run](usage.md#previewing-changes-with-dry_run). |
+| `arguments` | The arguments, with passwords, keys and other secrets `[redacted]`. |
+| `requests` | The requests that change state that were actually sent: method, path and HTTP status (`null` if no response arrived). Reads aren't listed, and nothing from the responses is logged. |
+| `previewed` | For a dry run, the request that was previewed and not sent. |
+| `outcome` | `ok` or `error`. |
+| `error` | The error message, when `outcome` is `error`. |
+
+The server checks at startup that it can write to the file, and refuses to start if the directory doesn't exist or isn't writable. A write that fails later doesn't stop the tool call: the server logs one warning to standard error and carries on.
+
+The file is opened for each entry, so it can be rotated by moving it away; the next entry creates a new one.
+
+In Docker, the image runs as UID 65532 with no writable directories of its own, so mount one for the log:
+
+```yaml
+services:
+  unifi-mcp:
+    environment:
+      UNIFI_AUDIT_LOG: /audit/unifi-mcp.jsonl
+    volumes:
+      - ./audit:/audit
+```
+
+Create the directory first and let UID 65532 write to it, for example `mkdir audit && sudo chown 65532 audit`. `UNIFI_AUDIT_LOG=stderr` needs no volume: the lines appear in `docker compose logs`.
+
 ## MCP transport
 
 | Variable | Default | Description |

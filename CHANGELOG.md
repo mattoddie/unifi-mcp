@@ -6,6 +6,12 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Added
+
+- Dry runs: every write and delete tool, and `unifi_api_request` when writes are enabled, takes `dry_run: true`. The tool reads the current state but sends nothing that changes it, and returns the first request it would send with secrets redacted. For updates the preview is a field-level diff (`changed`, `added`, `removed`) against the object the tool read. In a dry run the first state-changing request is stopped before any login, so a preview never changes anything. Controller reads that use `POST` (statistics reports, event, session and log queries) are marked as reads and still run. In lazy mode, pass `dry_run` in the `arguments` of `unifi_call_write_tool`.
+- Audit log: `UNIFI_AUDIT_LOG` set to a file path (JSON Lines, created with mode `0600`) or `stderr` records every call of a tool that changes things, including dry runs, failed calls and refused ones: time, tool, arguments with secrets redacted, the state-changing requests sent with their HTTP status, and the outcome. It's off by default. In lazy mode, calls made through `unifi_call_write_tool` are logged under the name of the tool they ran. The server checks the file is writable at startup; a failed write later logs one warning and doesn't affect the tool call.
+- The startup log line says whether the audit log is on.
+
 ### Changed
 
 - **Breaking: tools are now loaded lazily by default.** Instead of listing every enabled tool (about 40 KB of definitions read-only, 132 KB with writes and deletes), the server lists three meta-tools, under 3 KB in all: `unifi_search_tools` finds tools by keyword or toolset and returns their full description and input schema, `unifi_call_tool` runs read-only tools, and `unifi_call_write_tool` (only with `UNIFI_ALLOW_WRITES=true`) runs tools that change state. `unifi_call_write_tool` is marked destructive, so clients ask before every change, while reads never prompt. Toolsets, the write and delete switches, argument validation and results are unchanged. To keep the old behaviour, set `UNIFI_TOOL_MODE=full`, which also suits Claude Code (it defers large tool lists itself) and lets you write permission rules for individual tools. See `docs/configuration.md`.

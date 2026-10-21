@@ -81,7 +81,36 @@ All five are read-only: they tell the model not to change anything, or to ask fi
 
 ## Making changes
 
-With `UNIFI_ALLOW_WRITES=true` the assistant can change things. Good clients ask before running tools marked *destructive*, such as restarts, blocking, firmware upgrades, configuration edits and anything that grants access, like inviting an admin or authorizing a guest. In lazy mode every change goes through `unifi_call_write_tool`, which is marked destructive, so clients ask before each one. It's still a good habit to ask for a plan first: *"What would you change? Don't do it yet."*
+With `UNIFI_ALLOW_WRITES=true` the assistant can change things. Good clients ask before running tools marked *destructive*, such as restarts, blocking, firmware upgrades, configuration edits and anything that grants access, like inviting an admin or authorizing a guest. In lazy mode every change goes through `unifi_call_write_tool`, which is marked destructive, so clients ask before each one. It's still a good habit to ask for a plan first: *"What would you change? Don't do it yet."*, or for a [dry run](#previewing-changes-with-dry_run). With `UNIFI_AUDIT_LOG` set, every change is also recorded in an [audit log](configuration.md#audit-log).
+
+### Previewing changes with `dry_run`
+
+Every write and delete tool, and `unifi_api_request` for methods other than `GET`, takes `dry_run: true`. The tool then does everything up to the first request that would change something: it reads the current state, checks the arguments and builds the request, but doesn't send it. Nothing on the controller changes. In lazy mode it goes in the tool's arguments, `unifi_call_write_tool {name: "unifi_save_wlan", arguments: {id: "…", name: "Guest", dry_run: true}}`, and `unifi_search_tools` lists it in each write tool's input schema. Ask for it in plain words:
+
+> *"Do a dry run of turning off PoE on port 4 of the office switch and show me what would change."*
+
+For an update, the preview lists the fields that would change instead of the whole object:
+
+```json
+{
+  "dry_run": true,
+  "would_send": {"method": "PUT", "path": "/api/s/default/rest/wlanconf/64f0c2…"},
+  "changes": {
+    "changed": {
+      "name": {"from": "Home", "to": "Guest"},
+      "x_passphrase": {"from": "[redacted]", "to": "[redacted]"}
+    }
+  },
+  "note": "Nothing was changed: this was a dry run. …"
+}
+```
+
+- **`would_send`** is the request: method, path and, when there's no diff, the body. Secrets are `[redacted]`.
+- **`changes`** groups the differences into `changed` (`from` and `to`), `added` and `removed` fields. Nested fields are named by path, such as `port_overrides[1].poe_mode`. A partial update, such as a switch's `port_overrides`, only lists the fields it sends; the rest stay as they are.
+- **`current`** shows the object a delete would remove, when the tool read it first.
+- Commands and creates show the body that would be sent.
+
+Only the first change is previewed. A tool that would do more afterwards, such as reading back the vouchers it created, stops there, and the controller's own follow-up work (a rolling upgrade going through each device, say) isn't simulated. To make the change, ask again without the dry run.
 
 ### Create or update: `save_*` tools
 

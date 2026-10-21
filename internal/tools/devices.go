@@ -217,7 +217,7 @@ func registerDevices(c *Context) {
 			devices := arr(res)
 			var available any = U
 			if a.Truthy("include_available") {
-				available, err = client.Cmd(ctx, s, "firmware", "list-available", nil)
+				available, err = client.CmdRead(ctx, s, "firmware", "list-available", nil)
 				if err != nil {
 					available = ojson.New("error", err.Error())
 				}

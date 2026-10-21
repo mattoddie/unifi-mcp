@@ -111,6 +111,10 @@ func registerRaw(c *Context) {
 		Description: "Call any UniFi Network API endpoint directly, for anything the other tools don't cover. `path` is relative to the Network application, e.g. /api/s/default/stat/ccode, /v2/api/site/default/trafficroutes or /integration/v1/sites (official API, API-key auth). " + mode,
 		ReadOnly:    boolPtr(!c.AllowWrites),
 		Destructive: boolPtr(c.AllowWrites),
+		Reads: func(a Args) bool {
+			m := a.Str("method")
+			return m == "" || m == "GET"
+		},
 		Input: props(
 			P("method", Enum("GET", "POST", "PUT", "DELETE", "PATCH").Opt().D("HTTP method (default GET)")),
 			P("path", Str().D("Path relative to the Network application, starting with / (no '..' segments or query string)")),

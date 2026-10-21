@@ -44,6 +44,7 @@ internal/
 ├── ojson/               # JSON values with JavaScript semantics: ordered keys, undefined vs null, ?? and truthiness
 ├── unifi/
 │   ├── client.go        # Client: auth, sessions/CSRF, UniFi OS detection, errors
+│   ├── dryrun.go        # Call: records the changes sent, stops them in a dry run, previews and diffs
 │   ├── paths.go         # path safety checks and encoding
 │   ├── tls.go           # certificate verification, UNIFI_CA_FILE and UNIFI_TLS_FINGERPRINT pinning
 │   ├── format.go        # summarizers (devices, clients, ports…), redaction, unit helpers
@@ -51,6 +52,7 @@ internal/
 ├── httpserver/          # stateless Streamable HTTP, bearer auth, Host/Origin allow-list, /health
 └── tools/
     ├── tools.go         # the registration framework: Def, Gate, add(), Args
+    ├── guard.go         # dry_run and the audit log for tools that change things
     ├── schema.go        # input schemas (the JSON Schema clients see) and argument validation
     ├── args.go          # shared arguments: site, mac, id, extra, search, limit, raw
     ├── rest.go          # CRUD helpers for classic REST, v2 and settings endpoints
@@ -64,7 +66,7 @@ internal/
 
 1. An MCP client calls a tool, for example `unifi_list_devices {type: "switch"}`. In lazy mode (the default) it calls `unifi_call_tool {name: "unifi_list_devices", arguments: {type: "switch"}}` instead, which checks that the tool is read-only (`unifi_call_write_tool` checks that it isn't) and passes the arguments to the same handler as full mode.
 2. `add()` validates the arguments against the tool's input schema (`schema.go`), drops unknown keys and returns a validation error as a tool result, with the same wording the server has always used.
-3. The handler runs. It calls `unifi.Client`, usually through the helpers in `tools/rest.go`.
+3. The handler runs. It calls `unifi.Client`, usually through the helpers in `tools/rest.go`. For a tool that changes things, `guard.go` wraps it first: `add()` gives it the `dry_run` argument, and the wrapper around its runner puts a `unifi.Call` in the context to record the state-changing requests sent, and writes the audit log entry (`UNIFI_AUDIT_LOG`) when the call ends. Full mode and the lazy meta-tools call the same runner, so both behave the same way and log the tool's own name.
 4. `Client.Request()` checks the path is safe, adds the `/proxy/network` prefix on UniFi OS, authenticates (API key, or session cookie plus CSRF, logging in again on 401 with a single shared login), sends the request and unwraps the `{meta, data}` envelope. It turns failures into a `unifi.Error` with a helpful hint.
 5. The handler summarises the result (`unifi/format.go`), redacts secrets and returns plain data.
 6. `add()` serialises that to indented JSON text with `ojson`, keeping field order. A returned error becomes `isError: true` with the message, so the model can see what went wrong and adjust.
@@ -119,10 +121,11 @@ Checklist for a new tool:
 1. Put it in the right `internal/tools/<toolset>.go`. If it needs a new toolset, add it to `Toolsets` in `internal/config` and register it in `server.go`.
 2. Use the shared arguments (`siteArg`, `idArg`, `macArg`, `searchArg`, `limitArg`, `extraArg`) so tools behave consistently.
 3. For configuration objects, follow the **`save_*` convention**: no `id` creates, `id` updates only the fields passed (`restSave`/`v2Save` do this), and offer `extra` for raw fields.
-4. Return a **compact summary** and offer `raw: true` for the full object. Run anything that might contain secrets through `unifi.RedactSecrets()`.
-5. Write descriptions for the model. In lazy mode `unifi_search_tools` matches keywords against the name, title and description, and shows only the description's first sentence, so make that sentence say what the tool does on its own. Then say when to use it, units, side effects (*"clients will briefly disconnect"*), and any version requirement (*"Network 9.0+"*).
-6. Add tests in `internal/tools` using the mock controller.
-7. Run `make docs` and commit the updated `docs/tools.md`. If it's a notable feature, update the README table and [CHANGELOG](../CHANGELOG.md).
+4. Read before you write, and **mark reads that `POST`**. Any request other than `GET` counts as a change: a dry run stops at the first one and returns it as the preview. For a controller endpoint that only reads but is `POST`ed (`stat/report`, `stat/event`, v2 `system-log`, `cmd/sitemgr get-admins`…), use `SitePostRead`, `V2PostRead` or `CmdRead` (or `Options.Read`). `TestDryRunEveryWriteTool` fails if a dry run stops at a read.
+5. Return a **compact summary** and offer `raw: true` for the full object. Run anything that might contain secrets through `unifi.RedactSecrets()`.
+6. Write descriptions for the model. In lazy mode `unifi_search_tools` matches keywords against the name, title and description, and shows only the description's first sentence, so make that sentence say what the tool does on its own. Then say when to use it, units, side effects (*"clients will briefly disconnect"*), and any version requirement (*"Network 9.0+"*).
+7. Add tests in `internal/tools` using the mock controller.
+8. Run `make docs` and commit the updated `docs/tools.md`. If it's a notable feature, update the README table and [CHANGELOG](../CHANGELOG.md).
 
 ## Tool design guidelines
 
@@ -138,7 +141,7 @@ Tests are ordinary Go tests against `unifitest.Mock` (`internal/unifi/unifitest`
 - Built-in login flows for both controller types, sessions, CSRF checks and API keys
 - A generic in-memory CRUD store for `rest/<collection>` and `v2/<collection>`, which you fill with `Seed()`
 - `On(method, regex, handler)` to add custom routes, which take priority over the built-in ones
-- `RequestsTo(prefix)` and `Last()` to check what the server sent
+- `RequestsTo(prefix)` and `Last()` to check what the server sent, and `Observe(fn)` to see each request as it arrives (for example to fail a dry-run test on anything but a GET)
 - `Delay(regex, d)` to slow down responses (for concurrency tests), and a `TLS` option to serve HTTPS with a certificate from `SelfSignedCert()`, generated in memory for each run
 
 A typical test:

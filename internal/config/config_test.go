@@ -300,3 +300,27 @@ func TestURLWithUserinfoIsRejected(t *testing.T) {
 		}
 	}
 }
+
+func TestAuditLog(t *testing.T) {
+	if cfg := mustLoad(t, base); cfg.Tools.AuditLog != "" {
+		t.Errorf("audit log on by default: %q", cfg.Tools.AuditLog)
+	}
+	if cfg := mustLoad(t, base, "UNIFI_AUDIT_LOG", "stderr"); cfg.Tools.AuditLog != AuditLogStderr {
+		t.Errorf("stderr: %q", cfg.Tools.AuditLog)
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit.log")
+	if cfg := mustLoad(t, base, "UNIFI_AUDIT_LOG", path); cfg.Tools.AuditLog != path {
+		t.Errorf("path: %q", cfg.Tools.AuditLog)
+	}
+	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf("created %v, %v", info, err)
+	}
+	_, err := load(t, base, "UNIFI_AUDIT_LOG", filepath.Join(dir, "missing", "audit.log"))
+	if err == nil || !strings.Contains(err.Error(), "UNIFI_AUDIT_LOG: cannot write to") || !strings.Contains(err.Error(), "no such file or directory") {
+		t.Errorf("missing directory: %v", err)
+	}
+	if _, err := load(t, base, "UNIFI_AUDIT_LOG", dir); err == nil {
+		t.Error("a directory was accepted as the audit log")
+	}
+}

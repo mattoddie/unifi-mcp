@@ -322,7 +322,7 @@ func registerMeta(c *Context) {
 		c.meta(Def{
 			Name: callWriteToolName, Title: "Call a UniFi tool that changes state",
 			Description: "Run a UniFi tool that changes state (configures, restarts, blocks, deletes…), found with " + searchToolName + ". " +
-				"Before every call, tell the user exactly what will change and get their confirmation. " +
+				"Before every call, tell the user exactly what will change and get their confirmation; to preview a change, add \"dry_run\": true to the arguments. " +
 				"Get the tool's input schema with " + searchToolName + " names first. Read-only tools are refused; use " + callToolName + ".",
 			Destructive: boolPtr(true),
 			Input: props(

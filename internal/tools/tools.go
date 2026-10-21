@@ -44,6 +44,8 @@ type Context struct {
 	Registered *[]Info
 	// lazy holds the tools behind the meta-tools in lazy mode (nil in full mode).
 	lazy *registry
+	// audit is the UNIFI_AUDIT_LOG writer, or nil.
+	audit *auditLog
 }
 
 // Info describes a registered tool.
@@ -68,9 +70,20 @@ type Def struct {
 	Destructive *bool
 	Input       []Prop
 	Handler     func(ctx context.Context, a Args) (any, error)
+	// Reads, for a tool that changes things, reports whether these arguments
+	// only read (unifi_api_request with GET); such calls aren't audited.
+	Reads func(a Args) bool
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+// readOnly is the tool's readOnlyHint: Gate == Read unless ReadOnly overrides it.
+func (d Def) readOnly() bool {
+	if d.ReadOnly != nil {
+		return *d.ReadOnly
+	}
+	return d.Gate == Read
+}
 
 // site returns the site argument or the configured default.
 func (c *Context) site(a Args) string {
@@ -102,7 +115,14 @@ func (c *Context) add(d Def) {
 		}
 		return
 	}
+	// Tools that change things get dry_run and the audit log here, around the
+	// runner, so calls in full mode and through the lazy meta-tools are treated alike.
+	var guard *writeGuard
+	if !d.readOnly() {
+		guard = c.guardWrites(&d)
+	}
 	tool, run, schema := c.build(d)
+	run = guard.wrap(run)
 	if c.lazy != nil {
 		c.lazy.add(d, tool, run, schema)
 	} else {
@@ -124,10 +144,7 @@ func handler(run runner) mcp.ToolHandler {
 
 // build makes the MCP tool (annotations and input schema) and its runner.
 func (c *Context) build(d Def) (*mcp.Tool, runner, *ojson.Obj) {
-	readOnly := d.Gate == Read
-	if d.ReadOnly != nil {
-		readOnly = *d.ReadOnly
-	}
+	readOnly := d.readOnly()
 	ann := &mcp.ToolAnnotations{Title: d.Title, ReadOnlyHint: readOnly, OpenWorldHint: boolPtr(false)}
 	if !readOnly {
 		ann.DestructiveHint = boolPtr(d.Gate == Delete)

@@ -97,7 +97,7 @@ func registerMonitoring(c *Context) {
 			hours := a.NumOr("hours", 24)
 			limit := a.NumOr("limit", 100)
 			var legacyError any = U
-			res, err := client.SitePost(ctx, s, "stat/event", ojson.New("within", hours, "_limit", limit, "_sort", "-time"))
+			res, err := client.SitePostRead(ctx, s, "stat/event", ojson.New("within", hours, "_limit", limit, "_sort", "-time"))
 			if err != nil {
 				legacyError = err.Error()
 			} else if events := arr(res); len(events) > 0 {
@@ -109,7 +109,7 @@ func registerMonitoring(c *Context) {
 			start := end - hours*3600000
 			var entries []any
 			for _, cls := range []string{"device-alert", "client-alert"} {
-				r, err := client.V2(ctx, "POST", s, "system-log/"+cls, systemLogPayload(cls, start, end, 0, limit))
+				r, err := client.V2PostRead(ctx, s, "system-log/"+cls, systemLogPayload(cls, start, end, 0, limit))
 				if err != nil {
 					continue
 				}
@@ -212,7 +212,7 @@ func registerMonitoring(c *Context) {
 				}
 				body.Set("macs", norm)
 			}
-			res, err := client.SitePost(ctx, c.site(a), "stat/report/"+interval+"."+scope, body)
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/report/"+interval+"."+scope, body)
 			if err != nil {
 				return nil, err
 			}
@@ -243,9 +243,9 @@ func registerMonitoring(c *Context) {
 				if err != nil {
 					return nil, err
 				}
-				return client.SitePost(ctx, c.site(a), "stat/stadpi", ojson.New("type", typ, "macs", norm))
+				return client.SitePostRead(ctx, c.site(a), "stat/stadpi", ojson.New("type", typ, "macs", norm))
 			}
-			return client.SitePost(ctx, c.site(a), "stat/sitedpi", ojson.New("type", typ))
+			return client.SitePostRead(ctx, c.site(a), "stat/sitedpi", ojson.New("type", typ))
 		},
 	})
 
@@ -258,7 +258,7 @@ func registerMonitoring(c *Context) {
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := nowMs()
-			res, err := client.SitePost(ctx, c.site(a), "stat/report/archive.speedtest", ojson.New(
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/report/archive.speedtest", ojson.New(
 				"attrs", ojson.Strings([]string{"xput_download", "xput_upload", "latency", "rundate", "server", "time"}),
 				"start", end-a.NumOr("hours", 168)*3600000,
 				"end", end,
@@ -301,7 +301,7 @@ func registerMonitoring(c *Context) {
 			limitArg(100),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
-			res, err := client.SitePost(ctx, c.site(a), "stat/rogueap", ojson.New("within", a.NumOr("hours", 24)))
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/rogueap", ojson.New("within", a.NumOr("hours", 24)))
 			if err != nil {
 				return nil, err
 			}
@@ -347,7 +347,7 @@ func registerMonitoring(c *Context) {
 			end := nowMs()
 			start := end - a.NumOr("hours", 168)*3600000
 			page := a.NumOr("page", 0)
-			res, err := client.V2(ctx, "POST", c.site(a), "system-log/"+cls, systemLogPayload(cls, start, end, page, a.NumOr("page_size", 50)))
+			res, err := client.V2PostRead(ctx, c.site(a), "system-log/"+cls, systemLogPayload(cls, start, end, page, a.NumOr("page_size", 50)))
 			if err != nil {
 				return nil, err
 			}
@@ -381,7 +381,7 @@ func registerMonitoring(c *Context) {
 				}
 				body.Set("mac", m)
 			}
-			res, err := client.SitePost(ctx, c.site(a), "stat/session", body)
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/session", body)
 			if err != nil {
 				return nil, err
 			}
@@ -416,7 +416,7 @@ func registerMonitoring(c *Context) {
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := math.Floor(nowMs() / 1000)
-			res, err := client.SitePost(ctx, c.site(a), "stat/authorization", ojson.New("start", end-ojson.Round(a.NumOr("hours", 168)*3600), "end", end))
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/authorization", ojson.New("start", end-ojson.Round(a.NumOr("hours", 168)*3600), "end", end))
 			if err != nil {
 				return nil, err
 			}
@@ -449,7 +449,7 @@ func registerMonitoring(c *Context) {
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := nowMs()
-			res, err := client.SitePost(ctx, c.site(a), "stat/anomalies", ojson.New("start", end-a.NumOr("hours", 24)*3600000, "end", end))
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/anomalies", ojson.New("start", end-a.NumOr("hours", 24)*3600000, "end", end))
 			if err != nil {
 				return nil, err
 			}

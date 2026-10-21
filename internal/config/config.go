@@ -72,10 +72,16 @@ type Tools struct {
 	Toolsets     map[string]bool
 	// Mode is ToolModeLazy or ToolModeFull. Anything else is treated as full.
 	Mode string
+	// AuditLog is where calls of tools that change things are logged
+	// (UNIFI_AUDIT_LOG): a file path, AuditLogStderr, or "" for no log.
+	AuditLog string
 }
 
 // Lazy reports whether tools are reached through the meta-tools.
 func (t Tools) Lazy() bool { return t.Mode == ToolModeLazy }
+
+// AuditLogStderr is the UNIFI_AUDIT_LOG value that writes the audit log to standard error.
+const AuditLogStderr = "stderr"
 
 // AllTools enables every tool in full mode, for documentation and tests.
 func AllTools() Tools {
@@ -248,11 +254,15 @@ func Load(env Env) (*Config, error) {
 	}
 
 	t.Mode = strings.ToLower(or(get("UNIFI_TOOL_MODE"), ToolModeLazy))
+	t.AuditLog = get("UNIFI_AUDIT_LOG")
 	if err := check(); err != nil {
 		return nil, err
 	}
 	if t.Mode != ToolModeLazy && t.Mode != ToolModeFull {
 		return nil, fmt.Errorf(`UNIFI_TOOL_MODE must be lazy or full, got "%s"`, t.Mode)
+	}
+	if err := CheckAuditLog(t.AuditLog); err != nil {
+		return nil, err
 	}
 
 	t.Toolsets = map[string]bool{}
@@ -349,6 +359,28 @@ func Load(env Env) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// AuditLogMode is the permission an audit log file is created with: only the
+// server's user can read it, since it records what was changed and when.
+const AuditLogMode = 0o600
+
+// OpenAuditLog opens an audit log file for appending, creating it if needed.
+func OpenAuditLog(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, AuditLogMode)
+}
+
+// CheckAuditLog checks that UNIFI_AUDIT_LOG can be written, so a mistake is
+// reported at startup rather than on the first write.
+func CheckAuditLog(path string) error {
+	if path == "" || path == AuditLogStderr {
+		return nil
+	}
+	f, err := OpenAuditLog(path)
+	if err != nil {
+		return fmt.Errorf("UNIFI_AUDIT_LOG: cannot write to %s: %s. Its directory must exist and be writable by the server (in Docker, mount a writable directory; the image runs as UID 65532)", path, errorMessage(err))
+	}
+	return f.Close()
 }
 
 // validURL is a close approximation of `new URL(v)` succeeding: a scheme and,
