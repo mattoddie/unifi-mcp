@@ -14,6 +14,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 - A configuration variable set to exactly `${user_config.<key>}` is treated as unset, like an empty one. Claude Desktop passes an extension setting that was left empty through like that.
 
+### Security
+
+- Built with Go 1.27.3, which fixes a `crypto/x509` vulnerability in the standard library (GO-2026-6809).
+
 ## [0.4.0] - 2026-10-20
 
 ### Security
