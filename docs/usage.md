@@ -3,6 +3,7 @@
 Once the server is connected, just talk to your assistant about your network. This page shows what works well and explains how the tools behave, so you know what to expect.
 
 - [Example questions](#example-questions)
+- [How the assistant finds tools](#how-the-assistant-finds-tools)
 - [Built-in prompts](#built-in-prompts)
 - [Making changes](#making-changes)
 - [Multiple sites](#multiple-sites)
@@ -54,6 +55,16 @@ Once the server is connected, just talk to your assistant about your network. Th
 - *"Create 20 single-use vouchers valid for 8 hours, limited to 10 Mbps down."* (writes)
 - *"Revoke all unused vouchers with the note 'conference'."* (writes)
 
+## How the assistant finds tools
+
+By default (`UNIFI_TOOL_MODE=lazy`) your client lists three meta-tools rather than all 132 tools, so the tool definitions don't fill the model's context. A typical exchange looks like this:
+
+1. `unifi_search_tools {"query": "switch ports poe"}` returns the matching tools with a one-line summary each.
+2. `unifi_search_tools {"names": ["unifi_list_switch_ports"]}` returns that tool's description and arguments.
+3. `unifi_call_tool {"name": "unifi_list_switch_ports", "arguments": {"mac": "…"}}` runs it and returns its result.
+
+The model often skips straight to step 3 for common tools such as `unifi_get_site_health`, `unifi_list_devices` and `unifi_list_clients`. Tools that change state run through `unifi_call_write_tool` instead, which your client asks you to approve each time. With `UNIFI_TOOL_MODE=full` the client lists every tool and the model calls them directly. The tool names, arguments and results are the same in both modes. See [Lazy or full tool loading](configuration.md#lazy-or-full-tool-loading).
+
 ## Built-in prompts
 
 The server includes five prompts. Each one is a ready-made, multi-step request that tells the model which tools to use and how to report. Most clients show them as slash commands or in a prompt picker:
@@ -70,7 +81,7 @@ All five are read-only: they tell the model not to change anything, or to ask fi
 
 ## Making changes
 
-With `UNIFI_ALLOW_WRITES=true` the assistant can change things. Good clients ask before running tools marked *destructive*, such as restarts, blocking, firmware upgrades, configuration edits and anything that grants access, like inviting an admin or authorizing a guest. It's still a good habit to ask for a plan first: *"What would you change? Don't do it yet."*
+With `UNIFI_ALLOW_WRITES=true` the assistant can change things. Good clients ask before running tools marked *destructive*, such as restarts, blocking, firmware upgrades, configuration edits and anything that grants access, like inviting an admin or authorizing a guest. In lazy mode every change goes through `unifi_call_write_tool`, which is marked destructive, so clients ask before each one. It's still a good habit to ask for a plan first: *"What would you change? Don't do it yet."*
 
 ### Create or update: `save_*` tools
 
@@ -126,5 +137,5 @@ Leave `raw` out of `UNIFI_TOOLSETS` if you want the assistant limited to the cur
 - **Be specific about scope.** *"APs on the first floor"* or *"the last 2 hours"* lead to tighter tool calls.
 - **Ask for evidence.** *"…and show the numbers you based that on"* keeps answers grounded.
 - **Plan, then apply.** For changes, ask for a plan, review it, then say *"go ahead"*.
-- **Fewer tools, better focus.** If the assistant picks the wrong tools, narrow `UNIFI_TOOLSETS`.
+- **Fewer tools, better focus.** If the assistant picks the wrong tools, narrow `UNIFI_TOOLSETS`. In lazy mode you can also name the tool: *"use unifi_list_switch_ports"*.
 - **Check compatibility.** Some features depend on your Network version. If a tool says *endpoint not found*, see [Compatibility](compatibility.md).

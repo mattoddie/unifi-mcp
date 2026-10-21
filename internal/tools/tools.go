@@ -42,6 +42,8 @@ type Context struct {
 	config.Tools
 	// Registered records each registered tool in order, for the docs generator.
 	Registered *[]Info
+	// lazy holds the tools behind the meta-tools in lazy mode (nil in full mode).
+	lazy *registry
 }
 
 // Info describes a registered tool.
@@ -78,19 +80,51 @@ func (c *Context) site(a Args) string {
 	return c.Client.DefaultSite()
 }
 
-// add registers a tool if its toolset and gate are enabled.
+// disabledReason says why a tool isn't registered, or returns "" when its toolset and gate are enabled.
+func (c *Context) disabledReason(d Def) string {
+	switch {
+	case !c.Toolsets[d.Toolset]:
+		return fmt.Sprintf("its toolset %q is not enabled in UNIFI_TOOLSETS", d.Toolset)
+	case d.Gate != Read && !c.AllowWrites:
+		return "it changes state and writes are disabled (UNIFI_ALLOW_WRITES=false)"
+	case d.Gate == Delete && !c.AllowDeletes:
+		return "it deletes configuration and deletes are disabled (UNIFI_ALLOW_DELETES=false)"
+	}
+	return ""
+}
+
+// add registers a tool if its toolset and gate are enabled: directly in full
+// mode, or in the registry behind the meta-tools in lazy mode.
 func (c *Context) add(d Def) {
-	if !c.Toolsets[d.Toolset] {
+	if reason := c.disabledReason(d); reason != "" {
+		if c.lazy != nil {
+			c.lazy.off[d.Name] = reason
+		}
 		return
 	}
-	write := d.Gate != Read
-	if write && !c.AllowWrites {
-		return
+	tool, run, schema := c.build(d)
+	if c.lazy != nil {
+		c.lazy.add(d, tool, run, schema)
+	} else {
+		c.Server.AddTool(tool, handler(run))
 	}
-	if d.Gate == Delete && !c.AllowDeletes {
-		return
+	if c.Registered != nil {
+		*c.Registered = append(*c.Registered, Info{Name: d.Name, Toolset: d.Toolset, Gate: d.Gate, Schema: schema})
 	}
-	readOnly := !write
+}
+
+// runner runs a tool with its raw JSON arguments, validating them first.
+type runner func(ctx context.Context, raw json.RawMessage) *mcp.CallToolResult
+
+func handler(run runner) mcp.ToolHandler {
+	return func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return run(ctx, req.Params.Arguments), nil
+	}
+}
+
+// build makes the MCP tool (annotations and input schema) and its runner.
+func (c *Context) build(d Def) (*mcp.Tool, runner, *ojson.Obj) {
+	readOnly := d.Gate == Read
 	if d.ReadOnly != nil {
 		readOnly = *d.ReadOnly
 	}
@@ -105,12 +139,12 @@ func (c *Context) add(d Def) {
 	raw, _ := ojson.Stringify(schema)
 	tool := &mcp.Tool{Name: d.Name, Title: d.Title, Description: d.Description, Annotations: ann, InputSchema: json.RawMessage(raw)}
 	input := Object(d.Input...)
-	c.Server.AddTool(tool, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	run := func(ctx context.Context, raw json.RawMessage) *mcp.CallToolResult {
 		var args any = ojson.New()
-		if raw := req.Params.Arguments; len(raw) > 0 && strings.TrimSpace(string(raw)) != "null" {
+		if len(raw) > 0 && strings.TrimSpace(string(raw)) != "null" {
 			parsed, err := ojson.Parse(raw)
 			if err != nil {
-				return fail("MCP error -32602: Input validation error: Invalid arguments for tool " + d.Name + ": " + err.Error()), nil
+				return fail("MCP error -32602: Input validation error: Invalid arguments for tool " + d.Name + ": " + err.Error())
 			}
 			args = parsed
 		}
@@ -121,18 +155,20 @@ func (c *Context) add(d Def) {
 			for i, is := range issues {
 				msgs[i] = is.String()
 			}
-			return fail("MCP error -32602: Input validation error: Invalid arguments for tool " + d.Name + ": " + strings.Join(msgs, "\n")), nil
+			return fail("MCP error -32602: Input validation error: Invalid arguments for tool " + d.Name + ": " + strings.Join(msgs, "\n"))
 		}
 		obj, _ := parsed.(*Obj)
 		out, err := d.Handler(ctx, Args{obj})
 		if err != nil {
-			return fail("Error: " + err.Error()), nil
+			return fail("Error: " + err.Error())
 		}
-		return ok(out), nil
-	})
-	if c.Registered != nil {
-		*c.Registered = append(*c.Registered, Info{Name: d.Name, Toolset: d.Toolset, Gate: d.Gate, Schema: schema})
+		// The meta-tools pass on the result of the tool they called.
+		if res, isResult := out.(*mcp.CallToolResult); isResult {
+			return res
+		}
+		return ok(out)
 	}
+	return tool, run, schema
 }
 
 // MaxOutputBytes caps the text a tool returns, so one huge response (a raw API call,

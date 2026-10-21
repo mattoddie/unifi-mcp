@@ -81,7 +81,7 @@ docker compose logs -f unifi-mcp
 You should see lines like these:
 
 ```text
-unifi-mcp 1.0.0: controller https://192.168.1.1, site "default", auth API key, writes disabled, transport http
+unifi-mcp 1.0.0: controller https://192.168.1.1, site "default", auth API key, writes disabled, tool mode lazy, transport http
 unifi-mcp listening on http://0.0.0.0:8080/mcp (bearer auth enabled)
 ```
 

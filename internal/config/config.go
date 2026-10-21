@@ -56,17 +56,30 @@ type Unifi struct {
 	TimeoutMs       int
 }
 
+// Tool modes for UNIFI_TOOL_MODE.
+const (
+	// ToolModeLazy lists a few meta-tools that search for and call the others.
+	ToolModeLazy = "lazy"
+	// ToolModeFull lists every enabled tool directly.
+	ToolModeFull = "full"
+)
+
 // Tools controls which tools are registered.
 type Tools struct {
 	AllowWrites bool
 	// AllowDeletes enables tools that delete configuration objects; requires AllowWrites as well.
 	AllowDeletes bool
 	Toolsets     map[string]bool
+	// Mode is ToolModeLazy or ToolModeFull. Anything else is treated as full.
+	Mode string
 }
 
-// AllTools enables every tool, for documentation and tests.
+// Lazy reports whether tools are reached through the meta-tools.
+func (t Tools) Lazy() bool { return t.Mode == ToolModeLazy }
+
+// AllTools enables every tool in full mode, for documentation and tests.
 func AllTools() Tools {
-	t := Tools{AllowWrites: true, AllowDeletes: true, Toolsets: map[string]bool{}}
+	t := Tools{AllowWrites: true, AllowDeletes: true, Toolsets: map[string]bool{}, Mode: ToolModeFull}
 	for _, ts := range Toolsets {
 		t.Toolsets[ts] = true
 	}
@@ -232,6 +245,14 @@ func Load(env Env) (*Config, error) {
 	}
 	if t.AllowDeletes && !t.AllowWrites {
 		return nil, errors.New("UNIFI_ALLOW_DELETES=true also requires UNIFI_ALLOW_WRITES=true")
+	}
+
+	t.Mode = strings.ToLower(or(get("UNIFI_TOOL_MODE"), ToolModeLazy))
+	if err := check(); err != nil {
+		return nil, err
+	}
+	if t.Mode != ToolModeLazy && t.Mode != ToolModeFull {
+		return nil, fmt.Errorf(`UNIFI_TOOL_MODE must be lazy or full, got "%s"`, t.Mode)
 	}
 
 	t.Toolsets = map[string]bool{}
