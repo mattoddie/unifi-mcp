@@ -6,6 +6,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-22
+
 ### Added
 
 - Dry runs: every write and delete tool, and `unifi_api_request` when writes are enabled, takes `dry_run: true`. The tool reads the current state but sends nothing that changes it, and returns the first request it would send with secrets redacted. For updates the preview is a field-level diff (`changed`, `added`, `removed`) against the object the tool read. In a dry run the first state-changing request is stopped before any login, so a preview never changes anything. Controller reads that use `POST` (statistics reports, event, session and log queries) are marked as reads and still run. In lazy mode, pass `dry_run` in the `arguments` of `unifi_call_write_tool`.
@@ -120,7 +122,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.1.0...v0.2.0
