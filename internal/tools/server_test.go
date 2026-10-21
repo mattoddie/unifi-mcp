@@ -42,9 +42,9 @@ func TestRawOutputIsRedacted(t *testing.T) {
 	env := startMock(t, toolOptions(false, false))
 	dev := env.call("unifi_get_device", `{"mac":"AA-BB-CC-00-00-01","raw":true}`)
 	eq(t, "x_authkey", get(dev, "x_authkey"), "[redacted]")
-	wlans := env.call("unifi_list_wlans", nil)
+	wlans := env.list("unifi_list_wlans", nil)
 	eq(t, "no passphrase", get(wlans, 0, "passphrase"), nil)
-	withSecrets := env.call("unifi_list_wlans", `{"include_secrets":true}`)
+	withSecrets := env.list("unifi_list_wlans", `{"include_secrets":true}`)
 	eq(t, "passphrase", get(withSecrets, 0, "passphrase"), "hunter22")
 }
 

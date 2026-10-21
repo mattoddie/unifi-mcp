@@ -75,14 +75,14 @@ func TestSwitchingGating(t *testing.T) {
 func TestListSwitchPorts(t *testing.T) {
 	env := newSwitchEnv(t)
 	res := env.call("unifi_list_switch_ports", `{"mac":"aa:bb:cc:00:00:01"}`)
-	if n, _ := ojson.Len(get(res, "ports")); n != 3 {
+	if n, _ := ojson.Len(get(res, "items")); n != 3 {
 		t.Errorf("ports: %d", n)
 	}
 	eq(t, "switch", get(res, "switch"), js(`{"name":"Office Switch","mac":"aa:bb:cc:00:00:01","model":"US8P60"}`))
-	eq(t, "profile 1", get(res, "ports", 0, "profile_name"), "All")
-	eq(t, "profile 2", get(res, "ports", 1, "profile_name"), "IoT")
-	eq(t, "override", get(res, "ports", 1, "override"), js(`{"name":"Printer","portconf_id":"pc-iot"}`))
-	eq(t, "port 1", get(res, "ports", 0), js(`{"idx":1,"name":"Port 1","up":true,"enabled":true,"speed_mbps":1000,"poe_mode":"auto","profile_id":"pc-all","profile_name":"All"}`))
+	eq(t, "profile 1", get(res, "items", 0, "profile_name"), "All")
+	eq(t, "profile 2", get(res, "items", 1, "profile_name"), "IoT")
+	eq(t, "override", get(res, "items", 1, "override"), js(`{"name":"Printer","portconf_id":"pc-iot"}`))
+	eq(t, "port 1", get(res, "items", 0), js(`{"idx":1,"name":"Port 1","up":true,"enabled":true,"speed_mbps":1000,"poe_mode":"auto","profile_id":"pc-all","profile_name":"All"}`))
 	contains(t, "no ports", env.callErr("unifi_list_switch_ports", `{"mac":"aa:bb:cc:00:00:02"}`), "Device Lounge AP has no switch ports")
 }
 
@@ -149,7 +149,7 @@ func TestPortProfiles(t *testing.T) {
 			t.Error("profile not deleted")
 		}
 	}
-	list := env.call("unifi_list_port_profiles", nil)
+	list := env.list("unifi_list_port_profiles", nil)
 	eq(t, "list", list, js(`[{"id":"pc-all","name":"All","forward":"all","speed":"auto"},{"id":"pc-iot","name":"IoT","native_network_id":"n-iot","speed":"auto"}]`))
 }
 
@@ -256,7 +256,7 @@ func TestGetDevice(t *testing.T) {
 
 func TestAPGroups(t *testing.T) {
 	env := newSwitchEnv(t)
-	list := env.call("unifi_list_ap_groups", nil)
+	list := env.list("unifi_list_ap_groups", nil)
 	eq(t, "list", get(list, 0), js(`{"id":"ag1","name":"All APs","device_macs":["aa:bb:cc:00:00:02"],"device_count":1,"default":true}`))
 
 	env.begin()

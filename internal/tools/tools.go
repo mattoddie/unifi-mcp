@@ -205,7 +205,7 @@ func truncateOutput(text string) string {
 	for cut > 0 && !utf8.RuneStart(text[cut]) {
 		cut--
 	}
-	return text[:cut] + fmt.Sprintf("\n\n[Output truncated: the result is %d bytes, more than the %d-byte limit. Narrow the request, for example with a filter, a limit or a specific id.]", len(text), MaxOutputBytes)
+	return text[:cut] + fmt.Sprintf("\n\n[Output truncated: the result is %d bytes, more than the %d-byte limit. Narrow the request, for example with search, fields, a filter, a limit or a specific id.]", len(text), MaxOutputBytes)
 }
 
 func fail(text string) *mcp.CallToolResult {
@@ -306,32 +306,4 @@ func mapObjs(v any, f func(*Obj) any) []any {
 		out[i] = f(o)
 	}
 	return out
-}
-
-// filterAndLimit applies a case-insensitive substring search over some fields, then a limit.
-func filterAndLimit(items []any, search string, limit *float64, fields func(*Obj) []any) *Obj {
-	out := items
-	if search != "" {
-		q := strings.ToLower(search)
-		out = ojson.Filter(items, func(item any) bool {
-			o, _ := ojson.AsObj(item)
-			for _, f := range fields(o) {
-				if !ojson.IsNullish(f) && strings.Contains(strings.ToLower(ojson.String(f)), q) {
-					return true
-				}
-			}
-			return false
-		})
-	}
-	total := len(out)
-	if limit != nil && int(*limit) < len(out) {
-		out = out[:int(*limit)]
-	}
-	return ojson.New("total", total, "returned", len(out), "items", out)
-}
-
-// optLimit returns a pointer to a limit argument or its default.
-func optLimit(a Args, def float64) *float64 {
-	v := a.NumOr("limit", def)
-	return &v
 }

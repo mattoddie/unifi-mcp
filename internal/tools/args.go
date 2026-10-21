@@ -1,7 +1,5 @@
 package tools
 
-import "fmt"
-
 // Arguments shared by many tools.
 
 func siteArg() Prop {
@@ -26,16 +24,10 @@ func extraSchema() *Schema {
 
 func extraArg() Prop { return P("extra", extraSchema()) }
 
-func searchArg() Prop {
-	return P("search", Str().Opt().D("Case-insensitive substring filter on name, hostname, MAC, IP and similar fields"))
-}
-
-func limitArg(def int) Prop {
-	return P("limit", Int().Positive().Max(5000).Opt().D(fmt.Sprintf("Maximum number of results (default %d)", def)))
-}
+// searchArg, limitArg and fieldsArg live in list.go with the list helpers.
 
 func rawArg() Prop {
-	return P("raw", Bool().Opt().D("Return the full unprocessed objects from the controller (large)"))
+	return P("raw", Bool().Opt().D("Return the full controller objects (large)"))
 }
 
 func secretsArg(desc string) Prop {

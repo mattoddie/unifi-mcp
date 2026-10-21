@@ -168,7 +168,7 @@ func registerAdmin(c *Context) {
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_list_admins", Title: "List administrators",
 		Description: "List administrator accounts for a site, or for all sites (all_sites: true).",
-		Input:       props(siteArg(), P("all_sites", Bool().Opt().D("List admins across all sites"))),
+		Input:       props(siteArg(), P("all_sites", Bool().Opt().D("List admins across all sites")), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			var admins any
 			var err error
@@ -180,7 +180,7 @@ func registerAdmin(c *Context) {
 			if err != nil {
 				return nil, err
 			}
-			return mapObjs(admins, func(x *Obj) any { return summarizeAdmin(x) }), nil
+			return listing{}.result(a, arr(admins), func(x *Obj) any { return summarizeAdmin(x) }, nil), nil
 		},
 	})
 
@@ -238,7 +238,7 @@ func registerAdmin(c *Context) {
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_list_backups", Title: "List backups",
 		Description: "List the controller's stored (auto) backups.",
-		Input:       props(siteArg()),
+		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.CmdRead(ctx, c.site(a), "backup", "list-backups", nil)
 			if err != nil {
@@ -260,7 +260,7 @@ func registerAdmin(c *Context) {
 			ojson.SortStable(backups, func(x, y any) float64 {
 				return float64(ojson.LocaleCompare(ojson.String(ojson.Coalesce(ojson.Get(y, "time"), "")), ojson.String(ojson.Coalesce(ojson.Get(x, "time"), ""))))
 			})
-			return backups, nil
+			return listing{}.result(a, backups, nil, nil), nil
 		},
 	})
 

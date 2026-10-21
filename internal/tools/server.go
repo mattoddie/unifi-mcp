@@ -26,6 +26,7 @@ func instructions(opts config.Tools) string {
 		s += "Start with unifi_get_site_health, unifi_list_devices or unifi_list_clients. "
 	}
 	s += "Most tools take an optional `site`; use unifi_list_sites to find site names. " +
+		listHelp +
 		"unifi_save_* tools create an object when no id is given and update it (changing only the fields passed) when an id is given. "
 	if opts.AllowWrites {
 		s += "Write tools are enabled: confirm with the user before restarting devices, blocking clients or changing configuration. " +

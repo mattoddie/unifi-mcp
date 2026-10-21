@@ -8,6 +8,7 @@ Once the server is connected, just talk to your assistant about your network. Th
 - [Making changes](#making-changes)
 - [Multiple sites](#multiple-sites)
 - [Summaries, raw objects and secrets](#summaries-raw-objects-and-secrets)
+- [Narrowing list results](#narrowing-list-results)
 - [The `extra` argument](#the-extra-argument)
 - [The raw API tool](#the-raw-api-tool)
 - [Tips for good results](#tips-for-good-results)
@@ -135,9 +136,47 @@ Most tools take an optional `site` argument. Without it, they use `UNIFI_SITE`, 
 
 ## Summaries, raw objects and secrets
 
-- **Compact by default.** List tools return trimmed summaries with the useful fields, friendly units (Mbps, ISO timestamps, readable uptimes) and filters like `search`, `type` and `limit`. This keeps responses small enough for the model to reason about.
+- **Compact by default.** List tools return trimmed summaries with the useful fields and friendly units (Mbps, ISO timestamps, readable uptimes). This keeps responses small enough for the model to reason about. See [Narrowing list results](#narrowing-list-results) to make them smaller still.
 - **`raw: true`** on list and get tools returns the controller's full objects when you need a field the summary leaves out.
 - **Secrets are redacted.** Passphrases, pre-shared keys, RADIUS secrets and other `x_*` fields show as `[redacted]`. To include them, ask explicitly so the tool is called with `include_secrets: true` where it's supported. `unifi_get_wifi_qr` returns the WiFi password by design, because a join QR code needs it.
+
+## Narrowing list results
+
+Every `unifi_list_*` tool, and `unifi_get_speedtest_results`, returns the same shape:
+
+```json
+{"total": 42, "returned": 10, "items": [ ... ]}
+```
+
+`total` is how many items matched, and `returned` how many were sent after `limit`. When `returned` is smaller than `total`, there are more. The tools share these arguments, so the model can fetch only what it needs:
+
+| Argument | What it does |
+|---|---|
+| `search` | Case-insensitive substring match on the fields that identify an item: name, hostname, MAC, IP, model, SSID, network and similar, depending on the tool. |
+| `fields` | Keeps only these fields in each item. Use dot paths for nested fields, such as `uplink.device_mac`, and for fields inside arrays, such as `auth_servers.ip`. It also works with `raw: true`. Unknown fields are ignored. If none of them exist, the result includes a `hint` listing the fields the items do have. |
+| `limit` | The maximum number of items. Only lists that can grow long have it: devices, clients, events, alarms, threats, sessions, vouchers and other history. The default is in each tool's reference. |
+
+Some tools also have exact-match filters where the controller data supports them reliably:
+
+| Tool | Filters |
+|---|---|
+| `unifi_list_devices` | `type` (`access_point`, `switch`, `gateway`, `other`), `state` (`connected`, `disconnected`, `upgrading`, …) |
+| `unifi_list_clients` | `connection` (`wired`, `wireless`), `guests_only`, `network` (network name), `ap_mac` |
+| `unifi_list_known_clients` | `filter` (`blocked`, `fixed_ip`, `noted`, `named`) |
+| `unifi_list_switch_ports` | `up` (`true` for linked ports, `false` for the rest) |
+| `unifi_list_firewall_policies` | `include_predefined` |
+| `unifi_list_rogue_aps` | `rogue_only` |
+
+Search and filters are applied first, then `limit`, then `fields`. For example:
+
+- *"List only the offline APs, just name and IP"* becomes `unifi_list_devices {type: "access_point", state: "disconnected", fields: ["name", "ip"]}`.
+- *"Which clients are on the IoT network, and which AP are they on?"* becomes `unifi_list_clients {network: "IoT", fields: ["name", "ip", "ap_mac", "signal_dbm"]}`.
+- *"Which ports on the office switch are down?"* becomes `unifi_list_switch_ports {mac: "…", up: false, fields: ["idx", "name"]}`.
+- *"Any 'lost contact' events today?"* becomes `unifi_list_events {search: "lost_contact"}`.
+
+In lazy mode the same arguments go in `arguments`, for example `unifi_call_tool {name: "unifi_list_devices", arguments: {state: "disconnected", fields: ["name", "ip"]}}`.
+
+Results larger than 256 KiB are cut off with a note asking for a narrower request, so these arguments are also the way out of a truncated result.
 
 ## The `extra` argument
 
