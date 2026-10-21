@@ -130,7 +130,7 @@ func TestDryRunEveryWriteTool(t *testing.T) {
 	for _, coll := range []string{"account", "dynamicdns", "firewallgroup", "firewallrule", "hotspotop", "networkconf", "portconf", "portforward", "radiusprofile", "routing", "usergroup", "wlanconf"} {
 		env.mock.Seed("rest", coll, `[{"_id":"w1","name":"x","purpose":"wan"}]`)
 	}
-	for _, coll := range []string{"apgroups", "content-filtering", "firewall-policies", "firewall/zone", "static-dns", "trafficroutes", "trafficrules"} {
+	for _, coll := range []string{"acl-rules", "apgroups", "content-filtering", "firewall-policies", "firewall/zone", "nat", oonList, "qos-rules", "static-dns", "trafficroutes", "trafficrules"} {
 		env.mock.Seed("v2", coll, `[{"_id":"w1","name":"x"}]`)
 	}
 	env.mock.Seed("rest", "setting", `[{"_id":"s1","key":"mgmt"},{"_id":"s2","key":"guest_access"},{"_id":"s3","key":"ips"},{"_id":"s4","key":"country"},{"_id":"s5","key":"usg"}]`)
@@ -157,9 +157,14 @@ func TestDryRunEveryWriteTool(t *testing.T) {
 		"unifi_move_device":                  `{"target_site":"branch"}`,
 		"unifi_delete_site":                  `{"site_name":"branch"}`,
 		"unifi_update_client":                `{"mac":"11:22:33:44:55:66","name":"x"}`,
+		"unifi_save_qos_rule":                `{"name":"y"}`,
+		"unifi_save_nat_rule":                `{"description":"y"}`,
+		"unifi_save_acl_rule":                `{"name":"y"}`,
+		"unifi_save_oon_policy":              `{"name":"y"}`,
 	}
 	tools := toolMap(t, env.mcp)
 	previews := 0
+	previewed := map[string]bool{}
 	for name, tool := range tools {
 		if tool.Annotations.ReadOnlyHint {
 			continue
@@ -193,6 +198,7 @@ func TestDryRunEveryWriteTool(t *testing.T) {
 			continue
 		}
 		previews++
+		previewed[name] = true
 		s, _ := ojson.Stringify(send)
 		if readEndpoint.MatchString(s) {
 			t.Errorf("%s: the dry run stopped at a read: %s", name, s)
@@ -202,6 +208,14 @@ func TestDryRunEveryWriteTool(t *testing.T) {
 	t.Logf("%d tools produced a preview", previews)
 	if previews < 60 {
 		t.Errorf("only %d tools produced a preview", previews)
+	}
+	// Policy table tools must all get as far as their first change.
+	for _, n := range []string{"qos_rule", "nat_rule", "acl_rule", "oon_policy"} {
+		for _, verb := range []string{"save", "delete"} {
+			if name := "unifi_" + verb + "_" + n; !previewed[name] {
+				t.Errorf("%s produced no preview", name)
+			}
+		}
 	}
 }
 

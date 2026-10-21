@@ -30,12 +30,17 @@ Once the server is connected, just talk to your assistant about your network. Th
 - *"How much PoE power is the office switch using?"*
 - *"Upgrade the access points one at a time."* (writes)
 - *"Make the garage AP's LED blink so I can find it."* (writes)
+- *"What's plugged into each port of the rack switch?"* (LLDP neighbours in `unifi_list_switch_ports`)
+- *"Mirror port 3 to port 8 so I can capture its traffic."* (writes)
+- *"Bond ports 23 and 24 on the rack switch for the NAS."* (writes; link aggregation)
 
 **Clients**
 
 - *"Who's connected to the guest WiFi?"*
 - *"Find the device with IP 192.168.1.73 and tell me what it is."*
 - *"Give the NAS a fixed IP of 192.168.1.10 and name it 'NAS'."* (writes)
+- *"Lock the living-room TV to the lounge AP."* (writes)
+- *"What has the kids' tablet been talking to in the last 15 minutes, and was anything blocked?"* (`unifi_list_traffic_flows`)
 - *"Block 'kids-tablet' from 9pm."* The assistant can block it now, but scheduling is up to you or your client.
 
 **WiFi**
@@ -50,6 +55,17 @@ Once the server is connected, just talk to your assistant about your network. Th
 - *"Is IDS/IPS on? What threats were blocked this week?"*
 - *"Add a traffic rule that blocks social media on the kids' network."* (writes)
 - *"Block traffic from the IoT VLAN to the main LAN."* (writes)
+- *"Which NAT rules and switch ACLs are there, and do any expose an internal host?"*
+- *"Limit the kids' devices to 10 Mbps down, and prioritise video calls."* (writes; QoS rules)
+- *"Turn off internet for the kids' group from 21:00 to 07:00."* (writes; object-oriented network policy)
+
+**Site settings**
+
+`unifi_get_site_settings` and `unifi_update_site_setting` cover every site setting object, including SNMP, mDNS and auto-backup:
+
+- *"Turn on SNMP with community 'monitoring'."* → `key: snmp`, `changes: {enabled: true, community: "monitoring"}` (writes)
+- *"Set mDNS to automatic."* → `key: mdns`, `changes: {mode: "auto"}` (writes)
+- *"Back up the controller every Monday at 03:00 and keep 7 backups."* → `key: super_mgmt`, `changes: {autobackup_enabled: true, autobackup_cron_expr: "0 3 * * 1", autobackup_max_files: 7}` (writes)
 
 **Guests and hotspot**
 
@@ -58,7 +74,7 @@ Once the server is connected, just talk to your assistant about your network. Th
 
 ## How the assistant finds tools
 
-By default (`UNIFI_TOOL_MODE=lazy`) your client lists three meta-tools rather than all 132 tools, so the tool definitions don't fill the model's context. A typical exchange looks like this:
+By default (`UNIFI_TOOL_MODE=lazy`) your client lists three meta-tools rather than all 145 tools, so the tool definitions don't fill the model's context. A typical exchange looks like this:
 
 1. `unifi_search_tools {"query": "switch ports poe"}` returns the matching tools with a one-line summary each.
 2. `unifi_search_tools {"names": ["unifi_list_switch_ports"]}` returns that tool's description and arguments.
@@ -166,6 +182,8 @@ Some tools also have exact-match filters where the controller data supports them
 | `unifi_list_switch_ports` | `up` (`true` for linked ports, `false` for the rest) |
 | `unifi_list_firewall_policies` | `include_predefined` |
 | `unifi_list_rogue_aps` | `rogue_only` |
+| `unifi_list_acl_rules` | `network_id` |
+| `unifi_list_traffic_flows` | `client_mac`, `client_ip`, `action`, `risk`, `destination_domain` and `page`. The controller applies these and `search` itself, and `limit` is its page size (at most 500). |
 
 Search and filters are applied first, then `limit`, then `fields`. For example:
 

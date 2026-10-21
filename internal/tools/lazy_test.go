@@ -65,9 +65,9 @@ func TestLazyListsOnlyMetaTools(t *testing.T) {
 		t.Errorf("call_write_tool must be destructive: %+v", w.Annotations)
 	}
 	contains(t, "confirm", w.Description, "get their confirmation")
-	contains(t, "count", tools[searchToolName].Description, "(132 available)")
+	contains(t, "count", tools[searchToolName].Description, "(145 available)")
 
-	// Well under 4 KB, against 40 KB (read-only) and 132 KB (everything) in full mode.
+	// Well under 4 KB, against 48 KB (read-only) and 174 KB (everything) in full mode.
 	readSize, allSize := listSize(t, env.mcp), listSize(t, all)
 	fullRead, fullAll := listSize(t, connect(t, env.client, toolOptions(false, false))), listSize(t, connect(t, env.client, toolOptions(true, true)))
 	t.Logf("tools/list: lazy %d B read-only, %d B all; full %d B read-only, %d B all", readSize, allSize, fullRead, fullAll)
@@ -147,7 +147,7 @@ func TestLazySearch(t *testing.T) {
 	contains(t, "no match", ojsonString(env.call(searchToolName, `{"query":"zzzz"}`)), "No match")
 
 	overview := env.call(searchToolName, nil)
-	eq(t, "total", get(overview, "total"), 132.0)
+	eq(t, "total", get(overview, "total"), 145.0)
 	eq(t, "first toolset", get(overview, "toolsets", 0, "toolset"), "overview")
 	if n, _ := get(overview, "toolsets", 0, "examples").([]any); len(n) == 0 || len(n) > 3 {
 		t.Errorf("examples: %v", n)

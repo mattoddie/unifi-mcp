@@ -223,7 +223,13 @@ func updateSetting(ctx context.Context, c *unifi.Client, site, key string, patch
 	if err != nil {
 		return nil, err
 	}
-	res, err := c.SitePut(ctx, site, "rest/setting/"+k+"/"+id, merged)
+	// Controller-wide super_* settings (super_mgmt holds auto-backup) are written through
+	// set/setting rather than rest/setting, as the UniFi UI does.
+	prefix := "rest/setting/"
+	if strings.HasPrefix(key, "super_") {
+		prefix = "set/setting/"
+	}
+	res, err := c.SitePut(ctx, site, prefix+k+"/"+id, merged)
 	if err != nil {
 		return nil, err
 	}

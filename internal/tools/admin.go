@@ -41,7 +41,7 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_get_site_settings", Title: "Get site settings",
-		Description: "Get site-wide settings. Each setting is an object identified by `key`, e.g. mgmt (auto-upgrade, LEDs, SSH), country, locale, ntp, snmp, rsyslogd (remote syslog), connectivity, guest_access, ips, dpi, usg (gateway: DNS, geo-IP, UPnP...), radius, network_optimization, super_mgmt. Omit `key` to list all keys.",
+		Description: "Get site-wide settings. Each setting is an object identified by `key`, e.g. mgmt (auto-upgrade, LEDs, SSH), country, locale, ntp, snmp, mdns (multicast DNS), rsyslogd (remote syslog), connectivity, guest_access, ips, dpi, usg (gateway: DNS, geo-IP, UPnP...), radius, network_optimization, super_mgmt (controller-wide, including auto-backup). Omit `key` to list all keys.",
 		Input: props(
 			siteArg(),
 			P("key", Str().Opt().D("Setting key to return in full; omit to list available keys")),
@@ -72,7 +72,7 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_update_site_setting", Title: "Update site setting",
-		Description: "Change fields of one site setting object (see unifi_get_site_settings for keys and current field names). Only the given fields change. Examples: key=mgmt {led_enabled:false} or {auto_upgrade:true, auto_upgrade_hour:3}; key=rsyslogd {enabled:true, ip:'10.0.0.5', port:514}; key=ntp {ntp_server_1:'pool.ntp.org'}.",
+		Description: "Change fields of one site setting object (see unifi_get_site_settings for keys and current field names). Only the given fields change. Examples: key=mgmt {led_enabled:false} or {auto_upgrade:true, auto_upgrade_hour:3}; key=rsyslogd {enabled:true, ip:'10.0.0.5', port:514}; key=ntp {ntp_server_1:'pool.ntp.org'}; key=snmp {enabled:true, community:'...'} (SNMPv3: enabledV3, username, x_password); key=mdns {mode:'auto'} (all, auto or custom); key=super_mgmt {autobackup_enabled:true, autobackup_cron_expr:'0 3 * * 1', autobackup_max_files:7}.",
 		Gate:        Write, Destructive: boolPtr(true),
 		Input: props(
 			siteArg(),

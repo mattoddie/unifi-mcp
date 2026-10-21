@@ -132,7 +132,7 @@ If both `NAME` and `NAME_FILE` are set, the file wins.
 
 `UNIFI_TOOL_MODE` decides how the tools are offered to the client.
 
-**`lazy` (the default)** lists three small meta-tools instead of every tool. The whole tool list is under 3 KB, against about 40 KB for the 54 read-only tools and 132 KB for all 132 tools in `full` mode:
+**`lazy` (the default)** lists three small meta-tools instead of every tool. The whole tool list is under 3 KB, against about 48 KB for the 59 read-only tools and 174 KB for all 145 tools in `full` mode:
 
 | Meta-tool | What it does |
 |---|---|
@@ -153,7 +153,7 @@ Which to choose:
 
 ## Choosing toolsets
 
-In `full` mode, every tool's name, description and argument schema is sent to the model, which uses up context. With all 132 tools enabled, that's a lot of text, and some clients warn about or cap the number of tools. [Lazy mode](#lazy-or-full-tool-loading) avoids that, but narrower toolsets still help the model find the right tool, and limit what it can reach. Expose only what you need:
+In `full` mode, every tool's name, description and argument schema is sent to the model, which uses up context. With all 145 tools enabled, that's a lot of text, and some clients warn about or cap the number of tools. [Lazy mode](#lazy-or-full-tool-loading) avoids that, but narrower toolsets still help the model find the right tool, and limit what it can reach. Expose only what you need:
 
 | Toolset | Tools | Use it for |
 |---|---:|---|

@@ -1122,6 +1122,8 @@ func registerFirewall(c *Context) {
 		Input:       props(siteArg(), idArg("Traffic rule")),
 		Handler:     deleteHandler(c, "trafficrules", true),
 	})
+
+	registerPolicyTable(c)
 }
 
 // deleteHandler deletes a rest (or v2) object by id and returns {deleted: id}.

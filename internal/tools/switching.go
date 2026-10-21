@@ -159,7 +159,7 @@ func registerSwitching(c *Context) {
 	portList := listing{Search: []string{"name", "profile_name", "media", "poe_mode"}, Filters: map[string]string{"up": "up"}}
 	c.add(Def{
 		Toolset: "switching", Name: "unifi_list_switch_ports", Title: "List switch ports",
-		Description: "List a switch's ports with link state, speed, PoE, assigned profile and any per-port overrides configured on the device.",
+		Description: "List a switch's ports with link state, speed, PoE, assigned profile, LLDP neighbours (what is plugged in: chassis ID, description and remote port), link aggregation and any per-port overrides configured on the device.",
 		Input:       props(siteArg(), switchMac, P("up", Bool().Opt().D("Only ports whose link is up (true) or down (false)")), portList.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
@@ -178,6 +178,16 @@ func registerSwitching(c *Context) {
 			overrides := map[string]*Obj{}
 			for _, o := range objs(ojson.Coalesce(device.Get("port_overrides"), []any{})) {
 				overrides[ojson.String(o.Get("port_idx"))] = o
+			}
+			neighbours := map[string][]any{}
+			for _, n := range objs(ojson.Coalesce(device.Get("lldp_table"), []any{})) {
+				k := ojson.String(n.Get("local_port_idx"))
+				neighbours[k] = append(neighbours[k], unifi.Compact(
+					"chassis_id", n.Get("chassis_id"),
+					"description", n.Get("chassis_descr"),
+					"port_id", n.Get("port_id"),
+					"port_description", n.Get("port_descr"),
+				))
 			}
 			ports := portList.result(a, arr(device.Get("port_table")), func(p *Obj) any {
 				o := overrides[ojson.String(p.Get("port_idx"))]
@@ -217,6 +227,8 @@ func registerSwitching(c *Context) {
 					"profile_name", profileName,
 					"native_network_id", p.Get("native_networkconf_id"),
 					"stp_state", p.Get("stp_state"),
+					"aggregated_by", ojson.If(ojson.Truthy(p.Get("aggregated_by")), p.Get("aggregated_by"), U),
+					"lldp_neighbors", lldpOf(neighbours, p.Get("port_idx")),
 					"errors", ojson.OrUndefined(ojson.ToNumber(ojson.Coalesce(p.Get("rx_errors"), 0.0))+ojson.ToNumber(ojson.Coalesce(p.Get("tx_errors"), 0.0))),
 					"override", override,
 				)
@@ -229,7 +241,7 @@ func registerSwitching(c *Context) {
 
 	c.add(Def{
 		Toolset: "switching", Name: "unifi_set_switch_port", Title: "Configure switch port",
-		Description: "Configure one switch port via a per-port override: name, enable/disable, port profile, native/tagged VLANs, PoE, speed, isolation, storm control. Only the given fields change; other ports are untouched. Disabling uses port security with no allowed MACs (blocks all traffic), as the UniFi UI does.",
+		Description: "Configure one switch port via a per-port override: name, enable/disable, port profile, native/tagged VLANs, PoE, speed, isolation, storm control, port mirroring and link aggregation. Only the given fields change; other ports' overrides are kept (except the other members of a new aggregation group, which the controller manages). Disabling uses port security with no allowed MACs (blocks all traffic), as the UniFi UI does. op_mode=switch turns mirroring or aggregation off again.",
 		Gate:        Write, Destructive: boolPtr(true),
 		Input: props(
 			siteArg(),
@@ -239,6 +251,8 @@ func registerSwitching(c *Context) {
 			P("enabled", Bool().Opt().D("false blocks all traffic on the port; true re-enables it")),
 			P("profile_id", Str().Opt().D("Port profile ID to assign (see unifi_list_port_profiles)")),
 			portSettingsInput(),
+			P("mirror_port_idx", Int().Positive().Opt().D("Mirror this port's traffic to this port (sets op_mode=mirror). Most switches allow one mirror session.")),
+			P("aggregate_ports", Array(Int().Positive()).Min(2).Max(8).Opt().D("Bond these consecutive ports, starting with port_idx, into an LACP link aggregation group (sets op_mode=aggregate). Ports must run at the same speed; the other members' own overrides are removed.")),
 			extraArg(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -259,12 +273,16 @@ func registerSwitching(c *Context) {
 			if ojson.StrictEq(a.Get("enabled"), false) {
 				patch.Set("port_security_mac_address", []any{})
 			}
+			overrides := arr(ojson.Clone(ojson.Coalesce(device.Get("port_overrides"), []any{})))
+			members, err := portModePatch(a, device, overrides, patch)
+			if err != nil {
+				return nil, err
+			}
 			patch.Assign(a.Get("extra"))
 			if patch.Len() == 0 {
 				return nil, errorf("Nothing to change: pass at least one port setting")
 			}
 
-			overrides := arr(ojson.Clone(ojson.Coalesce(device.Get("port_overrides"), []any{})))
 			existing := ojson.Find(overrides, func(o any) bool { return ojson.StrictEq(ojson.Get(o, "port_idx"), portIdx) })
 			var override *Obj
 			if o, ok := ojson.AsObj(existing); ok {
@@ -272,6 +290,28 @@ func registerSwitching(c *Context) {
 			} else {
 				override = ojson.New("port_idx", portIdx).Assign(unifi.Defined("portconf_id", port.Get("portconf_id")), patch)
 				overrides = append(overrides, override)
+			}
+			// Drop settings left over from another operation mode.
+			for _, k := range modeFields {
+				switch mode := patch.Get("op_mode"); {
+				case ojson.StrictEq(mode, "switch"),
+					ojson.StrictEq(mode, "mirror") && k != "mirror_port_idx",
+					ojson.StrictEq(mode, "aggregate") && k == "mirror_port_idx":
+					override.Delete(k)
+				}
+			}
+			// The controller manages the other members of a link aggregation group itself,
+			// so their own overrides are removed. Every other port's override is kept.
+			var removed []any
+			if len(members) > 1 {
+				others := members[1:]
+				overrides = ojson.Filter(overrides, func(o any) bool {
+					if ojson.Includes(others, ojson.Get(o, "port_idx")) {
+						removed = append(removed, ojson.Get(o, "port_idx"))
+						return false
+					}
+					return true
+				})
 			}
 			ojson.SortStable(overrides, func(x, y any) float64 {
 				return ojson.ToNumber(ojson.Get(x, "port_idx")) - ojson.ToNumber(ojson.Get(y, "port_idx"))
@@ -283,7 +323,11 @@ func registerSwitching(c *Context) {
 			if _, err := client.SitePut(ctx, s, idPath, ojson.New("port_overrides", overrides)); err != nil {
 				return nil, err
 			}
-			return ojson.New("switch", device.Get("mac"), "port_idx", portIdx, "override", override), nil
+			out := ojson.New("switch", device.Get("mac"), "port_idx", portIdx, "override", override)
+			if removed != nil {
+				out.Set("removed_member_overrides", removed)
+			}
+			return out, nil
 		},
 	})
 
@@ -345,4 +389,77 @@ func registerSwitching(c *Context) {
 			return ojson.New("switch", m, "port_idx", a.Get("port_idx"), "power_cycled", true), nil
 		},
 	})
+}
+
+// modeFields are the port override fields that only apply to mirror and aggregate ports.
+var modeFields = []string{"mirror_port_idx", "aggregate_members", "aggregate_num_ports", "lag_idx"}
+
+// portModePatch adds port mirroring or link aggregation settings to patch and returns the
+// aggregation members (sorted, port_idx first) when aggregate_ports is given.
+func portModePatch(a Args, device *Obj, overrides []any, patch *Obj) ([]any, error) {
+	portIdx := a.Get("port_idx")
+	opMode, hasMode := a.Get("op_mode"), a.Has("op_mode")
+	if a.Has("mirror_port_idx") && a.Has("aggregate_ports") {
+		return nil, errorf("Pass mirror_port_idx or aggregate_ports, not both")
+	}
+	if a.Has("mirror_port_idx") {
+		target := a.Get("mirror_port_idx")
+		if hasMode && !ojson.StrictEq(opMode, "mirror") {
+			return nil, errorf("mirror_port_idx needs op_mode=mirror (or leave op_mode out)")
+		}
+		if ojson.StrictEq(target, portIdx) {
+			return nil, errorf("A port can't mirror to itself")
+		}
+		if _, err := findPort(device, target); err != nil {
+			return nil, err
+		}
+		patch.Set("op_mode", "mirror").Set("mirror_port_idx", target)
+		return nil, nil
+	}
+	if !a.Has("aggregate_ports") {
+		return nil, nil
+	}
+	if hasMode && !ojson.StrictEq(opMode, "aggregate") {
+		return nil, errorf("aggregate_ports needs op_mode=aggregate (or leave op_mode out)")
+	}
+	members := append([]any{}, a.Arr("aggregate_ports")...)
+	ojson.SortStable(members, func(x, y any) float64 { return ojson.ToNumber(x) - ojson.ToNumber(y) })
+	if !ojson.StrictEq(members[0], portIdx) {
+		return nil, errorf("aggregate_ports must start with port_idx (the lowest port of the group)")
+	}
+	for i, m := range members {
+		if i > 0 && ojson.ToNumber(m) != ojson.ToNumber(members[i-1])+1 {
+			return nil, errorf("aggregate_ports must be consecutive ports, e.g. [5, 6]")
+		}
+		if _, err := findPort(device, m); err != nil {
+			return nil, err
+		}
+	}
+	// Keep the port's group number, or take the next free one.
+	var lag any = U
+	next := 1.0
+	for _, o := range overrides {
+		n, ok := ojson.Num(ojson.Get(o, "lag_idx"))
+		if !ok {
+			continue
+		}
+		if ojson.StrictEq(ojson.Get(o, "port_idx"), portIdx) {
+			lag = n
+		} else if n >= next {
+			next = n + 1
+		}
+	}
+	patch.Set("op_mode", "aggregate").
+		Set("aggregate_members", members).
+		Set("aggregate_num_ports", float64(len(members))).
+		Set("lag_idx", ojson.Coalesce(lag, next))
+	return members, nil
+}
+
+// lldpOf returns the LLDP neighbours seen on a port, or Undefined when there are none.
+func lldpOf(neighbours map[string][]any, portIdx any) any {
+	if list := neighbours[ojson.String(portIdx)]; len(list) > 0 {
+		return list
+	}
+	return U
 }
