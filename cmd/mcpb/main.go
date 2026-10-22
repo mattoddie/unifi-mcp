@@ -1,5 +1,6 @@
-// Command mcpb maintains the MCP Bundle manifest (mcpb/manifest.json) and packs
-// the bundles that let Claude Desktop install unifi-mcp in one click.
+// Command mcpb maintains the MCP Bundle manifest (mcpb/manifest.json), packs
+// the bundles that let Claude Desktop install unifi-mcp in one click, and
+// stamps server.json for the MCP Registry.
 //
 //	go run ./cmd/mcpb manifest [-check]
 //	    Regenerate the manifest's tools and prompts from the server, started the
@@ -9,6 +10,10 @@
 //	go run ./cmd/mcpb pack -version 1.2.3 -goos darwin -binary path/to/unifi-mcp -o out.mcpb
 //	    Write a bundle for one platform: the manifest stamped with the version
 //	    and platform, the icon, the licence and the binary.
+//
+//	go run ./cmd/mcpb registry -version 1.2.3 [-f server.json] [-bundles dist] [-o dist/server.json]
+//	    Write server.json for the MCP Registry: the committed file stamped with
+//	    the version, the image tag, and each bundle's URL and SHA-256.
 //
 // `make mcpb` builds the binaries and calls pack for every platform.
 package main
@@ -38,6 +43,7 @@ import (
 const usage = `Usage:
   mcpb manifest [-check] [-f mcpb/manifest.json]
   mcpb pack -version X.Y.Z -goos darwin|windows|linux -binary FILE -o OUT.mcpb [-dir mcpb] [-license LICENSE]
+  mcpb registry -version X.Y.Z [-f server.json] [-bundles dist] [-o dist/server.json]
 `
 
 func main() {
@@ -51,6 +57,8 @@ func main() {
 		err = manifestCmd(os.Args[2:])
 	case "pack":
 		err = packCmd(os.Args[2:])
+	case "registry":
+		err = registryCmd(os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown command %q\n\n%s", os.Args[1], usage)
 	}

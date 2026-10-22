@@ -181,6 +181,8 @@ Then `export UNIFI_MCP_TOKEN=<token>` before running `codex`.
 
 Any client that supports MCP **Streamable HTTP** works. Point it at `http://<docker-host>:8080/mcp` and send the bearer token header.
 
+Clients that install servers from the [MCP Registry](https://registry.modelcontextprotocol.io) can find unifi-mcp as `io.github.mattoddie/unifi-mcp`. The registry entry runs the image in [stdio mode](#stdio-mode) and asks for the same settings as the bundle, except the CA file: use `UNIFI_TLS_FINGERPRINT` for a self-signed certificate.
+
 If your client only supports stdio, you have two options. You can use [stdio mode](#stdio-mode), or you can keep the shared HTTP server and connect through a stdio-to-HTTP bridge such as [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
 
 ```json

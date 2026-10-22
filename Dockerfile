@@ -24,7 +24,8 @@ LABEL org.opencontainers.image.title="unifi-mcp" \
       org.opencontainers.image.description="MCP server for Ubiquiti UniFi Network" \
       org.opencontainers.image.source="https://github.com/mattoddie/unifi-mcp" \
       org.opencontainers.image.documentation="https://github.com/mattoddie/unifi-mcp#readme" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT" \
+      io.modelcontextprotocol.server.name="io.github.mattoddie/unifi-mcp"
 COPY --from=build /out/unifi-mcp /unifi-mcp
 # Inside the container the server must listen on all interfaces for a published port to
 # reach it (the binary itself defaults to 127.0.0.1). MCP_AUTH_TOKEN is still required.
