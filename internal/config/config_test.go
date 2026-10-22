@@ -256,19 +256,20 @@ func TestAllTools(t *testing.T) {
 	}
 }
 
-func TestToolMode(t *testing.T) {
-	if cfg := mustLoad(t, base); cfg.Tools.Mode != ToolModeLazy || !cfg.Tools.Lazy() {
-		t.Errorf("default mode %q", cfg.Tools.Mode)
+func TestToolModeRemoved(t *testing.T) {
+	const want = "UNIFI_TOOL_MODE was removed in 0.6.0: every enabled tool is listed. Use UNIFI_TOOLSETS to keep the list small (see docs/configuration.md)."
+	for _, v := range []string{"lazy", "full", "Full", "eager", "0"} {
+		if _, err := load(t, base, "UNIFI_TOOL_MODE", v); err == nil || err.Error() != want {
+			t.Errorf("UNIFI_TOOL_MODE=%q: %v", v, err)
+		}
 	}
-	if cfg := mustLoad(t, base, "UNIFI_TOOL_MODE", " Full "); cfg.Tools.Mode != ToolModeFull || cfg.Tools.Lazy() {
-		t.Errorf("full mode %q", cfg.Tools.Mode)
+	// Unset, blank, or the placeholder an older MCP Bundle passes for an empty field.
+	for _, v := range []string{"", "  ", "${user_config.tool_mode}"} {
+		if _, err := load(t, base, "UNIFI_TOOL_MODE", v); err != nil {
+			t.Errorf("UNIFI_TOOL_MODE=%q: %v", v, err)
+		}
 	}
-	if _, err := load(t, base, "UNIFI_TOOL_MODE", "eager"); err == nil || err.Error() != `UNIFI_TOOL_MODE must be lazy or full, got "eager"` {
-		t.Errorf("bad mode: %v", err)
-	}
-	if AllTools().Lazy() {
-		t.Error("AllTools should be full mode")
-	}
+	mustLoad(t, base)
 }
 
 func TestHealthcheckURL(t *testing.T) {

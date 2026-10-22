@@ -406,46 +406,14 @@ func TestGuardWithoutCall(t *testing.T) {
 	eq(t, "would_send", ojson.Get(out, "would_send", "path"), "/api/s/default/cmd/devmgr")
 }
 
-// ---------------------------------------------------------------- lazy mode
-
-func TestLazyWriteIsAuditedUnderItsOwnName(t *testing.T) {
+// Dry runs of saves and deletes are audited under the tool's own name, with no requests sent.
+func TestAuditLogDryRuns(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "audit.log")
-	opts := lazyOptions(true, false)
-	opts.AuditLog = path
-	env := startMock(t, toolOptions(false, false))
-	env.mcp = connect(t, env.client, opts)
-
-	env.call(callToolName, `{"name":"unifi_list_wlans"}`)
-	env.call(callWriteToolName, `{"name":"unifi_save_wlan","arguments":{"id":"w1","name":"Guest","passphrase":"correct horse"}}`)
-
-	lines := auditLines(t, path)
-	if len(lines) != 1 {
-		t.Fatalf("want 1 audit line, got %d: %v", len(lines), lines)
-	}
-	eq(t, "entry", ojson.New("tool", get(lines[0], "tool"), "dry_run", get(lines[0], "dry_run"), "arguments", get(lines[0], "arguments"), "requests", get(lines[0], "requests"), "outcome", get(lines[0], "outcome")),
-		js(`{"tool":"unifi_save_wlan","dry_run":false,"arguments":{"id":"w1","name":"Guest","passphrase":"[redacted]"},
-			"requests":[{"method":"PUT","path":"/api/s/default/rest/wlanconf/w1","status":200}],"outcome":"ok"}`))
-	eq(t, "store", get(env.mock.Store("rest/wlanconf"), 0, "name"), "Guest")
-}
-
-func TestLazyDryRun(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "audit.log")
-	opts := lazyOptions(true, true)
-	opts.AuditLog = path
-	env := startMock(t, toolOptions(false, false))
-	env.mcp = connect(t, env.client, opts)
-
-	schema := env.call(searchToolName, `{"names":["unifi_save_wlan","unifi_delete_wlan","unifi_list_wlans"]}`)
-	eq(t, "save dry_run", get(schema, "tools", 0, "input_schema", "properties", "dry_run", "type"), "boolean")
-	eq(t, "delete dry_run", get(schema, "tools", 1, "input_schema", "properties", "dry_run", "type"), "boolean")
-	eq(t, "read has no dry_run", get(schema, "tools", 2, "input_schema", "properties", "dry_run"), ojson.Undefined)
-
+	env := auditEnv(t, path)
 	forbidChanges(t, env.mock)
-	res := env.call(callWriteToolName, `{"name":"unifi_save_wlan","arguments":{"id":"w1","name":"Guest","dry_run":true}}`)
-	eq(t, "dry_run", get(res, "dry_run"), true)
-	eq(t, "would_send", get(res, "would_send"), js(`{"method":"PUT","path":"/api/s/default/rest/wlanconf/w1"}`))
-	eq(t, "name", get(res, "changes", "changed", "name"), js(`{"from":"Home","to":"Guest"}`))
-	res = env.call(callWriteToolName, `{"name":"unifi_delete_wlan","arguments":{"id":"w1","dry_run":true}}`)
+	env.call("unifi_list_wlans", nil)
+	env.call("unifi_save_wlan", `{"id":"w1","name":"Guest","dry_run":true}`)
+	res := env.call("unifi_delete_wlan", `{"id":"w1","dry_run":true}`)
 	eq(t, "delete would_send", get(res, "would_send", "method"), "DELETE")
 	eq(t, "store unchanged", get(env.mock.Store("rest/wlanconf"), 0, "name"), "Home")
 

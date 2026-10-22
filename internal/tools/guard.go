@@ -82,9 +82,9 @@ func (c *Context) guardWrites(d *Def) *writeGuard {
 	return &writeGuard{c: c, name: d.Name}
 }
 
-// wrap records each call in the audit log. It wraps the tool's runner, which
-// both a direct call (full mode) and the lazy meta-tools use, so the entry
-// names the tool itself. A nil guard returns run unchanged.
+// wrap records each call in the audit log. It wraps the tool's runner rather
+// than its handler, so calls refused by input validation are logged too. A nil
+// guard returns run unchanged.
 func (g *writeGuard) wrap(run runner) runner {
 	if g == nil {
 		return run

@@ -84,7 +84,7 @@ docker compose logs -f unifi-mcp
 You should see lines like these:
 
 ```text
-unifi-mcp 1.0.0: controller https://192.168.1.1, site "default", auth API key, writes disabled, audit log off, tool mode lazy, transport http
+unifi-mcp 1.0.0: controller https://192.168.1.1, site "default", auth API key, writes disabled, audit log off, transport http
 unifi-mcp listening on http://0.0.0.0:8080/mcp (bearer auth enabled)
 ```
 
@@ -126,6 +126,6 @@ If something goes wrong, the tool's error message usually says what to fix. [Tro
 ## Next steps
 
 - **Let it make changes.** Set `UNIFI_ALLOW_WRITES=true`, and read [Security](security.md) first.
-- **Expose fewer tools** with `UNIFI_TOOLSETS` for a faster, more focused assistant. See [Configuration](configuration.md#choosing-toolsets).
+- **Expose fewer tools** with `UNIFI_TOOLSETS` for a faster, more focused assistant. See [Configuration](configuration.md#keeping-the-tool-list-small).
 - **Put it behind HTTPS** if it's reachable outside your LAN. See [Deployment](deployment.md#tls-with-a-reverse-proxy).
 - **Learn what it can do** in [Using unifi-mcp](usage.md) and the [tool reference](tools.md).

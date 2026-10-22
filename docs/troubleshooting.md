@@ -105,7 +105,7 @@ Tools are only registered when they're allowed:
 - Write tools need `UNIFI_ALLOW_WRITES=true`, and delete tools also need `UNIFI_ALLOW_DELETES=true`.
 - Each tool's toolset must be listed in `UNIFI_TOOLSETS`.
 - Restart the container after changing `.env` with `docker compose up -d`, and reconnect or restart your MCP client so it fetches the new tool list.
-- In the default lazy mode (`UNIFI_TOOL_MODE=lazy`) the client lists only `unifi_search_tools`, `unifi_call_tool` and, with writes on, `unifi_call_write_tool`. The other tools are reached through them. Calling a tool that isn't enabled returns a message saying which setting it needs. Set `UNIFI_TOOL_MODE=full` to list every tool directly.
+- Version 0.5.0 listed only three meta-tools by default (`UNIFI_TOOL_MODE=lazy`). That mode was removed in 0.6.0, and every enabled tool is listed again. If the server now refuses to start with `UNIFI_TOOL_MODE was removed in 0.6.0`, delete `UNIFI_TOOL_MODE` from your configuration and use `UNIFI_TOOLSETS` to keep the list small (see [Keeping the tool list small](configuration.md#keeping-the-tool-list-small)).
 
 ## Slow or timing-out tools
 

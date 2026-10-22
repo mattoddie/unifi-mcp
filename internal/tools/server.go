@@ -14,18 +14,9 @@ const Name = "unifi-mcp"
 var Version = "0.0.0-dev"
 
 func instructions(opts config.Tools) string {
-	s := "Tools for monitoring and managing a Ubiquiti UniFi Network controller. "
-	if opts.Lazy() {
-		s += "The tools are reached through meta-tools: find them with " + searchToolName + " (a query or a toolset; no arguments lists the toolsets), " +
-			"get their arguments with " + searchToolName + " names, and run read-only tools with " + callToolName + " {name, arguments}"
-		if opts.AllowWrites {
-			s += " and tools that change state with " + callWriteToolName
-		}
-		s += ". Start by calling unifi_get_site_health, unifi_list_devices or unifi_list_clients with " + callToolName + ". "
-	} else {
-		s += "Start with unifi_get_site_health, unifi_list_devices or unifi_list_clients. "
-	}
-	s += "Most tools take an optional `site`; use unifi_list_sites to find site names. " +
+	s := "Tools for monitoring and managing a Ubiquiti UniFi Network controller. " +
+		"Start with unifi_get_site_health, unifi_list_devices or unifi_list_clients. " +
+		"Most tools take an optional `site`; use unifi_list_sites to find site names. " +
 		listHelp +
 		"unifi_save_* tools create an object when no id is given and update it (changing only the fields passed) when an id is given. "
 	if opts.AllowWrites {
@@ -43,9 +34,6 @@ func instructions(opts config.Tools) string {
 func NewServer(client *unifi.Client, opts config.Tools, registered *[]Info) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: Name, Version: Version}, &mcp.ServerOptions{Instructions: instructions(opts)})
 	c := &Context{Server: s, Client: client, Tools: opts, Registered: registered, audit: newAuditLog(opts.AuditLog)}
-	if opts.Lazy() {
-		c.lazy = newRegistry()
-	}
 	registerOverview(c)
 	registerDevices(c)
 	registerClients(c)
@@ -60,9 +48,6 @@ func NewServer(client *unifi.Client, opts config.Tools, registered *[]Info) *mcp
 	registerMonitoring(c)
 	registerAdmin(c)
 	registerRaw(c)
-	if c.lazy != nil {
-		registerMeta(c)
-	}
-	registerPrompts(s, opts.Lazy())
+	registerPrompts(s)
 	return s
 }
