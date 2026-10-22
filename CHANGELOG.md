@@ -6,6 +6,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-22
+
 ### Added
 
 - unifi-mcp is published to the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/unifi-mcp` with each stable release. The entry lists the container image, run over stdio, and the six Claude Desktop bundles with their SHA-256s. The image carries the `io.modelcontextprotocol.server.name` label the registry checks. See [Releasing](docs/releasing.md#about-the-mcp-registry).
@@ -133,7 +135,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.3.0...v0.4.0
