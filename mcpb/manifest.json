@@ -36,7 +36,6 @@
         "UNIFI_ALLOW_WRITES": "${user_config.allow_writes}",
         "UNIFI_ALLOW_DELETES": "${user_config.allow_deletes}",
         "UNIFI_TOOLSETS": "${user_config.toolsets}",
-        "UNIFI_TOOL_MODE": "${user_config.tool_mode}",
         "UNIFI_AUDIT_LOG": "${user_config.audit_log}"
       },
       "platform_overrides": {
@@ -48,12 +47,240 @@
   },
   "tools": [
     {
-      "name": "unifi_call_tool",
-      "description": "Run a read-only UniFi tool found with unifi_search_tools, e.g. {\"name\":\"unifi_list_devices\",\"arguments\":{\"type\":\"switch\"}}. Get its input schema with unifi_search_tools names first unless you already know it. Tools that change state are disabled (UNIFI_ALLOW_WRITES=false)."
+      "name": "unifi_api_request",
+      "description": "Call any UniFi Network API endpoint directly, for anything the other tools don't cover. `path` is relative to the Network application, e.g. /api/s/default/stat/ccode, /v2/api/site/default/trafficroutes or /integration/v1/sites (official API, API-key auth). Only GET is allowed because write access is disabled (UNIFI_ALLOW_WRITES=false)."
     },
     {
-      "name": "unifi_search_tools",
-      "description": "Find UniFi Network tools (59 available) and their arguments. Call with: query and/or toolset to list matching tools; names to get each tool's description and input schema before calling it with unifi_call_tool; nothing to list the toolsets."
+      "name": "unifi_check_updates",
+      "description": "Report whether a newer Network application version is available, and which devices have firmware upgrades. With refresh: true (requires writes enabled) the controller first re-checks Ubiquiti's servers for device firmware."
+    },
+    {
+      "name": "unifi_get_client",
+      "description": "Get everything known about a client by MAC: stored settings plus live connection details if it is online."
+    },
+    {
+      "name": "unifi_get_dashboard",
+      "description": "Get the aggregated dashboard the UniFi UI shows: WAN/ISP quality history (latency, packet loss, availability, throughput), WiFi experience and client mix. v2 API, Network 7.4+; large response."
+    },
+    {
+      "name": "unifi_get_device",
+      "description": "Get detailed information about one device by MAC: summary, switch ports, radio config and stats, uplink, LED and system stats."
+    },
+    {
+      "name": "unifi_get_dpi_stats",
+      "description": "Get deep packet inspection (traffic identification) statistics, by application or by category: site-wide, or per client when macs are given. Requires traffic identification to be enabled."
+    },
+    {
+      "name": "unifi_get_firewall_policy_ordering",
+      "description": "Get the evaluation order of user-defined policies between a source and destination zone (beforeSystemDefined / afterSystemDefined policy ID lists). Uses the official integration API, so it requires API-key authentication (UNIFI_API_KEY) and Network 9.0+."
+    },
+    {
+      "name": "unifi_get_firmware_status",
+      "description": "Show each device's current firmware and whether an upgrade is available. Optionally ask the controller to refresh its firmware cache first (requires writes enabled), and/or list the firmware images it knows about."
+    },
+    {
+      "name": "unifi_get_guest_portal_settings",
+      "description": "Get guest portal / hotspot settings: authentication method, session length, voucher/password/payment options, redirect, allowed subnets."
+    },
+    {
+      "name": "unifi_get_rf_scan",
+      "description": "Get the state and results of an access point's RF/spectrum scan (channel utilization and interference per channel). Start one with unifi_run_rf_scan."
+    },
+    {
+      "name": "unifi_get_security_settings",
+      "description": "Get threat management (IDS/IPS mode, categories, protected networks), traffic identification (DPI) and country/region blocking (geo-IP) settings. Optionally list the IPS categories the controller supports (Network 8+)."
+    },
+    {
+      "name": "unifi_get_site_health",
+      "description": "Get the health of each subsystem (WAN, LAN, WLAN, VPN, www) for a site: status, ISP, WAN IP, latency, throughput, device and client counts."
+    },
+    {
+      "name": "unifi_get_site_settings",
+      "description": "Get site-wide settings. Each setting is an object identified by `key`, e.g. mgmt (auto-upgrade, LEDs, SSH), country, locale, ntp, snmp, mdns (multicast DNS), rsyslogd (remote syslog), connectivity, guest_access, ips, dpi, usg (gateway: DNS, geo-IP, UPnP...), radius, network_optimization, super_mgmt (controller-wide, including auto-backup). Omit `key` to list all keys."
+    },
+    {
+      "name": "unifi_get_speedtest_results",
+      "description": "Get historical WAN speed test results run by the gateway."
+    },
+    {
+      "name": "unifi_get_system_info",
+      "description": "Get controller/Network application version, hostname, timezone, uptime and update availability."
+    },
+    {
+      "name": "unifi_get_system_log",
+      "description": "Read the v2 system log (Network 8+), one class at a time, paged: device-alert, client-alert, admin-activity (logins and config changes), update-alert, threat-alert (IPS/honeypot), vpn-alert, triggers (traffic/firewall rule hits), next-ai-alert."
+    },
+    {
+      "name": "unifi_get_traffic_report",
+      "description": "Get historical time-series statistics. scope=site for whole-site traffic and client counts, gw for gateway CPU/memory/WAN traffic, ap for per-AP traffic, user for per-client traffic (pass macs)."
+    },
+    {
+      "name": "unifi_get_wifi_qr",
+      "description": "Get the standard WIFI: join string for an SSID, which phones understand when encoded as a QR code. NOTE: this reveals the WiFi password."
+    },
+    {
+      "name": "unifi_list_acl_rules",
+      "description": "List switch ACL rules (MAC ACLs that allow or block traffic between devices inside one network, enforced by UniFi switches). Rules are processed in acl_index order. Needs Network 9.4+."
+    },
+    {
+      "name": "unifi_list_admins",
+      "description": "List administrator accounts for a site, or for all sites (all_sites: true)."
+    },
+    {
+      "name": "unifi_list_alarms",
+      "description": "List controller alarms (alerts). By default only active (unarchived) alarms are returned."
+    },
+    {
+      "name": "unifi_list_anomalies",
+      "description": "List anomalies the controller detected (e.g. high latency, DNS timeouts, poor WiFi experience) per client/device. Not available on every Network version."
+    },
+    {
+      "name": "unifi_list_ap_groups",
+      "description": "List access point groups (used to choose which APs broadcast each WiFi network). Network 7.x+ (v2 API)."
+    },
+    {
+      "name": "unifi_list_backups",
+      "description": "List the controller's stored (auto) backups."
+    },
+    {
+      "name": "unifi_list_bandwidth_profiles",
+      "description": "List bandwidth profiles (user groups) that cap client download/upload rates; assign them to WLANs or clients."
+    },
+    {
+      "name": "unifi_list_client_sessions",
+      "description": "List client connection sessions (association history): when each client connected, for how long, to which AP/network, and traffic used."
+    },
+    {
+      "name": "unifi_list_clients",
+      "description": "List clients that are currently connected, with IP, network, AP/switch port, signal, rates, usage and uptime."
+    },
+    {
+      "name": "unifi_list_content_filters",
+      "description": "List content filtering profiles (blocked categories, safe search, target networks/clients). v2 API, Network 8.1+."
+    },
+    {
+      "name": "unifi_list_devices",
+      "description": "List UniFi network devices (gateways, switches, access points...) with state, model, firmware, uptime, load and client counts."
+    },
+    {
+      "name": "unifi_list_dns_records",
+      "description": "List local DNS records served by the gateway (v2 static-dns; UniFi Network 8.2+)."
+    },
+    {
+      "name": "unifi_list_dynamic_dns",
+      "description": "List dynamic DNS configurations (passwords redacted unless include_secrets)."
+    },
+    {
+      "name": "unifi_list_events",
+      "description": "List recent controller events (client connects/roams, device restarts, upgrades...). Uses the classic event log and falls back to the v2 system log (device and client alerts) on Network versions where the classic log is gone or empty. For other log classes use unifi_get_system_log."
+    },
+    {
+      "name": "unifi_list_firewall_groups",
+      "description": "List firewall groups (address groups, IPv6 address groups and port groups) referenced by firewall rules and policies."
+    },
+    {
+      "name": "unifi_list_firewall_policies",
+      "description": "List zone-based firewall policies (UniFi Network 9.0+). Predefined (system) policies are hidden unless include_predefined is set."
+    },
+    {
+      "name": "unifi_list_firewall_rules",
+      "description": "List classic firewall rules (WAN_IN, LAN_IN, ...). On Network 9+ with zone-based firewall use unifi_list_firewall_policies instead."
+    },
+    {
+      "name": "unifi_list_firewall_zones",
+      "description": "List zone-based firewall zones and the networks in each (UniFi Network 9.0+)."
+    },
+    {
+      "name": "unifi_list_guest_authorizations",
+      "description": "List hotspot/guest portal authorizations (who was authorized, how, when and until when)."
+    },
+    {
+      "name": "unifi_list_hotspot_operators",
+      "description": "List hotspot operator accounts (staff who can log in to the hotspot manager to issue vouchers)."
+    },
+    {
+      "name": "unifi_list_known_clients",
+      "description": "List all clients the controller has ever seen (including offline ones), with alias, note, fixed IP and block status."
+    },
+    {
+      "name": "unifi_list_nat_rules",
+      "description": "List custom NAT rules (DNAT, SNAT and masquerade) from the v2 API, including the predefined ones. Port forwards are separate (unifi_list_port_forwards). Needs Network 9.0+ with a UniFi gateway and the zone-based firewall."
+    },
+    {
+      "name": "unifi_list_networks",
+      "description": "List configured networks (LANs/VLANs, WANs, VPNs) with subnet, VLAN ID and DHCP settings."
+    },
+    {
+      "name": "unifi_list_oon_policies",
+      "description": "List object-oriented networking (OON) policies: rules attached to clients or client groups that schedule or block internet access and apps (secure), limit bandwidth (qos) or route through a VPN (route). Needs Network 9.4+ with a UniFi gateway."
+    },
+    {
+      "name": "unifi_list_port_forwards",
+      "description": "List port forwarding rules."
+    },
+    {
+      "name": "unifi_list_port_profiles",
+      "description": "List switch port profiles (port configurations) with native/tagged networks and PoE settings."
+    },
+    {
+      "name": "unifi_list_qos_rules",
+      "description": "List QoS rules from the policy table (recent Network 9.x/10.x with a UniFi gateway): objective (LIMIT, PRIORITIZE or LIMIT_AND_PRIORITIZE), rate limits in kbps, the clients/networks they apply to and the apps, IPs, regions or domains they match."
+    },
+    {
+      "name": "unifi_list_radius_accounts",
+      "description": "List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise). Passwords redacted unless include_secrets."
+    },
+    {
+      "name": "unifi_list_radius_profiles",
+      "description": "List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP VPN (secrets redacted unless include_secrets)."
+    },
+    {
+      "name": "unifi_list_rogue_aps",
+      "description": "List nearby access points seen by your APs (neighbours and potential rogue APs)."
+    },
+    {
+      "name": "unifi_list_routes",
+      "description": "List user-defined static routes. With active=true, return the gateway's live routing table instead (stat/routing; not available on every version)."
+    },
+    {
+      "name": "unifi_list_sites",
+      "description": "List the UniFi sites on the controller. The `name` field is the site ID used by the `site` argument of other tools."
+    },
+    {
+      "name": "unifi_list_switch_ports",
+      "description": "List a switch's ports with link state, speed, PoE, assigned profile, LLDP neighbours (what is plugged in: chassis ID, description and remote port), link aggregation and any per-port overrides configured on the device."
+    },
+    {
+      "name": "unifi_list_threats",
+      "description": "List IDS/IPS threat events detected by the gateway (newest first): signature, category, source/destination, action taken."
+    },
+    {
+      "name": "unifi_list_traffic_flows",
+      "description": "List recent traffic flows seen by the gateway (Insights > Flows): source and destination client, IP, domain and network, app/service, allowed or blocked, risk, bytes and the policies that matched. This is an expensive query on the gateway, so it looks back 15 minutes and returns 50 flows by default; narrow it with client_mac, action, risk or search (applied by the controller to app, domain, client name and more) before widening the window. Recent Network 9.x/10.x with a UniFi gateway."
+    },
+    {
+      "name": "unifi_list_traffic_routes",
+      "description": "List traffic routes (policy-based routing): which clients/networks and destinations are sent out a specific WAN or VPN client."
+    },
+    {
+      "name": "unifi_list_traffic_rules",
+      "description": "List traffic management rules (block/allow/limit by app, domain, IP, region or internet) from the v2 API."
+    },
+    {
+      "name": "unifi_list_vouchers",
+      "description": "List guest hotspot vouchers with code, duration, usage and status."
+    },
+    {
+      "name": "unifi_list_vpns",
+      "description": "List VPN servers (WireGuard, OpenVPN, L2TP), VPN clients and site-to-site VPNs configured on the gateway. Use raw: true to see every field."
+    },
+    {
+      "name": "unifi_list_wans",
+      "description": "List WAN interfaces with connection type, VLAN, static/PPPoE settings, failover/load-balancing and Smart Queues, plus live WAN health."
+    },
+    {
+      "name": "unifi_list_wlans",
+      "description": "List wireless networks (SSIDs) with security, bands, linked network and enabled state."
     }
   ],
   "tools_generated": true,
@@ -64,7 +291,7 @@
       "arguments": [
         "site"
       ],
-      "text": "Do a health check of my UniFi network.\n1. unifi_get_site_health: status of WAN/LAN/WLAN/VPN, ISP, latency, throughput.\n2. unifi_list_devices: anything not \"connected\", high CPU/memory, firmware upgrades available, recent reboots (short uptime).\n3. unifi_list_alarms and unifi_list_events (last 24h): recurring or serious issues.\n4. unifi_list_clients (connection: wireless): clients with weak signal (below -70 dBm) or low satisfaction.\n5. unifi_get_speedtest_results if available.\nReport: a one-line verdict, then problems ordered by severity, each with evidence and a suggested fix. Keep healthy areas to one line each. Don't change anything.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+      "text": "Do a health check of my UniFi network.\n1. unifi_get_site_health: status of WAN/LAN/WLAN/VPN, ISP, latency, throughput.\n2. unifi_list_devices: anything not \"connected\", high CPU/memory, firmware upgrades available, recent reboots (short uptime).\n3. unifi_list_alarms and unifi_list_events (last 24h): recurring or serious issues.\n4. unifi_list_clients (connection: wireless): clients with weak signal (below -70 dBm) or low satisfaction.\n5. unifi_get_speedtest_results if available.\nReport: a one-line verdict, then problems ordered by severity, each with evidence and a suggested fix. Keep healthy areas to one line each. Don't change anything."
     },
     {
       "name": "troubleshoot_client",
@@ -73,7 +300,7 @@
         "client",
         "site"
       ],
-      "text": "Troubleshoot connectivity for the client \"${arguments.client}\" on my UniFi network.\n1. Find it: unifi_list_clients (search) if online, otherwise unifi_list_known_clients; then unifi_get_client by MAC.\n2. Check: online state, IP and network/VLAN, fixed IP, blocked/guest status, signal/satisfaction/rates (wireless) or switch port (wired).\n3. The AP or switch it uses: unifi_get_device (port errors/speed, radio channel utilisation, uptime).\n4. History: unifi_list_client_sessions for this MAC (frequent reconnects?), unifi_list_events.\n5. If relevant: unifi_list_firewall_rules / unifi_list_traffic_rules / unifi_list_qos_rules / unifi_list_oon_policies / unifi_list_content_filters for rules affecting it, and unifi_list_traffic_flows (client_mac, action: blocked) for traffic being blocked.\nReport the most likely cause(s) with evidence and concrete next steps. Ask before making any change.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+      "text": "Troubleshoot connectivity for the client \"${arguments.client}\" on my UniFi network.\n1. Find it: unifi_list_clients (search) if online, otherwise unifi_list_known_clients; then unifi_get_client by MAC.\n2. Check: online state, IP and network/VLAN, fixed IP, blocked/guest status, signal/satisfaction/rates (wireless) or switch port (wired).\n3. The AP or switch it uses: unifi_get_device (port errors/speed, radio channel utilisation, uptime).\n4. History: unifi_list_client_sessions for this MAC (frequent reconnects?), unifi_list_events.\n5. If relevant: unifi_list_firewall_rules / unifi_list_traffic_rules / unifi_list_qos_rules / unifi_list_oon_policies / unifi_list_content_filters for rules affecting it, and unifi_list_traffic_flows (client_mac, action: blocked) for traffic being blocked.\nReport the most likely cause(s) with evidence and concrete next steps. Ask before making any change."
     },
     {
       "name": "security_review",
@@ -81,7 +308,7 @@
       "arguments": [
         "site"
       ],
-      "text": "Review the security of my UniFi network.\nCheck:\n- unifi_get_security_settings: is IDS/IPS on, in which mode, on which networks; country blocking.\n- unifi_list_threats (last 7 days, hours: 168): notable signatures, repeat offenders, internal hosts involved.\n- unifi_list_port_forwards: exposed services, forwards open to any source.\n- unifi_list_firewall_rules and unifi_list_firewall_policies: overly broad allow rules, missing inter-VLAN isolation.\n- unifi_list_nat_rules: DNAT rules that expose internal hosts; unifi_list_acl_rules: switch-level isolation inside networks.\n- unifi_list_wlans: open or WPA2-only networks where WPA3 is possible, guest networks without isolation.\n- unifi_list_networks: guest/IoT segmentation.\n- unifi_list_admins: number of admins and roles.\n- unifi_get_system_log (class: admin-activity): recent logins and changes.\nReport findings as High / Medium / Low with the reason and a specific remediation. Don't change anything.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+      "text": "Review the security of my UniFi network.\nCheck:\n- unifi_get_security_settings: is IDS/IPS on, in which mode, on which networks; country blocking.\n- unifi_list_threats (last 7 days, hours: 168): notable signatures, repeat offenders, internal hosts involved.\n- unifi_list_port_forwards: exposed services, forwards open to any source.\n- unifi_list_firewall_rules and unifi_list_firewall_policies: overly broad allow rules, missing inter-VLAN isolation.\n- unifi_list_nat_rules: DNAT rules that expose internal hosts; unifi_list_acl_rules: switch-level isolation inside networks.\n- unifi_list_wlans: open or WPA2-only networks where WPA3 is possible, guest networks without isolation.\n- unifi_list_networks: guest/IoT segmentation.\n- unifi_list_admins: number of admins and roles.\n- unifi_get_system_log (class: admin-activity): recent logins and changes.\nReport findings as High / Medium / Low with the reason and a specific remediation. Don't change anything."
     },
     {
       "name": "firmware_review",
@@ -89,7 +316,7 @@
       "arguments": [
         "site"
       ],
-      "text": "Review firmware on my UniFi network.\n1. unifi_check_updates: controller version and devices with upgrades.\n2. unifi_list_devices: model, current firmware, uptime and client count for each device needing an update.\nPropose an upgrade plan that minimises disruption: access points first (one at a time where they overlap), then switches from the edge inwards, gateway last; note which upgrades will drop clients. Don't start any upgrade unless I confirm.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+      "text": "Review firmware on my UniFi network.\n1. unifi_check_updates: controller version and devices with upgrades.\n2. unifi_list_devices: model, current firmware, uptime and client count for each device needing an update.\nPropose an upgrade plan that minimises disruption: access points first (one at a time where they overlap), then switches from the edge inwards, gateway last; note which upgrades will drop clients. Don't start any upgrade unless I confirm."
     },
     {
       "name": "wifi_optimization",
@@ -97,7 +324,7 @@
       "arguments": [
         "site"
       ],
-      "text": "Analyse and suggest improvements for the WiFi on my UniFi network.\n1. unifi_list_devices (type: access_point), then unifi_get_device for each AP: channel, width, transmit power, channel utilisation, satisfaction, client count per radio.\n2. unifi_list_rogue_aps: strongest neighbouring networks per channel.\n3. unifi_list_clients (connection: wireless): weak-signal and low-rate clients, clients stuck on 2.4 GHz.\n4. unifi_list_wlans: number of SSIDs, bands, minimum data rates.\nRecommend specific changes (channel plan, widths, power levels, SSID consolidation, band steering) with the reason for each, ordered by expected impact. Don't apply changes unless I confirm.\nThe tools above are reached through unifi_call_tool {name, arguments}; look up their arguments with unifi_search_tools names if needed."
+      "text": "Analyse and suggest improvements for the WiFi on my UniFi network.\n1. unifi_list_devices (type: access_point), then unifi_get_device for each AP: channel, width, transmit power, channel utilisation, satisfaction, client count per radio.\n2. unifi_list_rogue_aps: strongest neighbouring networks per channel.\n3. unifi_list_clients (connection: wireless): weak-signal and low-rate clients, clients stuck on 2.4 GHz.\n4. unifi_list_wlans: number of SSIDs, bands, minimum data rates.\nRecommend specific changes (channel plan, widths, power levels, SSID consolidation, band steering) with the reason for each, ordered by expected impact. Don't apply changes unless I confirm."
     }
   ],
   "keywords": [
@@ -184,12 +411,6 @@
       "type": "string",
       "title": "Toolsets",
       "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients,wifi,monitoring. Empty means all.",
-      "default": ""
-    },
-    "tool_mode": {
-      "type": "string",
-      "title": "Tool mode (lazy/full)",
-      "description": "Leave empty for lazy, the default: Claude sees three small tools that search for and run the others, which keeps the tool list under 3 KB and leaves more room for your conversation. Changes go through one tool that Claude asks you about every time. full: list every tool directly (about 48 KB read-only, 174 KB with changes allowed), which lets you allow or block each tool separately in Claude Desktop.",
       "default": ""
     },
     "audit_log": {

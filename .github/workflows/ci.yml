@@ -73,7 +73,6 @@ jobs:
           UNIFI_ALLOW_WRITES: "false"
           UNIFI_ALLOW_DELETES: "false"
           UNIFI_TOOLSETS: ""
-          UNIFI_TOOL_MODE: ""
           UNIFI_AUDIT_LOG: ""
         run: |
           test "$(./server/unifi-mcp version)" = 0.0.0-ci

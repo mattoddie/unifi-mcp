@@ -6,8 +6,7 @@ unifi-mcp is configured entirely through environment variables. With Docker Comp
 - [What the assistant may do](#what-the-assistant-may-do)
 - [MCP transport](#mcp-transport)
 - [Docker secrets (`_FILE` variables)](#docker-secrets-_file-variables)
-- [Lazy or full tool loading](#lazy-or-full-tool-loading)
-- [Choosing toolsets](#choosing-toolsets)
+- [Keeping the tool list small](#keeping-the-tool-list-small)
 - [Example configurations](#example-configurations)
 
 The server checks the configuration at startup. If something is wrong, it exits with a clear message such as `UNIFI_ALLOW_DELETES=true also requires UNIFI_ALLOW_WRITES=true`. If the container keeps restarting, check `docker compose logs`.
@@ -42,8 +41,7 @@ A variable set to an empty value counts as unset and gets its default. So does o
 |---|---|---|
 | `UNIFI_ALLOW_WRITES` | `false` | Register tools that change state: restarting devices, blocking clients, editing WiFi, firewall, networks and so on. |
 | `UNIFI_ALLOW_DELETES` | `false` | Also register tools that delete or forget things, such as networks, WLANs, firewall rules, sites, clients' history or hotspot vouchers. Requires `UNIFI_ALLOW_WRITES=true`. |
-| `UNIFI_TOOLSETS` | `all` | Comma-separated list of [toolsets](#choosing-toolsets) to expose. |
-| `UNIFI_TOOL_MODE` | `lazy` | `lazy` lists three meta-tools that find and call the others, which saves the model's context. `full` lists every enabled tool directly. See [Lazy or full tool loading](#lazy-or-full-tool-loading). |
+| `UNIFI_TOOLSETS` | `all` | Comma-separated list of [toolsets](#toolsets) to expose. See [Keeping the tool list small](#keeping-the-tool-list-small). |
 
 Tools that aren't allowed are **not registered at all**. The assistant can't find them, so it can't call them or be talked into calling them.
 
@@ -62,7 +60,7 @@ Each line is one call of a write or delete tool, or of `unifi_api_request` with 
 | Field | Meaning |
 |---|---|
 | `time` | When the call finished, in UTC (RFC 3339). |
-| `tool` | The tool name. In lazy mode this is the tool that `unifi_call_write_tool` ran, such as `unifi_save_wlan`. |
+| `tool` | The tool name, such as `unifi_save_wlan`. |
 | `dry_run` | Whether the call was a [dry run](usage.md#previewing-changes-with-dry_run). |
 | `arguments` | The arguments, with passwords, keys and other secrets `[redacted]`. |
 | `requests` | The requests that change state that were actually sent: method, path and HTTP status (`null` if no response arrived). Reads aren't listed, and nothing from the responses is logged. |
@@ -130,32 +128,15 @@ secrets:
 
 If both `NAME` and `NAME_FILE` are set, the file wins.
 
-## Lazy or full tool loading
+## Keeping the tool list small
 
-`UNIFI_TOOL_MODE` decides how the tools are offered to the client.
+Most MCP clients send every tool's name, description and argument schema to the model with each request. With every toolset enabled that's about 48 KB for the 59 read-only tools, 149 KB for 116 tools with writes on, and 174 KB for all 145 tools with deletes on too. That uses up context you'd rather spend on your conversation and the controller's data, and some clients warn about or cap the number of tools.
 
-**`lazy` (the default)** lists three small meta-tools instead of every tool. The whole tool list is under 3 KB, against about 48 KB for the 59 read-only tools and 174 KB for all 145 tools in `full` mode:
+`UNIFI_TOOLSETS` is the way to keep the list small. Enable only the toolsets you need: the model sees fewer tools, picks the right one more easily, and can't reach the rest at all.
 
-| Meta-tool | What it does |
-|---|---|
-| `unifi_search_tools` | Finds tools by keywords or toolset and returns a one-line summary of each. With `names`, it returns each tool's full description and input schema. With no arguments, it lists the toolsets. |
-| `unifi_call_tool` | Runs a read-only tool: `{"name": "unifi_list_devices", "arguments": {"type": "switch"}}`. It refuses tools that change state. Marked read-only, so clients don't ask before using it. |
-| `unifi_call_write_tool` | Runs a tool that changes state. Only listed when `UNIFI_ALLOW_WRITES=true`. Marked destructive, so clients ask you before **every** call, and its description tells the model to confirm the change with you first. It refuses read-only tools. |
+Clients with their own tool search, such as Claude Code, load tool definitions only when the model needs them, so they handle the full list fine. You don't need to narrow `UNIFI_TOOLSETS` for them, though it still limits what the model can reach.
 
-Behind them, everything works as in `full` mode: the same tools, arguments, validation errors, results and gates. A tool that writes, deletes or belongs to a toolset you haven't enabled can't be found or called. The raw API tool, `unifi_api_request`, counts as a write tool when writes are enabled, because it can then send `POST` and `PUT`.
-
-**`full`** lists every enabled tool directly, as earlier versions did.
-
-Which to choose:
-
-- **Lazy** suits clients that load every tool into the model's context, such as Claude Desktop, Cursor, VS Code and most others. It leaves more room for your conversation and the controller's data, and stays clear of clients' limits on the number of tools. The model spends an extra call or two finding a tool the first time.
-- **Full** is a good choice for Claude Code, which already defers large MCP tool lists behind its own tool search. It also lets you write permission rules for individual tools, such as allowing `mcp__unifi__unifi_list_devices` without asking. In lazy mode a client sees only the three meta-tools, so its permission rules can tell reads from writes, but not one write from another.
-
-`UNIFI_TOOLSETS`, `UNIFI_ALLOW_WRITES` and `UNIFI_ALLOW_DELETES` apply in both modes.
-
-## Choosing toolsets
-
-In `full` mode, every tool's name, description and argument schema is sent to the model, which uses up context. With all 145 tools enabled, that's a lot of text, and some clients warn about or cap the number of tools. [Lazy mode](#lazy-or-full-tool-loading) avoids that, but narrower toolsets still help the model find the right tool, and limit what it can reach. Expose only what you need:
+### Toolsets
 
 | Toolset | Tools | Use it for |
 |---|---:|---|
@@ -174,15 +155,24 @@ In `full` mode, every tool's name, description and argument schema is sent to th
 | `admin` | 12 | Settings, admins, backups |
 | `raw` | 1 | Any API path. Handy, but gives broad access. |
 
-The counts include write and delete tools, so a read-only setup registers far fewer tools. Some suggested sets:
+The counts include write and delete tools, so a read-only setup registers far fewer tools.
 
-| Goal | `UNIFI_TOOLSETS` |
-|---|---|
-| Everyday monitoring | `overview,devices,clients,monitoring` |
-| WiFi tuning | `overview,devices,clients,wifi,monitoring` |
-| Firewall and security review | `overview,networks,firewall,routing,security,monitoring` |
-| Guest network operations | `overview,clients,hotspot,wifi` |
-| Everything (default) | `all` |
+### Ready-made combinations
+
+The sizes are the `tools/list` result the client receives, measured by starting the server. "With writes" is `UNIFI_ALLOW_WRITES=true` without deletes.
+
+| Goal | `UNIFI_TOOLSETS` | Read-only | With writes |
+|---|---|---:|---:|
+| Monitoring only | `overview,devices,clients,monitoring` | 23 tools, 21 KB | 41 tools, 41 KB |
+| Wi-Fi admin | `overview,devices,clients,wifi,monitoring` | 25 tools, 22 KB | 44 tools, 46 KB |
+| Switch ports and PoE | `overview,devices,clients,switching` | 13 tools, 10 KB | 33 tools, 37 KB |
+| Firewall and security work | `overview,networks,firewall,routing,security` | 24 tools, 18 KB | 45 tools, 67 KB |
+| Guest network and vouchers | `overview,clients,hotspot,wifi` | 11 tools, 8 KB | 21 tools, 23 KB |
+| VPN and RADIUS | `overview,networks,vpn` | 11 tools, 8 KB | 19 tools, 25 KB |
+| Controller admin and backups | `overview,admin,monitoring` | 19 tools, 17 KB | 26 tools, 24 KB |
+| Everything (default) | `all` | 59 tools, 48 KB | 116 tools, 149 KB |
+
+Turning on deletes as well adds the delete tools: the firewall set grows to 61 tools and 81 KB, and `all` to 145 tools and 174 KB.
 
 ## Example configurations
 

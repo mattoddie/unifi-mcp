@@ -42,8 +42,6 @@ type Context struct {
 	config.Tools
 	// Registered records each registered tool in order, for the docs generator.
 	Registered *[]Info
-	// lazy holds the tools behind the meta-tools in lazy mode (nil in full mode).
-	lazy *registry
 	// audit is the UNIFI_AUDIT_LOG writer, or nil.
 	audit *auditLog
 }
@@ -93,41 +91,25 @@ func (c *Context) site(a Args) string {
 	return c.Client.DefaultSite()
 }
 
-// disabledReason says why a tool isn't registered, or returns "" when its toolset and gate are enabled.
-func (c *Context) disabledReason(d Def) string {
-	switch {
-	case !c.Toolsets[d.Toolset]:
-		return fmt.Sprintf("its toolset %q is not enabled in UNIFI_TOOLSETS", d.Toolset)
-	case d.Gate != Read && !c.AllowWrites:
-		return "it changes state and writes are disabled (UNIFI_ALLOW_WRITES=false)"
-	case d.Gate == Delete && !c.AllowDeletes:
-		return "it deletes configuration and deletes are disabled (UNIFI_ALLOW_DELETES=false)"
-	}
-	return ""
+// enabled reports whether a tool's toolset and gate are enabled.
+func (c *Context) enabled(d Def) bool {
+	return c.Toolsets[d.Toolset] &&
+		(d.Gate == Read || c.AllowWrites) &&
+		(d.Gate != Delete || c.AllowDeletes)
 }
 
-// add registers a tool if its toolset and gate are enabled: directly in full
-// mode, or in the registry behind the meta-tools in lazy mode.
+// add registers a tool if its toolset and gate are enabled.
 func (c *Context) add(d Def) {
-	if reason := c.disabledReason(d); reason != "" {
-		if c.lazy != nil {
-			c.lazy.off[d.Name] = reason
-		}
+	if !c.enabled(d) {
 		return
 	}
-	// Tools that change things get dry_run and the audit log here, around the
-	// runner, so calls in full mode and through the lazy meta-tools are treated alike.
+	// Tools that change things get dry_run and the audit log here, around the runner.
 	var guard *writeGuard
 	if !d.readOnly() {
 		guard = c.guardWrites(&d)
 	}
 	tool, run, schema := c.build(d)
-	run = guard.wrap(run)
-	if c.lazy != nil {
-		c.lazy.add(d, tool, run, schema)
-	} else {
-		c.Server.AddTool(tool, handler(run))
-	}
+	c.Server.AddTool(tool, handler(guard.wrap(run)))
 	if c.Registered != nil {
 		*c.Registered = append(*c.Registered, Info{Name: d.Name, Toolset: d.Toolset, Gate: d.Gate, Schema: schema})
 	}
@@ -178,10 +160,6 @@ func (c *Context) build(d Def) (*mcp.Tool, runner, *ojson.Obj) {
 		out, err := d.Handler(ctx, Args{obj})
 		if err != nil {
 			return fail("Error: " + err.Error())
-		}
-		// The meta-tools pass on the result of the tool they called.
-		if res, isResult := out.(*mcp.CallToolResult); isResult {
-			return res
 		}
 		return ok(out)
 	}

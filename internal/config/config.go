@@ -56,13 +56,9 @@ type Unifi struct {
 	TimeoutMs       int
 }
 
-// Tool modes for UNIFI_TOOL_MODE.
-const (
-	// ToolModeLazy lists a few meta-tools that search for and call the others.
-	ToolModeLazy = "lazy"
-	// ToolModeFull lists every enabled tool directly.
-	ToolModeFull = "full"
-)
+// ToolModeRemoved is the error when UNIFI_TOOL_MODE, removed in 0.6.0 with
+// lazy tool loading, is still set.
+const ToolModeRemoved = "UNIFI_TOOL_MODE was removed in 0.6.0: every enabled tool is listed. Use UNIFI_TOOLSETS to keep the list small (see docs/configuration.md)."
 
 // Tools controls which tools are registered.
 type Tools struct {
@@ -70,22 +66,17 @@ type Tools struct {
 	// AllowDeletes enables tools that delete configuration objects; requires AllowWrites as well.
 	AllowDeletes bool
 	Toolsets     map[string]bool
-	// Mode is ToolModeLazy or ToolModeFull. Anything else is treated as full.
-	Mode string
 	// AuditLog is where calls of tools that change things are logged
 	// (UNIFI_AUDIT_LOG): a file path, AuditLogStderr, or "" for no log.
 	AuditLog string
 }
 
-// Lazy reports whether tools are reached through the meta-tools.
-func (t Tools) Lazy() bool { return t.Mode == ToolModeLazy }
-
 // AuditLogStderr is the UNIFI_AUDIT_LOG value that writes the audit log to standard error.
 const AuditLogStderr = "stderr"
 
-// AllTools enables every tool in full mode, for documentation and tests.
+// AllTools enables every tool, for documentation and tests.
 func AllTools() Tools {
-	t := Tools{AllowWrites: true, AllowDeletes: true, Toolsets: map[string]bool{}, Mode: ToolModeFull}
+	t := Tools{AllowWrites: true, AllowDeletes: true, Toolsets: map[string]bool{}}
 	for _, ts := range Toolsets {
 		t.Toolsets[ts] = true
 	}
@@ -269,13 +260,13 @@ func Load(env Env) (*Config, error) {
 		return nil, errors.New("UNIFI_ALLOW_DELETES=true also requires UNIFI_ALLOW_WRITES=true")
 	}
 
-	t.Mode = strings.ToLower(or(get("UNIFI_TOOL_MODE"), ToolModeLazy))
+	// Blank, or the placeholder an older bundle passes for an empty field, counts as unset.
+	if lookup(env, "UNIFI_TOOL_MODE") != "" {
+		return nil, errors.New(ToolModeRemoved)
+	}
 	t.AuditLog = get("UNIFI_AUDIT_LOG")
 	if err := check(); err != nil {
 		return nil, err
-	}
-	if t.Mode != ToolModeLazy && t.Mode != ToolModeFull {
-		return nil, fmt.Errorf(`UNIFI_TOOL_MODE must be lazy or full, got "%s"`, t.Mode)
 	}
 	if err := CheckAuditLog(t.AuditLog); err != nil {
 		return nil, err

@@ -88,7 +88,7 @@ func serve() error {
 	if cfg.Tools.AuditLog != "" {
 		audit = cfg.Tools.AuditLog
 	}
-	log.Printf(`unifi-mcp %s: controller %s, site "%s", auth %s, writes %s, audit log %s, tool mode %s, transport %s`, tools.Version, cfg.Unifi.URL, cfg.Unifi.Site, auth, writes, audit, cfg.Tools.Mode, cfg.Transport)
+	log.Printf(`unifi-mcp %s: controller %s, site "%s", auth %s, writes %s, audit log %s, transport %s`, tools.Version, cfg.Unifi.URL, cfg.Unifi.Site, auth, writes, audit, cfg.Transport)
 	for _, warning := range []string{config.InsecureTLSWarning(cfg.Unifi), config.PlainHTTPWarning(cfg.Unifi)} {
 		if warning == "" {
 			continue

@@ -6,6 +6,11 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Removed
+
+- **Breaking: lazy tool loading was removed.** Every enabled tool is listed directly again, as in 0.4.0, and the meta-tools `unifi_search_tools`, `unifi_call_tool` and `unifi_call_write_tool` are gone. Clients with their own tool search, such as Claude Code, already defer large tool lists, and lazy mode hid the real tools from them. It also hid each tool's annotations behind two meta-tools, so client confirmations and per-tool permission rules couldn't tell one change from another, and it cost the model extra calls with untyped arguments. `UNIFI_TOOL_MODE` now stops the server if it is set to anything; remove it and use `UNIFI_TOOLSETS` to keep the tool list small. An empty value, or the unfilled `${user_config.tool_mode}` from a 0.5.0 Claude Desktop extension, still counts as unset. See [Keeping the tool list small](docs/configuration.md#keeping-the-tool-list-small) for ready-made toolset combinations and their sizes.
+- The Claude Desktop extension no longer has a **Tool mode** setting, and the startup log line no longer shows the tool mode.
+
 ## [0.5.0] - 2026-10-22
 
 ### Added
