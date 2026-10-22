@@ -5,7 +5,7 @@ export CGO_ENABLED := 0
 # Platforms for the MCP Bundles (one .mcpb each), as GOOS/GOARCH.
 MCPB_PLATFORMS := darwin/arm64 darwin/amd64 windows/amd64 windows/arm64 linux/amd64 linux/arm64
 
-.PHONY: build test lint docs docs-check image mcpb clean
+.PHONY: build test lint docs docs-check image mcpb server-json clean
 
 build:
 	go build -trimpath -ldflags "$(LDFLAGS)" -o bin/unifi-mcp ./cmd/unifi-mcp
@@ -39,6 +39,11 @@ mcpb:
 		.build/mcpb/pack pack -version $(VERSION) -goos $$os -binary .build/mcpb/$$os-$$arch/unifi-mcp$$ext \
 			-o dist/unifi-mcp-$(VERSION)-$$os-$$arch.mcpb; \
 	done
+
+# server.json for the MCP Registry, stamped with $(VERSION) and the SHA-256s of the
+# bundles in dist/ (from `make mcpb` or the release): dist/server.json.
+server-json:
+	go run ./cmd/mcpb registry -version $(VERSION)
 
 clean:
 	rm -rf bin .build dist

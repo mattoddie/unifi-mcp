@@ -77,6 +77,8 @@ Using **Claude Desktop, VS Code, Cursor or Codex**? See [Connecting MCP clients]
 
 On a Mac or Windows PC with Claude Desktop, you don't need Docker at all. Download the `.mcpb` bundle for your computer from the [latest release](https://github.com/mattoddie/unifi-mcp/releases/latest), open it, and enter your controller URL, API key and certificate fingerprint in the settings. See [Claude Desktop](docs/clients.md#claude-desktop).
 
+unifi-mcp is also listed in the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/unifi-mcp`, with the image (over stdio) and the bundles, so clients and directories that read the registry can install it.
+
 ## Turning on changes
 
 Out of the box the assistant can look but not touch. To let it make changes, add these to `.env` and run `docker compose up -d`:

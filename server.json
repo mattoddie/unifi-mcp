@@ -1,0 +1,131 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mattoddie/unifi-mcp",
+  "title": "UniFi",
+  "description": "Manage a Ubiquiti UniFi network: devices, clients, WiFi, firewall and VPN. Read-only by default.",
+  "repository": {
+    "url": "https://github.com/mattoddie/unifi-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://unifi-mcp.mattoddie.dev",
+  "version": "0.0.0-dev",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/mattoddie/unifi-mcp:0.0.0-dev",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "MCP_TRANSPORT",
+          "description": "The image serves HTTP by default; this runs it over stdio.",
+          "value": "stdio"
+        },
+        {
+          "name": "UNIFI_URL",
+          "description": "Address of your UniFi console. For a legacy self-hosted Network application, include the port.",
+          "placeholder": "https://192.168.1.1",
+          "isRequired": true
+        },
+        {
+          "name": "UNIFI_API_KEY",
+          "description": "API key from UniFi Network → Settings → Control Plane → Integrations. Or use a username and password.",
+          "isSecret": true
+        },
+        {
+          "name": "UNIFI_USERNAME",
+          "description": "A local (not Ubiquiti cloud) account, used instead of an API key. Required for legacy controllers."
+        },
+        {
+          "name": "UNIFI_PASSWORD",
+          "description": "The local account's password, used with the username.",
+          "isSecret": true
+        },
+        {
+          "name": "UNIFI_TLS_FINGERPRINT",
+          "description": "Recommended for an https controller with a self-signed certificate: its SHA-256 fingerprint, to pin it.",
+          "placeholder": "AA:BB:CC:…"
+        },
+        {
+          "name": "UNIFI_VERIFY_SSL",
+          "description": "Leave empty when you set a fingerprint. true: publicly trusted certificate. false: skip the check (insecure).",
+          "format": "boolean"
+        },
+        {
+          "name": "UNIFI_SITE",
+          "description": "The site's short name, used when a request doesn't name a site.",
+          "default": "default"
+        },
+        {
+          "name": "UNIFI_ALLOW_WRITES",
+          "description": "Allow changes: restart devices, block clients, edit WiFi, firewall and networks. Off means read-only.",
+          "format": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "UNIFI_ALLOW_DELETES",
+          "description": "Also allow deleting configuration and forgetting clients. Needs UNIFI_ALLOW_WRITES.",
+          "format": "boolean",
+          "default": "false"
+        },
+        {
+          "name": "UNIFI_TOOLSETS",
+          "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients. Empty means all."
+        },
+        {
+          "name": "UNIFI_AUDIT_LOG",
+          "description": "Set to stderr to log every change the assistant makes or previews as JSON lines. Off when empty."
+        }
+      ]
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/unifi-mcp/releases/download/v0.0.0-dev/unifi-mcp-0.0.0-dev-darwin-arm64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/unifi-mcp/releases/download/v0.0.0-dev/unifi-mcp-0.0.0-dev-darwin-amd64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/unifi-mcp/releases/download/v0.0.0-dev/unifi-mcp-0.0.0-dev-windows-amd64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/unifi-mcp/releases/download/v0.0.0-dev/unifi-mcp-0.0.0-dev-windows-arm64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/unifi-mcp/releases/download/v0.0.0-dev/unifi-mcp-0.0.0-dev-linux-amd64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/mattoddie/unifi-mcp/releases/download/v0.0.0-dev/unifi-mcp-0.0.0-dev-linux-arm64.mcpb",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
