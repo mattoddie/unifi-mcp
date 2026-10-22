@@ -402,8 +402,9 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
             <ul class="checks">
               <li><strong>Read-only out of the box.</strong> Writes and deletes are two separate switches.</li>
               <li><strong>Destructive tools are labelled,</strong> so your client asks before running them.</li>
+              <li><strong>Preview before changing.</strong> Write tools take <code>dry_run</code>, and an optional audit log records every change.</li>
               <li><strong>Secrets are redacted.</strong> Passphrases and keys never reach the model unless asked for.</li>
-              <li><strong>Bearer-token auth</strong>, a Host allow-list and a non-root container.</li>
+              <li><strong>Bearer-token auth</strong>, a Host allow-list, TLS certificate pinning and a non-root container.</li>
             </ul>
             <a class="link" href="/docs/security/">Read the security model →</a>
           </div>
@@ -439,7 +440,7 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
           <p class="kicker">Works with your assistant</p>
           <h3>Streamable HTTP or stdio</h3>
           <ul class="chips">{clients.map((c) => <li>{c}</li>)}</ul>
-          <p class="muted">Run it once and share it, or start it per session with <code>docker run -i</code>. <a href="/docs/clients/">Client setup →</a></p>
+          <p class="muted">Run it once and share it, or start it per session with <code>docker run -i</code>. On Claude Desktop, install the one-click bundle from the <a href={`${GITHUB}/releases/latest`}>latest release</a>. <a href="/docs/clients/">Client setup →</a></p>
         </div>
       </section>
 
