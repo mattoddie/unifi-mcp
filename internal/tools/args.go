@@ -30,8 +30,13 @@ func rawArg() Prop {
 	return P("raw", Bool().Opt().D("Return the full controller objects (large)"))
 }
 
-func secretsArg(desc string) Prop {
-	return P("include_secrets", Bool().Opt().D(desc))
+// secretsArg is the include_secrets argument, offered only with UNIFI_ALLOW_SECRETS.
+// Without it the argument isn't in the schema, so it is dropped from calls.
+func (c *Context) secretsArg(desc string) []Prop {
+	if !c.AllowSecrets {
+		return nil
+	}
+	return []Prop{P("include_secrets", Bool().Opt().D(desc))}
 }
 
 const secretsPassphrases = "Include secret fields such as passphrases and shared keys (redacted by default)"

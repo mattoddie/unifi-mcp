@@ -35,6 +35,7 @@
         "UNIFI_SITE": "${user_config.site}",
         "UNIFI_ALLOW_WRITES": "${user_config.allow_writes}",
         "UNIFI_ALLOW_DELETES": "${user_config.allow_deletes}",
+        "UNIFI_ALLOW_SECRETS": "${user_config.allow_secrets}",
         "UNIFI_TOOLSETS": "${user_config.toolsets}",
         "UNIFI_AUDIT_LOG": "${user_config.audit_log}"
       },
@@ -113,10 +114,6 @@
     {
       "name": "unifi_get_traffic_report",
       "description": "Get historical time-series statistics. scope=site for whole-site traffic and client counts, gw for gateway CPU/memory/WAN traffic, ap for per-AP traffic, user for per-client traffic (pass macs)."
-    },
-    {
-      "name": "unifi_get_wifi_qr",
-      "description": "Get the standard WIFI: join string for an SSID, which phones understand when encoded as a QR code. NOTE: this reveals the WiFi password."
     },
     {
       "name": "unifi_list_acl_rules",
@@ -405,6 +402,12 @@
       "type": "boolean",
       "title": "Allow deletes",
       "description": "Also let Claude delete configuration and forget clients. Needs Allow changes.",
+      "default": false
+    },
+    "allow_secrets": {
+      "type": "boolean",
+      "title": "Allow secrets",
+      "description": "Let Claude ask for unredacted passwords and keys (include_secrets) and use the WiFi QR tool. Off keeps all output redacted.",
       "default": false
     },
     "toolsets": {

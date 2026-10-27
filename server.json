@@ -70,6 +70,12 @@
           "default": "false"
         },
         {
+          "name": "UNIFI_ALLOW_SECRETS",
+          "description": "Allow unredacted passwords and keys (include_secrets) and the WiFi QR tool. Off keeps all output redacted.",
+          "format": "boolean",
+          "default": "false"
+        },
+        {
           "name": "UNIFI_TOOLSETS",
           "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients. Empty means all."
         },

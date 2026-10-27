@@ -84,11 +84,15 @@ func serve() error {
 	if cfg.Tools.AllowDeletes {
 		writes += " (with deletes)"
 	}
+	secrets := "redacted"
+	if cfg.Tools.AllowSecrets {
+		secrets = "ALLOWED"
+	}
 	audit := "off"
 	if cfg.Tools.AuditLog != "" {
 		audit = cfg.Tools.AuditLog
 	}
-	log.Printf(`unifi-mcp %s: controller %s, site "%s", auth %s, writes %s, audit log %s, transport %s`, tools.Version, cfg.Unifi.URL, cfg.Unifi.Site, auth, writes, audit, cfg.Transport)
+	log.Printf(`unifi-mcp %s: controller %s, site "%s", auth %s, writes %s, secrets %s, audit log %s, transport %s`, tools.Version, cfg.Unifi.URL, cfg.Unifi.Site, auth, writes, secrets, audit, cfg.Transport)
 	for _, warning := range []string{config.InsecureTLSWarning(cfg.Unifi), config.PlainHTTPWarning(cfg.Unifi)} {
 		if warning == "" {
 			continue
