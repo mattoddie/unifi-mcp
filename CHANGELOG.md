@@ -6,6 +6,14 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Added
+
+- `UNIFI_ALLOW_SECRETS` (off by default) gates access to secrets on the server side. When off, no tool offers `include_secrets`, a client that sends it anyway gets redacted output, and `unifi_get_wifi_qr` isn't registered. The startup log line shows `secrets redacted` or `secrets ALLOWED`, and the Claude Desktop extension has an **Allow secrets** setting.
+
+### Changed
+
+- **Breaking:** `include_secrets` and `unifi_get_wifi_qr` now need `UNIFI_ALLOW_SECRETS=true`. Before, any client holding the token could ask for unredacted Wi-Fi passphrases, VPN keys and passwords, even with writes off. Set `UNIFI_ALLOW_SECRETS=true` to keep the old behaviour.
+
 ## [0.6.1] - 2026-10-22
 
 ### Added

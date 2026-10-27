@@ -143,7 +143,7 @@ Most tools take an optional `site` argument. Without it, they use `UNIFI_SITE`, 
 
 - **Compact by default.** List tools return trimmed summaries with the useful fields and friendly units (Mbps, ISO timestamps, readable uptimes). This keeps responses small enough for the model to reason about. See [Narrowing list results](#narrowing-list-results) to make them smaller still.
 - **`raw: true`** on list and get tools returns the controller's full objects when you need a field the summary leaves out.
-- **Secrets are redacted.** Passphrases, pre-shared keys, RADIUS secrets and other `x_*` fields show as `[redacted]`. To include them, ask explicitly so the tool is called with `include_secrets: true` where it's supported. `unifi_get_wifi_qr` returns the WiFi password by design, because a join QR code needs it.
+- **Secrets are redacted.** Passphrases, pre-shared keys, RADIUS secrets and other `x_*` fields show as `[redacted]`. With `UNIFI_ALLOW_SECRETS=true`, you can ask explicitly so the tool is called with `include_secrets: true` where it's supported, and `unifi_get_wifi_qr` is available; it returns the WiFi password by design, because a join QR code needs it. Without it, neither exists.
 
 ## Narrowing list results
 

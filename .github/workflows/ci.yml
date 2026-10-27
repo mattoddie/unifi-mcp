@@ -91,6 +91,7 @@ jobs:
           UNIFI_SITE: default
           UNIFI_ALLOW_WRITES: "false"
           UNIFI_ALLOW_DELETES: "false"
+          UNIFI_ALLOW_SECRETS: "false"
           UNIFI_TOOLSETS: ""
           UNIFI_AUDIT_LOG: ""
         run: |
