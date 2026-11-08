@@ -1,11 +1,10 @@
 ---
 import logo from "../../../docs/assets/logo.svg?raw";
 import { toolsets, totals } from "../lib/tools";
+import { DESCRIPTION as description } from "../lib/llms";
 
 const GITHUB = "https://github.com/mattoddie/unifi-mcp";
 const title = "unifi-mcp: talk to your UniFi network";
-const description =
-  "An open-source MCP server for Ubiquiti UniFi Network. Ask Claude and other AI assistants about your devices, clients, WiFi and firewall, and let them make changes when you allow it. Runs in Docker.";
 
 const toolsetIcons: Record<string, string> = {
   overview: "🧭",
@@ -72,6 +71,9 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
     <meta property="og:description" content={description} />
     <meta property="og:url" content={Astro.site} />
     <meta property="og:image" content={new URL("/og.png", Astro.site)} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={title} />
     <meta name="twitter:card" content="summary_large_image" />
     <script
       type="application/ld+json"
