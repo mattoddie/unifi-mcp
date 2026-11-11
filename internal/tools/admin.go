@@ -45,7 +45,7 @@ func registerAdmin(c *Context) {
 		Input: props(
 			siteArg(),
 			P("key", Str().Opt().D("Setting key to return in full; omit to list available keys")),
-			secretsArg(secretsPasswords),
+			c.secretsArg(secretsPasswords),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "rest/setting", nil)
@@ -63,7 +63,7 @@ func registerAdmin(c *Context) {
 			if !ojson.Truthy(setting) {
 				return nil, fmt.Errorf(`Setting "%s" not found; available: %s`, key, joinValues(ojson.Map(all, func(s any) any { return ojson.Get(s, "key") }), ", "))
 			}
-			if a.Truthy("include_secrets") {
+			if c.includeSecrets(a) {
 				return setting, nil
 			}
 			return unifi.RedactSecrets(setting), nil

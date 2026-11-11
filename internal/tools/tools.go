@@ -66,8 +66,11 @@ type Def struct {
 	ReadOnly *bool
 	// Destructive overrides the destructiveHint annotation (defaults to Gate == Delete).
 	Destructive *bool
-	Input       []Prop
-	Handler     func(ctx context.Context, a Args) (any, error)
+	// RevealsSecrets marks a tool whose purpose is to return a secret (such as
+	// unifi_get_wifi_qr); it is only registered with UNIFI_ALLOW_SECRETS.
+	RevealsSecrets bool
+	Input          []Prop
+	Handler        func(ctx context.Context, a Args) (any, error)
 	// Reads, for a tool that changes things, reports whether these arguments
 	// only read (unifi_api_request with GET); such calls aren't audited.
 	Reads func(a Args) bool
@@ -95,7 +98,14 @@ func (c *Context) site(a Args) string {
 func (c *Context) enabled(d Def) bool {
 	return c.Toolsets[d.Toolset] &&
 		(d.Gate == Read || c.AllowWrites) &&
-		(d.Gate != Delete || c.AllowDeletes)
+		(d.Gate != Delete || c.AllowDeletes) &&
+		(!d.RevealsSecrets || c.AllowSecrets)
+}
+
+// includeSecrets reports whether a call asked for include_secrets and
+// UNIFI_ALLOW_SECRETS permits it.
+func (c *Context) includeSecrets(a Args) bool {
+	return c.AllowSecrets && a.Truthy("include_secrets")
 }
 
 // add registers a tool if its toolset and gate are enabled.

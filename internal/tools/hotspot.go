@@ -220,14 +220,14 @@ func registerHotspot(c *Context) {
 		Description: "Get guest portal / hotspot settings: authentication method, session length, voucher/password/payment options, redirect, allowed subnets.",
 		Input: props(
 			siteArg(),
-			P("include_secrets", Bool().Opt().D("Include the portal password and payment/RADIUS secrets")),
+			c.secretsArg("Include the portal password and payment/RADIUS secrets"),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			g, err := getSetting(ctx, client, c.site(a), "guest_access")
 			if err != nil {
 				return nil, err
 			}
-			if a.Truthy("include_secrets") {
+			if c.includeSecrets(a) {
 				return g, nil
 			}
 			return unifi.RedactSecrets(g), nil

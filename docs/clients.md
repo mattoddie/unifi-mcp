@@ -83,6 +83,7 @@ To update, install the bundle from a newer release the same way.
 | **Site** | `UNIFI_SITE` | The site used when a request doesn't name one. Usually `default`. |
 | **Allow changes** | `UNIFI_ALLOW_WRITES` | Off by default, which keeps the assistant read-only. Read [Security](security.md) before turning it on. |
 | **Allow deletes** | `UNIFI_ALLOW_DELETES` | Also allows deleting configuration and forgetting clients. Needs **Allow changes**. |
+| **Allow secrets** | `UNIFI_ALLOW_SECRETS` | Lets Claude ask for unredacted passwords and keys, and use the WiFi QR tool. Off keeps all output redacted. |
 | **Toolsets** | `UNIFI_TOOLSETS` | Optional, such as `overview,devices,clients,wifi,monitoring`. Empty means all, which is 48 KB of the model's context read-only and up to 174 KB with changes allowed. See [Keeping the tool list small](configuration.md#keeping-the-tool-list-small). |
 | **Audit log file** | `UNIFI_AUDIT_LOG` | Optional full path to a file, such as `/Users/you/unifi-mcp-audit.jsonl`, that records every change Claude makes or previews. The folder must exist; the file is created. `stderr` writes the entries to the extension's log instead. Off when empty. See [Audit log](configuration.md#audit-log). |
 

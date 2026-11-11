@@ -65,6 +65,10 @@ type Tools struct {
 	AllowWrites bool
 	// AllowDeletes enables tools that delete configuration objects; requires AllowWrites as well.
 	AllowDeletes bool
+	// AllowSecrets offers the include_secrets argument and the tools that
+	// reveal secrets by design, such as unifi_get_wifi_qr (UNIFI_ALLOW_SECRETS).
+	// Without it, output is always redacted, whatever a client asks for.
+	AllowSecrets bool
 	Toolsets     map[string]bool
 	// AuditLog is where calls of tools that change things are logged
 	// (UNIFI_AUDIT_LOG): a file path, AuditLogStderr, or "" for no log.
@@ -76,7 +80,7 @@ const AuditLogStderr = "stderr"
 
 // AllTools enables every tool, for documentation and tests.
 func AllTools() Tools {
-	t := Tools{AllowWrites: true, AllowDeletes: true, Toolsets: map[string]bool{}}
+	t := Tools{AllowWrites: true, AllowDeletes: true, AllowSecrets: true, Toolsets: map[string]bool{}}
 	for _, ts := range Toolsets {
 		t.Toolsets[ts] = true
 	}
@@ -253,6 +257,7 @@ func Load(env Env) (*Config, error) {
 	t := &cfg.Tools
 	t.AllowWrites = boolValue(get("UNIFI_ALLOW_WRITES"), false)
 	t.AllowDeletes = boolValue(get("UNIFI_ALLOW_DELETES"), false)
+	t.AllowSecrets = boolValue(get("UNIFI_ALLOW_SECRETS"), false)
 	if err := check(); err != nil {
 		return nil, err
 	}
