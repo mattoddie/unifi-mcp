@@ -184,7 +184,7 @@
     },
     {
       "name": "unifi_list_firewall_rules",
-      "description": "List classic firewall rules (WAN_IN, LAN_IN, ...). On Network 9+ with zone-based firewall use unifi_list_firewall_policies instead."
+      "description": "List classic firewall rules (WAN_IN, LAN_IN, ...). Not available on Network 11+ or on sites migrated to zone-based firewall (Network 9+); use unifi_list_firewall_policies there."
     },
     {
       "name": "unifi_list_firewall_zones",
