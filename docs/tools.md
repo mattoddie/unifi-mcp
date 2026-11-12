@@ -979,7 +979,7 @@ Delete a port forwarding rule.
 
 🟢 read
 
-List classic firewall rules (WAN_IN, LAN_IN, ...). On Network 9+ with zone-based firewall use unifi_list_firewall_policies instead.
+List classic firewall rules (WAN_IN, LAN_IN, ...). Not available on Network 11+ or on sites migrated to zone-based firewall (Network 9+); use unifi_list_firewall_policies there.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
@@ -992,7 +992,7 @@ List classic firewall rules (WAN_IN, LAN_IN, ...). On Network 9+ with zone-based
 
 🟠 write · destructive
 
-Create a classic firewall rule (name, ruleset and action required) or update one by id. Not for zone-based firewall (Network 9+ with zones migrated) — use unifi_save_firewall_policy there. On create, rule_index defaults to the next free index from 2000 in the ruleset (rules before the predefined ones).
+Create a classic firewall rule (name, ruleset and action required) or update one by id. Not for zone-based firewall (Network 11+, or Network 9+ with zones migrated) — use unifi_save_firewall_policy there. On create, rule_index defaults to the next free index from 2000 in the ruleset (rules before the predefined ones).
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
@@ -1024,7 +1024,7 @@ Create a classic firewall rule (name, ruleset and action required) or update one
 
 🔴 delete · destructive
 
-Delete a classic firewall rule.
+Delete a classic firewall rule. Not available on Network 11+ or on sites migrated to zone-based firewall.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|

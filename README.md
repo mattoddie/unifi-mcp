@@ -40,7 +40,7 @@ Ask about your network in plain English. The assistant picks from **145 tools** 
 - **🔍 Preview and audit.** Every write tool takes `dry_run: true` to show the request it would send, with a field-level diff of what would change, without changing anything. `UNIFI_AUDIT_LOG` records each change in a JSON Lines audit log.
 - **🧰 Broad coverage.** It covers 14 toolsets: devices, clients, switch ports and PoE, WiFi, networks and VLANs, WAN, DNS, legacy and zone-based firewall, traffic rules and routes, IDS/IPS, VPN, RADIUS, hotspot vouchers, statistics, logs, admins and backups.
 - **🎛️ Tunable.** Expose only the toolsets you need, which keeps the model's context small and focused. See [Keeping the tool list small](docs/configuration.md#keeping-the-tool-list-small).
-- **🔌 Works with your controller.** Supports UniFi OS consoles (UDM, UDM Pro/SE, UCG, UDR, UX, Cloud Key Gen2+, UniFi OS Server) and legacy self-hosted Network applications. Auth is an API key or a local account.
+- **🔌 Works with your controller.** Supports UniFi OS consoles (UDM, UDM Pro/SE, UCG, UDR, UX, Cloud Key Gen2+, UniFi OS Server) and legacy self-hosted Network applications (up to Network 10.6). Auth is an API key or a local account.
 - **🧪 Tested.** The test suite runs against a mock controller on every build.
 
 ## Quick start

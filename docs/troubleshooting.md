@@ -84,7 +84,7 @@ The controller's certificate isn't the one in `UNIFI_TLS_FINGERPRINT`. That's ex
 
 **`… failed with HTTP 404 … (endpoint not found; it may not exist on this Network application version)`**
 
-The feature isn't available on your Network version or hardware, or your site uses the other firewall model. For example, legacy firewall rule tools don't apply after migrating to zone-based firewall, and the other way round. See [Compatibility](compatibility.md).
+The feature isn't available on your Network version or hardware, or your site uses the other firewall model. For example, legacy firewall rule tools don't apply after migrating to zone-based firewall, and the other way round. Network 11 migrates every site, so they never apply there. See [Compatibility](compatibility.md).
 
 ## Site errors
 
