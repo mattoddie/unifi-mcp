@@ -141,9 +141,33 @@ See [Security](security.md) for choosing permissions and toolsets.
 
 ## Running without Docker
 
-Docker is the supported way to run unifi-mcp, but the server is a single static binary with no dependencies. You need [Go](https://go.dev/dl/) 1.25 or later to build it.
+Docker is the main way to run unifi-mcp, but the server is a single static binary with no dependencies.
 
-With `go install`:
+### Download a release binary
+
+Each [release](https://github.com/mattoddie/unifi-mcp/releases/latest) has an archive for macOS, Linux and Windows on `amd64` and `arm64`. Each archive holds the `unifi-mcp` binary and the licence. For example, on a Raspberry Pi or another 64-bit Arm Linux machine:
+
+```sh
+VERSION=1.2.3   # the latest release, without the v
+curl -fsSLO https://github.com/mattoddie/unifi-mcp/releases/download/v$VERSION/unifi-mcp-$VERSION-linux-arm64.tar.gz
+curl -fsSLO https://github.com/mattoddie/unifi-mcp/releases/download/v$VERSION/SHA256SUMS
+sha256sum -c SHA256SUMS --ignore-missing   # on macOS: shasum -a 256 -c SHA256SUMS --ignore-missing
+tar -xzf unifi-mcp-$VERSION-linux-arm64.tar.gz
+sudo install unifi-mcp /usr/local/bin/
+```
+
+Use `darwin-arm64` for a Mac with Apple silicon, `darwin-amd64` for an Intel Mac, `linux-amd64` for most PCs and servers, and the `windows` `.zip` files on Windows.
+
+Each archive also has a signed build provenance attestation. To check that a file was built by this repository's release workflow, run `gh release verify-asset v$VERSION unifi-mcp-$VERSION-linux-arm64.tar.gz -R mattoddie/unifi-mcp`.
+
+> [!NOTE]
+> The macOS binaries aren't notarised by Apple. A file downloaded with `curl`, as above, runs as is. If you download it in a browser, macOS blocks it the first time. Either allow it under **System Settings → Privacy & Security → Open Anyway**, or run `xattr -d com.apple.quarantine unifi-mcp`.
+
+Release binaries don't update themselves. Watch the repository's releases (**Watch → Custom → Releases**) to hear about new versions.
+
+### Build it yourself
+
+You need [Go](https://go.dev/dl/) 1.25 or later. With `go install`:
 
 ```sh
 go install github.com/mattoddie/unifi-mcp/cmd/unifi-mcp@latest
@@ -159,7 +183,7 @@ cd unifi-mcp
 make build VERSION=1.2.3      # writes bin/unifi-mcp
 ```
 
-Then:
+### Run it
 
 ```sh
 UNIFI_URL=https://192.168.1.1 UNIFI_API_KEY=... UNIFI_TLS_FINGERPRINT=... unifi-mcp   # stdio by default

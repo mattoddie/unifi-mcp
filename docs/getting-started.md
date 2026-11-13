@@ -18,6 +18,8 @@ This guide takes you from nothing to asking your first question about your netwo
 
 > [!TIP]
 > **Using Claude Desktop on a Mac or Windows PC?** You don't need Docker. Do steps 1 and 2, then install the [extension bundle](clients.md#claude-desktop) from the releases page and enter the URL and credentials in its settings, instead of steps 3 and 4.
+>
+> **No Docker at all?** Each release also has plain binaries for macOS, Linux and Windows. See [Running without Docker](deployment.md#running-without-docker) and [connecting a client to the binary](clients.md#without-docker).
 
 ## 1. Find your controller URL
 
