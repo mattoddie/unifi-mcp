@@ -19,7 +19,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
 
 # Distroless: no shell, no package manager, just CA certificates, tzdata and a
 # non-root user (65532), so there is very little for CVE scanners to find.
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:18f4cc26c9ffa7f20a359298be7deadac5c607c8e03a02b8119f1a5fc2f82c99
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:aafe993665bf6200db38a02c11a9351e782a84b6a45e7f33b6695638c88e3931
 LABEL org.opencontainers.image.title="unifi-mcp" \
       org.opencontainers.image.description="MCP server for Ubiquiti UniFi Network" \
       org.opencontainers.image.source="https://github.com/mattoddie/unifi-mcp" \
