@@ -4,7 +4,7 @@
   "display_name": "UniFi Network (unifi-mcp)",
   "version": "0.0.0-dev",
   "description": "Monitor and manage your Ubiquiti UniFi Network: sites, devices, clients, WiFi, firewall and more.",
-  "long_description": "An open-source MCP server for Ubiquiti **UniFi Network**. Ask about your network in plain English: health checks, weak WiFi clients, firmware updates, firewall and port-forward reviews. If you allow it, Claude can also make changes.\n\n- **Read-only by default.** Changes need *Allow changes*, and deleting configuration needs *Allow deletes* as well. Destructive tools are labelled so Claude asks before running them, and passwords and keys are redacted from output.\n- **Works with your controller.** UniFi OS consoles (UDM, UCG, UDR, UX, Cloud Key Gen2+, UniFi OS Server) and legacy self-hosted Network applications, with an API key or a local account.\n- **Pin the certificate.** Consoles use a self-signed certificate: set the *TLS certificate fingerprint* so nobody on the network can impersonate the controller.\n\nunifi-mcp is an independent community project, not affiliated with or endorsed by Ubiquiti Inc.",
+  "long_description": "An open-source MCP server for Ubiquiti **UniFi Network**. Ask about your network in plain English: health checks, weak WiFi clients, firmware updates, firewall and port-forward reviews. If you allow it, Claude can also make changes.\n\n- **Read-only by default.** Changes need *Allow changes*, and deleting configuration needs *Allow deletes* as well. Destructive tools are labelled so Claude asks before running them, and passwords and keys are redacted from output.\n- **Works with your controller.** UniFi OS consoles (UDM, UCG, UDR, UX, Cloud Key Gen2+, UniFi OS Server) and legacy self-hosted Network applications (up to Network 10.6), with an API key or a local account.\n- **Pin the certificate.** Consoles use a self-signed certificate: set the *TLS certificate fingerprint* so nobody on the network can impersonate the controller.\n\nunifi-mcp is an independent community project, not affiliated with or endorsed by Ubiquiti Inc.",
   "author": {
     "name": "Matt Oddie",
     "url": "https://github.com/mattoddie"
@@ -184,7 +184,7 @@
     },
     {
       "name": "unifi_list_firewall_rules",
-      "description": "List classic firewall rules (WAN_IN, LAN_IN, ...). On Network 9+ with zone-based firewall use unifi_list_firewall_policies instead."
+      "description": "List classic firewall rules (WAN_IN, LAN_IN, ...). Not available on Network 11+ or on sites migrated to zone-based firewall (Network 9+); use unifi_list_firewall_policies there."
     },
     {
       "name": "unifi_list_firewall_zones",

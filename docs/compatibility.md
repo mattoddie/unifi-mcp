@@ -7,10 +7,12 @@
 | UniFi OS consoles: UDM, UDM Pro, UDM SE, UDM Pro Max, UCG Ultra/Max/Fiber, UDR, UX, UDW | ✅ | API key or local account |
 | Cloud Key Gen2 / Gen2 Plus (UniFi OS) | ✅ | API key or local account |
 | UniFi OS Server | ✅ | API key or local account |
-| Self-hosted UniFi Network application (Linux, Windows, Docker, e.g. `:8443`) | ✅ | Local account |
+| Self-hosted UniFi Network application (Linux, Windows, Docker, e.g. `:8443`) | ✅ up to Network 10.6 | Local account |
 | Cloud-hosted UniFi (unifi.ui.com / Site Manager) | ❌ | Not supported. Connect to the console locally. |
 
 The server detects UniFi OS automatically: a UniFi OS console answers `GET /` with `200`, while a legacy controller redirects. On UniFi OS, requests go through the `/proxy/network` prefix. Set `UNIFI_CONTROLLER_TYPE` if detection gets it wrong, for example behind a reverse proxy.
+
+Network 10.6 is the last release of the self-hosted Network application. Network 11 runs only on UniFi OS 6.0 or later, so to self-host Network 11, move to UniFi OS Server. unifi-mcp supports both.
 
 ## UniFi Network versions
 
@@ -33,7 +35,7 @@ Ubiquiti doesn't document the classic and v2 APIs, and they change between relea
 | Traffic rules and traffic routes | Network 7.x+ with a UniFi gateway |
 | System log (`unifi_get_system_log`) | Recent Network 8.x/9.x. `unifi_list_events` falls back to it when the classic event API is gone. |
 | Content filtering | Recent Network versions with a gateway that supports it |
-| Legacy firewall rules and groups | Sites that haven't migrated to the zone-based firewall |
+| Legacy firewall rules | Network 10.6 or earlier, on sites that haven't migrated to the zone-based firewall. Firewall groups work with both models. |
 | NAT rules (`unifi_*_nat_rule*`) | Network 9.0+ with a UniFi gateway and the zone-based firewall |
 | QoS rules (`unifi_*_qos_rule*`) | Recent Network 9.x/10.x with a UniFi gateway. Field names come from Network 10.6. |
 | Switch ACL rules (`unifi_*_acl_rule*`) | Network 9.4+ with UniFi switches that enforce them |
@@ -43,11 +45,21 @@ Ubiquiti doesn't document the classic and v2 APIs, and they change between relea
 | Port mirroring and link aggregation (`unifi_set_switch_port`) | Managed UniFi switches. Most allow one mirror session and up to 8 aggregation groups. |
 | Locking a client to an AP (`unifi_update_client`) | Wireless clients |
 
+### Network 11
+
+Network 11 needs UniFi OS 6.0 or later. These changes affect unifi-mcp:
+
+- **Every site uses the zone-based firewall.** Network 11 migrates all remaining sites automatically. The legacy firewall rule tools (`unifi_list_firewall_rules`, `unifi_save_firewall_rule`, `unifi_delete_firewall_rule`) no longer apply. Use the firewall policy and zone tools instead.
+- **USG gateways aren't supported.** With a USG, stay on Network 10.6 or earlier.
+- **No self-hosted Network application.** See [Controllers](#controllers).
+
+Between Network 10.3 and 11.0, the official Integration API kept the same endpoints. The zone and policy-ordering endpoints that unifi-mcp uses didn't change. The classic and v2 APIs aren't documented, so they can't be compared this way. If something stops working after an upgrade, please open a [compatibility report](https://github.com/mattoddie/unifi-mcp/issues/new?template=compatibility.yml).
+
 If a tool isn't available on your version, it fails with a clear message ending in *"endpoint not found; it may not exist on this Network application version"*. Nothing breaks. The tool just doesn't apply.
 
 ## Hardware-dependent features
 
-Tools work on the devices that support them. Gateway features need a UniFi gateway: IDS/IPS, traffic rules, port forwards, WAN, VPN, routes and DPI. PoE tools need PoE switches, and `unifi_set_outlet` needs a SmartPower PDU or USP plug. Running a tool against the wrong device type returns the controller's error.
+Tools work on the devices that support them. Gateway features need a UniFi gateway (USG gateways only up to Network 10.6): IDS/IPS, traffic rules, port forwards, WAN, VPN, routes and DPI. PoE tools need PoE switches, and `unifi_set_outlet` needs a SmartPower PDU or USP plug. Running a tool against the wrong device type returns the controller's error.
 
 ## Fields that couldn't be verified
 

@@ -448,7 +448,7 @@ func registerFirewall(c *Context) {
 
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_firewall_rules", Title: "List firewall rules (legacy)",
-		Description: "List classic firewall rules (WAN_IN, LAN_IN, ...). On Network 9+ with zone-based firewall use unifi_list_firewall_policies instead.",
+		Description: "List classic firewall rules (WAN_IN, LAN_IN, ...). Not available on Network 11+ or on sites migrated to zone-based firewall (Network 9+); use unifi_list_firewall_policies there.",
 		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			rules, err := restList(ctx, client, c.site(a), "firewallrule")
@@ -467,7 +467,7 @@ func registerFirewall(c *Context) {
 
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_save_firewall_rule", Title: "Create or update firewall rule (legacy)",
-		Description: "Create a classic firewall rule (name, ruleset and action required) or update one by id. Not for zone-based firewall (Network 9+ with zones migrated) — use unifi_save_firewall_policy there. " +
+		Description: "Create a classic firewall rule (name, ruleset and action required) or update one by id. Not for zone-based firewall (Network 11+, or Network 9+ with zones migrated) — use unifi_save_firewall_policy there. " +
 			"On create, rule_index defaults to the next free index from 2000 in the ruleset (rules before the predefined ones).",
 		Gate: Write, Destructive: boolPtr(true),
 		Input: props(
@@ -590,7 +590,7 @@ func registerFirewall(c *Context) {
 
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_delete_firewall_rule", Title: "Delete firewall rule (legacy)",
-		Description: "Delete a classic firewall rule.",
+		Description: "Delete a classic firewall rule. Not available on Network 11+ or on sites migrated to zone-based firewall.",
 		Gate:        Delete,
 		Input:       props(siteArg(), idArg("Firewall rule")),
 		Handler:     deleteHandler(c, "firewallrule", false),

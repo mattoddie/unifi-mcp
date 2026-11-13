@@ -12,7 +12,7 @@ This guide takes you from nothing to asking your first question about your netwo
 
 ## What you need
 
-- **A UniFi Network controller.** This can be a UniFi OS console (Dream Machine, Cloud Gateway, Dream Router, Express, Cloud Key Gen2+, UniFi OS Server) or a self-hosted UniFi Network application. See [Compatibility](compatibility.md) for the full list.
+- **A UniFi Network controller.** This can be a UniFi OS console (Dream Machine, Cloud Gateway, Dream Router, Express, Cloud Key Gen2+, UniFi OS Server) or a self-hosted UniFi Network application (up to Network 10.6). See [Compatibility](compatibility.md) for the full list.
 - **A machine that runs Docker** and can reach the controller over the network. This could be a NAS, a home server, a Raspberry Pi 4/5 or your laptop. The image supports both `amd64` and `arm64`.
 - **An MCP client**, such as [Claude Code](https://claude.com/claude-code), Claude Desktop, VS Code, Cursor or Codex.
 
@@ -27,7 +27,7 @@ This is the address you use to open the UniFi web interface, without any path:
 |---|---|
 | UniFi OS console (UDM, UCG, UDR, UX, Cloud Key Gen2+) | `https://192.168.1.1` (the console's LAN IP) |
 | UniFi OS Server | `https://<server>:11443` |
-| Legacy self-hosted Network application | `https://<server>:8443` |
+| Legacy self-hosted Network application (up to Network 10.6) | `https://<server>:8443` |
 
 Use the **local** address, not `unifi.ui.com`. The server talks to the controller directly over your LAN.
 
