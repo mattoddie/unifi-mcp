@@ -1,6 +1,6 @@
 # Releasing
 
-Releases are driven by **version tags**. Pushing a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow creates a draft GitHub release, builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/unifi-mcp`. It then builds the MCP Bundles (`.mcpb`) for Claude Desktop and attaches them to the draft, publishes the release, and publishes stable releases to the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/unifi-mcp`. Nothing is published by merging to `main` alone.
+Releases are driven by **version tags**. Pushing a tag like `v1.2.3` triggers the [Release workflow](../.github/workflows/release.yml). That workflow creates a draft GitHub release, builds the Docker image for `linux/amd64` and `linux/arm64` and pushes it to `ghcr.io/mattoddie/unifi-mcp`. It then builds the MCP Bundles (`.mcpb`) for Claude Desktop and plain binary archives, and attaches them to the draft with a `SHA256SUMS` file. Then it publishes the release, and publishes stable releases to the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.mattoddie/unifi-mcp`. Nothing is published by merging to `main` alone.
 
 - [Versioning](#versioning)
 - [Release checklist](#release-checklist)
@@ -35,7 +35,7 @@ The version comes **from the tag**. The code says `0.0.0-dev` in the repository,
    git push origin v1.2.0
    ```
 
-4. **Watch the workflow.** Open **Actions → Release**. It takes a few minutes. It creates a draft release with notes generated from the merged PRs, adds a *Container image* section with the pull command, digest and tags, attaches the bundles and adds a *Claude Desktop* section listing them, then publishes the release.
+4. **Watch the workflow.** Open **Actions → Release**. It takes a few minutes. It creates a draft release with notes generated from the merged PRs, adds a *Container image* section with the pull command, digest and tags, attaches the bundles and binaries and adds *Claude Desktop* and *Binaries* sections listing them, then publishes the release.
 5. **Edit the release notes** if needed. The notes and title of a published release can still be edited; its assets and tag can't.
 6. **Check the MCP Registry** (stable releases only): `curl -s https://registry.modelcontextprotocol.io/v0.1/servers/io.github.mattoddie%2Funifi-mcp/versions/latest | jq .server.version` prints the new version.
 
@@ -63,7 +63,7 @@ Pre-releases are published only under their exact version (`ghcr.io/mattoddie/un
 | Push | To `ghcr.io/mattoddie/unifi-mcp` using the workflow's `GITHUB_TOKEN`. No personal tokens are needed. |
 | Supply chain | Attaches an SBOM and SLSA provenance to the image, and pushes a signed build provenance attestation (`gh attestation verify`). |
 | Release notes | Appends the pull command, digest and tags. |
-| MCP Bundles | After the image, runs `make mcpb VERSION=X.Y.Z`: one `unifi-mcp-X.Y.Z-<os>-<arch>.mcpb` for each of `darwin`, `windows` and `linux` on `amd64` and `arm64`. It validates each manifest with the official `@anthropic-ai/mcpb` CLI (pinned in the workflow), attests their build provenance, uploads them to the release and lists them in the notes. |
+| MCP Bundles and binaries | After the image, runs `make dist VERSION=X.Y.Z`: one `unifi-mcp-X.Y.Z-<os>-<arch>.mcpb` for each of `darwin`, `windows` and `linux` on `amd64` and `arm64`, the same binaries as `unifi-mcp-X.Y.Z-<os>-<arch>.tar.gz` (`.zip` for Windows) with the licence, and `SHA256SUMS`. It checks the Linux binary reports the version and the checksums match, validates each manifest with the official `@anthropic-ai/mcpb` CLI (pinned in the workflow), attests the build provenance of the bundles and archives, uploads everything to the draft and lists it in the notes. |
 | Publish | Publishes the draft once the image and the bundles are in place. Published releases are [immutable](#immutable-releases). |
 | MCP Registry | Stable releases only, after the release is published. Stamps the version, the image tag and each bundle's URL and SHA-256 into [`server.json`](../server.json), validates it, logs in with GitHub OIDC and publishes it with `mcp-publisher` (pinned, checksum verified). |
 
@@ -71,7 +71,7 @@ Pre-releases are published only under their exact version (`ghcr.io/mattoddie/un
 
 An [MCP Bundle](https://github.com/modelcontextprotocol/mcpb) is a zip file with a `manifest.json`, the icon, the licence and the server binary. The manifest lives in [`mcpb/manifest.json`](../mcpb/manifest.json): edit its descriptions and settings by hand, while `make docs` regenerates its `tools` and `prompts` from the server (CI checks they're current). [`cmd/mcpb`](../cmd/mcpb/main.go) stamps the version and platform into a copy and writes the zip.
 
-There's one bundle per OS and architecture because a manifest can only choose the command by OS, not by CPU. Try one locally with `make mcpb` (the bundles land in `dist/`).
+There's one bundle per OS and architecture because a manifest can only choose the command by OS, not by CPU. Try one locally with `make mcpb`, or build every release asset with `make dist` (they land in `dist/`).
 
 The bundles aren't signed. The macOS binaries carry the Go linker's ad-hoc signature, which Apple silicon requires, but they aren't signed with a Developer ID or notarised, so macOS may ask the user to allow them (see [Claude Desktop](clients.md#if-it-doesnt-start)). `mcpb sign` can add a signature to the bundle itself, but that needs a code-signing certificate and isn't set up.
 
