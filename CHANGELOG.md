@@ -10,6 +10,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 - The docs and the legacy firewall rule tools' descriptions now cover UniFi Network 11. Network 11 moves every site to the zone-based firewall, drops USG gateways and the self-hosted Network application, and needs UniFi OS 6.0. The legacy firewall rule tools don't apply on Network 11, and self-hosted controllers are supported up to Network 10.6. See [Compatibility](docs/compatibility.md#network-11).
 
+### Security
+
+- Built with Go 1.27.4, which fixes an HTTP/1 server crash in the standard library's `net/http` (GO-2026-6859).
+
 ## [0.6.1] - 2026-10-22
 
 ### Added
