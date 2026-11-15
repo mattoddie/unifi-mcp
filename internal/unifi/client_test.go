@@ -247,6 +247,8 @@ var traversals = []string{
 	"/api/s/default/rest/user/u%2D1",
 	"/api/s/default/rest/user/%5F%7e%30%5a",
 	"api/s/default",
+	"/api/s/default/cmd/devm%2561nager",
+	"/api/s/default/rest/user/u%25zz",
 }
 
 func TestAssertSafePath(t *testing.T) {
@@ -268,6 +270,7 @@ func TestAssertSafePath(t *testing.T) {
 		"/a%zz":                `Invalid API path "/a%zz": malformed percent-encoding`,
 		"/v2/x/batch-d%65lete": `Invalid API path "/v2/x/batch-d%65lete": %65 encodes a character that doesn't need encoding; write it unencoded`,
 		"relative/x":           `Invalid API path "relative/x": it must start with /`,
+		"/x/%2565":             `Invalid API path "/x/%2565": double percent-encoding (%25) is not allowed`,
 	} {
 		if err := unifi.AssertSafePath(p); err == nil || err.Error() != want {
 			t.Errorf("%q: %v", p, err)

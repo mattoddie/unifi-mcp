@@ -48,12 +48,8 @@
   },
   "tools": [
     {
-      "name": "unifi_api_request",
-      "description": "Call any UniFi Network API endpoint directly, for anything the other tools don't cover. `path` is relative to the Network application, e.g. /api/s/default/stat/ccode, /v2/api/site/default/trafficroutes or /integration/v1/sites (official API, API-key auth). Only GET is allowed because write access is disabled (UNIFI_ALLOW_WRITES=false)."
-    },
-    {
       "name": "unifi_check_updates",
-      "description": "Report whether a newer Network application version is available, and which devices have firmware upgrades. With refresh: true (requires writes enabled) the controller first re-checks Ubiquiti's servers for device firmware."
+      "description": "Report whether a newer Network application version is available, and which devices have firmware upgrades. To make the controller re-check Ubiquiti's servers for device firmware first, use unifi_refresh_firmware (needs writes enabled)."
     },
     {
       "name": "unifi_get_client",
@@ -77,7 +73,7 @@
     },
     {
       "name": "unifi_get_firmware_status",
-      "description": "Show each device's current firmware and whether an upgrade is available. Optionally ask the controller to refresh its firmware cache first (requires writes enabled), and/or list the firmware images it knows about."
+      "description": "Show each device's current firmware and whether an upgrade is available, and optionally list the firmware images the controller knows about. To make the controller re-check Ubiquiti's servers first, use unifi_refresh_firmware (needs writes enabled)."
     },
     {
       "name": "unifi_get_guest_portal_settings",
@@ -413,7 +409,7 @@
     "toolsets": {
       "type": "string",
       "title": "Toolsets",
-      "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients,wifi,monitoring. Empty means all.",
+      "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients,wifi,monitoring. Empty means all except raw, which has to be listed by name.",
       "default": ""
     },
     "audit_log": {

@@ -104,6 +104,31 @@ func TestSetSwitchPort(t *testing.T) {
 	eq(t, "disable", get(env.sent()[0].Body, "port_overrides"), js(`[{"port_idx":2,"name":"Printer","portconf_id":"pc-iot","port_security_enabled":true,"port_security_mac_address":[]}]`))
 }
 
+// Regression test: enabled: true used to set port_security_enabled=false
+// unconditionally, wiping a port's MAC allow-list.
+func TestEnableSwitchPortKeepsMacAllowList(t *testing.T) {
+	env := newSwitchEnv(t)
+	env.begin()
+	env.call("unifi_set_switch_port", `{"mac":"aa:bb:cc:00:00:01","port_idx":2,"enabled":true}`)
+	eq(t, "re-enable", get(env.sent()[0].Body, "port_overrides", 0, "port_security_enabled"), false)
+
+	// A switch whose port 1 has a MAC allow-list.
+	d := js(strings.Replace(switchJSON, `"mac":"aa:bb:cc:00:00:01"`, `"mac":"aa:bb:cc:00:00:07"`, 1))
+	asObj(d).Set("port_overrides", js(`[{"port_idx":1,"portconf_id":"pc-all","port_security_enabled":true,"port_security_mac_address":["aa:bb:cc:00:00:09"]}]`))
+	env.mock.On("GET", "^/api/s/default/stat/device/aa:bb:cc:00:00:07$", func(any, []string, url.Values) (int, any) {
+		return unifitest.OK([]any{ojson.Clone(d)})
+	})
+	env.begin()
+	res := env.call("unifi_set_switch_port", `{"mac":"aa:bb:cc:00:00:07","port_idx":1,"enabled":true,"name":"Desk"}`)
+	eq(t, "kept", get(env.sent()[0].Body, "port_overrides", 0), js(`{"port_idx":1,"portconf_id":"pc-all","port_security_enabled":true,"port_security_mac_address":["aa:bb:cc:00:00:09"],"name":"Desk"}`))
+	contains(t, "note", ojson.String(get(res, "note")), "allow-list was kept")
+	env.begin()
+	contains(t, "nothing", env.callErr("unifi_set_switch_port", `{"mac":"aa:bb:cc:00:00:07","port_idx":1,"enabled":true}`), "MAC allow-list, which was kept")
+	if len(env.sent()) != 0 {
+		t.Error("a no-op enable sent a request")
+	}
+}
+
 func TestSwitchPortErrors(t *testing.T) {
 	env := newSwitchEnv(t)
 	env.begin()
@@ -232,7 +257,7 @@ func TestRFScanAndFirmware(t *testing.T) {
 	eq(t, "scan", scan, js(`{"scanning":false,"last_scan":"2023-11-14T22:13:20.000Z","results":[{"channel":36,"utilization":12}]}`))
 
 	env.begin()
-	fw := env.call("unifi_get_firmware_status", `{"include_available":true,"refresh":true}`)
+	fw := env.call("unifi_get_firmware_status", `{"include_available":true}`)
 	if n, _ := ojson.Len(get(fw, "devices")); n != 2 {
 		t.Errorf("devices: %d", n)
 	}
@@ -241,7 +266,7 @@ func TestRFScanAndFirmware(t *testing.T) {
 	for _, r := range env.sent() {
 		bodies = append(bodies, r.Body)
 	}
-	eq(t, "commands", bodies, js(`[{"cmd":"check-firmware-update"},{"cmd":"list-available"}]`))
+	eq(t, "commands", bodies, js(`[{"cmd":"list-available"}]`))
 }
 
 func TestGetDevice(t *testing.T) {

@@ -24,7 +24,7 @@ By taking part you agree to follow the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Development setup
 
-You need **Go 1.25+** and, to build the image, **Docker**.
+You need **Go 1.26+** and, to build the image, **Docker**.
 
 ```sh
 git clone https://github.com/<you>/unifi-mcp.git   # your fork

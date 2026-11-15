@@ -38,6 +38,12 @@ func AssertSafePath(path string) error {
 	if m := encodedUnreserved.FindString(path); m != "" {
 		return &Error{Message: fmt.Sprintf(`Invalid API path "%s": %s encodes a character that doesn't need encoding; write it unencoded`, path, m)}
 	}
+	// A "%" that survives one decode is a double encoding, such as %2565 for
+	// "e". The checks here and in the raw tool see the path decoded once, so a
+	// server that decodes twice would act on a different path.
+	if strings.Contains(decoded, "%") {
+		return &Error{Message: fmt.Sprintf(`Invalid API path "%s": double percent-encoding (%%25) is not allowed`, path)}
+	}
 	for _, p := range []string{path, decoded} {
 		if badPathChars.MatchString(p) {
 			return &Error{Message: fmt.Sprintf(`Invalid API path "%s": backslashes and control characters are not allowed`, path)}

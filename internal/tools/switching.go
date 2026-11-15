@@ -248,7 +248,7 @@ func registerSwitching(c *Context) {
 			switchMac,
 			P("port_idx", Int().Positive().D("Port number (see unifi_list_switch_ports)")),
 			P("name", Str().Opt().D("Port name/label")),
-			P("enabled", Bool().Opt().D("false blocks all traffic on the port; true re-enables it")),
+			P("enabled", Bool().Opt().D("false blocks all traffic on the port; true lifts that block (a port security MAC allow-list is kept)")),
 			P("profile_id", Str().Opt().D("Port profile ID to assign (see unifi_list_port_profiles)")),
 			portSettingsInput(),
 			P("mirror_port_idx", Int().Positive().Opt().D("Mirror this port's traffic to this port (sets op_mode=mirror). Most switches allow one mirror session.")),
@@ -267,23 +267,35 @@ func registerSwitching(c *Context) {
 				return nil, err
 			}
 			patch := ojson.Spread(unifi.Defined("name", a.Get("name"), "portconf_id", a.Get("profile_id")), portSettingsBody(a))
-			if a.Has("enabled") {
-				patch.Set("port_security_enabled", !a.Truthy("enabled"))
-			}
-			if ojson.StrictEq(a.Get("enabled"), false) {
-				patch.Set("port_security_mac_address", []any{})
-			}
 			overrides := arr(ojson.Clone(ojson.Coalesce(device.Get("port_overrides"), []any{})))
+			existing := ojson.Find(overrides, func(o any) bool { return ojson.StrictEq(ojson.Get(o, "port_idx"), portIdx) })
+			// Disabling is port security with an empty MAC allow-list. A port
+			// with a non-empty allow-list isn't disabled, so enabling it must
+			// leave that allow-list alone rather than switch port security off.
+			keptAllowList := false
+			switch {
+			case ojson.StrictEq(a.Get("enabled"), false):
+				patch.Set("port_security_enabled", true)
+				patch.Set("port_security_mac_address", []any{})
+			case ojson.StrictEq(a.Get("enabled"), true):
+				if ojson.HasLength(ojson.Get(existing, "port_security_mac_address")) {
+					keptAllowList = true
+				} else {
+					patch.Set("port_security_enabled", false)
+				}
+			}
 			members, err := portModePatch(a, device, overrides, patch)
 			if err != nil {
 				return nil, err
 			}
 			patch.Assign(a.Get("extra"))
 			if patch.Len() == 0 {
+				if keptAllowList {
+					return nil, errorf("Nothing to change: the port isn't disabled, it has a port security MAC allow-list, which was kept. To remove the allow-list, pass extra: {port_security_enabled: false, port_security_mac_address: []}")
+				}
 				return nil, errorf("Nothing to change: pass at least one port setting")
 			}
 
-			existing := ojson.Find(overrides, func(o any) bool { return ojson.StrictEq(ojson.Get(o, "port_idx"), portIdx) })
 			var override *Obj
 			if o, ok := ojson.AsObj(existing); ok {
 				override = o.Assign(patch)
@@ -324,6 +336,9 @@ func registerSwitching(c *Context) {
 				return nil, err
 			}
 			out := ojson.New("switch", device.Get("mac"), "port_idx", portIdx, "override", override)
+			if keptAllowList {
+				out.Set("note", "The port's port security MAC allow-list was kept; enabled: true only lifts a block (an empty allow-list)")
+			}
 			if removed != nil {
 				out.Set("removed_member_overrides", removed)
 			}

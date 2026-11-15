@@ -32,6 +32,11 @@ var Toolsets = []string{
 	"raw",
 }
 
+// OptInToolsets are left out of "all" (and so of the default) and must be
+// listed by name. The raw API tool reaches every endpoint, including ones the
+// curated tools gate more finely, so it is never enabled without being asked for.
+var OptInToolsets = map[string]bool{"raw": true}
+
 // Controller types for UNIFI_CONTROLLER_TYPE.
 const (
 	ControllerAuto    = "auto"
@@ -161,15 +166,20 @@ func errorMessage(err error) string {
 	return err.Error()
 }
 
-func boolValue(v string, fallback bool) bool {
+// boolValue parses a boolean variable. An unrecognised value is an error
+// rather than false: a typo such as UNIFI_VERIFY_SSL=ture must not quietly
+// turn a setting off.
+func boolValue(name, v string, fallback bool) (bool, error) {
 	if v == "" {
-		return fallback
+		return fallback, nil
 	}
 	switch strings.ToLower(v) {
 	case "1", "true", "yes", "on":
-		return true
+		return true, nil
+	case "0", "false", "no", "off":
+		return false, nil
 	}
-	return false
+	return false, fmt.Errorf(`%s must be true or false, got "%s"`, name, v)
 }
 
 func positiveInt(name, v string, fallback int) (int, error) {
@@ -254,10 +264,20 @@ func Load(env Env) (*Config, error) {
 		return nil, fmt.Errorf(`MCP_TRANSPORT must be stdio or http, got "%s"`, cfg.Transport)
 	}
 
+	// flag reads a boolean variable, keeping the first error like get does.
+	flag := func(name string, fallback bool) bool {
+		v := get(name)
+		b, err := boolValue(name, v, fallback)
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+		return b
+	}
+
 	t := &cfg.Tools
-	t.AllowWrites = boolValue(get("UNIFI_ALLOW_WRITES"), false)
-	t.AllowDeletes = boolValue(get("UNIFI_ALLOW_DELETES"), false)
-	t.AllowSecrets = boolValue(get("UNIFI_ALLOW_SECRETS"), false)
+	t.AllowWrites = flag("UNIFI_ALLOW_WRITES", false)
+	t.AllowDeletes = flag("UNIFI_ALLOW_DELETES", false)
+	t.AllowSecrets = flag("UNIFI_ALLOW_SECRETS", false)
 	if err := check(); err != nil {
 		return nil, err
 	}
@@ -288,12 +308,14 @@ func Load(env Env) (*Config, error) {
 		case name == "":
 		case name == "all":
 			for _, ts := range Toolsets {
-				t.Toolsets[ts] = true
+				if !OptInToolsets[ts] {
+					t.Toolsets[ts] = true
+				}
 			}
 		case contains(Toolsets, name):
 			t.Toolsets[name] = true
 		default:
-			return nil, fmt.Errorf(`Unknown toolset "%s" in UNIFI_TOOLSETS; valid: all, %s`, name, strings.Join(Toolsets, ", "))
+			return nil, fmt.Errorf(`Unknown toolset "%s" in UNIFI_TOOLSETS; valid: all (every toolset except raw), %s`, name, strings.Join(Toolsets, ", "))
 		}
 	}
 
@@ -304,7 +326,7 @@ func Load(env Env) (*Config, error) {
 		}
 	}
 	h.AuthToken = get("MCP_AUTH_TOKEN")
-	h.AllowUnauthenticated = boolValue(get("MCP_ALLOW_UNAUTHENTICATED"), false)
+	h.AllowUnauthenticated = flag("MCP_ALLOW_UNAUTHENTICATED", false)
 	if err := check(); err != nil {
 		return nil, err
 	}
@@ -319,6 +341,7 @@ func Load(env Env) (*Config, error) {
 		return nil, errors.New(UnauthenticatedNeedsHosts)
 	}
 
+	var err error
 	u := &cfg.Unifi
 	u.CAFile = get("UNIFI_CA_FILE")
 	if err := check(); err != nil {
@@ -331,7 +354,13 @@ func Load(env Env) (*Config, error) {
 	}
 	// A custom CA only makes sense with verification on, so it switches it on by default.
 	verifySSL := get("UNIFI_VERIFY_SSL")
-	u.VerifySSL = boolValue(verifySSL, u.CAFile != "")
+	if err := check(); err != nil {
+		return nil, err
+	}
+	u.VerifySSL, err = boolValue("UNIFI_VERIFY_SSL", verifySSL, u.CAFile != "")
+	if err != nil {
+		return nil, err
+	}
 	if err := check(); err != nil {
 		return nil, err
 	}
@@ -359,7 +388,6 @@ func Load(env Env) (*Config, error) {
 	u.APIKey, u.Username, u.Password = apiKey, username, password
 	u.Site = or(get("UNIFI_SITE"), "default")
 	u.ControllerType = controllerType
-	var err error
 	if u.TimeoutMs, err = positiveInt("UNIFI_TIMEOUT_MS", get("UNIFI_TIMEOUT_MS"), 30000); err != nil {
 		return nil, err
 	}

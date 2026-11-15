@@ -130,9 +130,6 @@ func registerSecurity(c *Context) {
 				"enabled_categories", a.Get("enabled_categories"),
 				"enabled_networks", a.Get("enabled_networks"),
 			).Assign(a.Get("extra"))
-			if a.Str("ips_mode") == "disabled" && !a.Truthy("enabled_categories") {
-				ipsPatch.Set("enabled_categories", []any{})
-			}
 			dpiPatch := unifi.Defined("enabled", a.Get("dpi_enabled"), "fingerprintingEnabled", a.Get("device_fingerprinting"))
 			if ipsPatch.Len() == 0 && dpiPatch.Len() == 0 {
 				return nil, errorf("Nothing to update")

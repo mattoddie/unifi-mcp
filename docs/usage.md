@@ -201,9 +201,9 @@ To find the right field names, ask the assistant to fetch the object with `raw: 
 | `UNIFI_ALLOW_WRITES=true` | `GET`, `POST`, `PUT`, `PATCH`, except delete-like commands such as `{"cmd": "delete-site"}` or `forget-sta` |
 | `+ UNIFI_ALLOW_DELETES=true` | All, including `DELETE` |
 
-Paths must stay inside the Network application: `.` and `..` segments (also percent-encoded), backslashes and query strings in the path are refused. Pass query parameters with the `query` argument.
+Paths must stay inside the Network application: `.` and `..` segments (also percent-encoded), backslashes and query strings in the path are refused. So are empty segments (`//`), `;` and double percent-encoding (`%25`), which the web servers in front of the controller would normalise into a different path from the one the checks saw. Pass query parameters with the `query` argument.
 
-Leave `raw` out of `UNIFI_TOOLSETS` if you want the assistant limited to the curated tools.
+The `raw` toolset is off unless you name it in `UNIFI_TOOLSETS` (`all` leaves it out), so by default the assistant is limited to the curated tools.
 
 ## Tips for good results
 

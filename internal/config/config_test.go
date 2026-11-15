@@ -54,7 +54,7 @@ func TestDefaults(t *testing.T) {
 	if u.URL != "https://10.0.0.1" || u.Site != "default" || u.VerifySSL || u.ControllerType != "auto" || u.TimeoutMs != 30000 || u.CAFile != "" || u.TLSFingerprints != nil {
 		t.Errorf("unifi defaults: %+v", u)
 	}
-	if cfg.Tools.AllowWrites || cfg.Tools.AllowDeletes || cfg.Tools.AllowSecrets || len(cfg.Tools.Toolsets) != len(Toolsets) {
+	if cfg.Tools.AllowWrites || cfg.Tools.AllowDeletes || cfg.Tools.AllowSecrets || len(cfg.Tools.Toolsets) != len(Toolsets)-len(OptInToolsets) || cfg.Tools.Toolsets["raw"] {
 		t.Errorf("tool defaults: %+v", cfg.Tools)
 	}
 	h := cfg.HTTP
@@ -79,16 +79,15 @@ func TestGatingAndToolsets(t *testing.T) {
 	if !cfg.Tools.AllowDeletes || !reflect.DeepEqual(sets, []string{"clients", "overview"}) {
 		t.Errorf("toolsets: %v", sets)
 	}
-	if _, err := load(t, base, "UNIFI_TOOLSETS", "overview,bogus"); err == nil || !strings.HasPrefix(err.Error(), `Unknown toolset "bogus" in UNIFI_TOOLSETS; valid: all, overview, devices,`) {
+	if _, err := load(t, base, "UNIFI_TOOLSETS", "overview,bogus"); err == nil || !strings.HasPrefix(err.Error(), `Unknown toolset "bogus" in UNIFI_TOOLSETS; valid: all (every toolset except raw), overview, devices,`) {
 		t.Errorf("bad toolset: %v", err)
 	}
-	// Booleans are lenient, as before: anything other than 1/true/yes/on is false.
 	for _, v := range []string{"1", "true", "TRUE", "yes", "on"} {
 		if !mustLoad(t, base, "UNIFI_ALLOW_WRITES", v).Tools.AllowWrites {
 			t.Errorf("%q should enable writes", v)
 		}
 	}
-	for _, v := range []string{"0", "false", "maybe", "off"} {
+	for _, v := range []string{"0", "false", "No", "off"} {
 		if mustLoad(t, base, "UNIFI_ALLOW_WRITES", v).Tools.AllowWrites {
 			t.Errorf("%q should not enable writes", v)
 		}
@@ -194,7 +193,7 @@ func TestBundleUnsetValues(t *testing.T) {
 		if u.Site != "default" || u.VerifySSL || u.CAFile != "" || u.Username != "" || u.Password != "" || len(u.TLSFingerprints) != 1 {
 			t.Errorf("%q: unifi: %+v", env["UNIFI_SITE"], u)
 		}
-		if cfg.Tools.AllowWrites || cfg.Tools.AllowDeletes || len(cfg.Tools.Toolsets) != len(Toolsets) {
+		if cfg.Tools.AllowWrites || cfg.Tools.AllowDeletes || len(cfg.Tools.Toolsets) != len(Toolsets)-len(OptInToolsets) {
 			t.Errorf("%q: tools: %+v", env["UNIFI_SITE"], cfg.Tools)
 		}
 		// With nothing to check the certificate, an https controller is still refused.
@@ -377,5 +376,39 @@ func TestAuditLog(t *testing.T) {
 	}
 	if _, err := load(t, base, "UNIFI_AUDIT_LOG", dir); err == nil {
 		t.Error("a directory was accepted as the audit log")
+	}
+}
+
+// raw reaches every endpoint, so "all" (and the default) leaves it out and it
+// has to be named.
+func TestRawToolsetIsOptIn(t *testing.T) {
+	for _, v := range []string{"", "all", "ALL, overview"} {
+		cfg := mustLoad(t, base, "UNIFI_TOOLSETS", v)
+		if cfg.Tools.Toolsets["raw"] || !cfg.Tools.Toolsets["admin"] {
+			t.Errorf("UNIFI_TOOLSETS=%q: %v", v, cfg.Tools.Toolsets)
+		}
+	}
+	for _, v := range []string{"raw", "all,raw", "overview, RAW"} {
+		if !mustLoad(t, base, "UNIFI_TOOLSETS", v).Tools.Toolsets["raw"] {
+			t.Errorf("UNIFI_TOOLSETS=%q should enable raw", v)
+		}
+	}
+	if !AllTools().Toolsets["raw"] {
+		t.Error("AllTools (docs and tests) should include raw")
+	}
+}
+
+// A mistyped boolean is refused at startup instead of quietly reading as
+// false: UNIFI_VERIFY_SSL=ture used to turn certificate checks off and count
+// as an explicit choice.
+func TestBooleansRejectUnknownValues(t *testing.T) {
+	for _, name := range []string{"UNIFI_ALLOW_WRITES", "UNIFI_ALLOW_DELETES", "UNIFI_ALLOW_SECRETS", "UNIFI_VERIFY_SSL", "MCP_ALLOW_UNAUTHENTICATED"} {
+		_, err := load(t, base, name, "ture")
+		if err == nil || err.Error() != name+` must be true or false, got "ture"` {
+			t.Errorf("%s=ture: %v", name, err)
+		}
+	}
+	if _, err := load(t, map[string]string{"UNIFI_URL": "https://10.0.0.1", "UNIFI_API_KEY": "k", "UNIFI_VERIFY_SSL": "maybe"}); err == nil || !strings.Contains(err.Error(), "UNIFI_VERIFY_SSL must be true or false") {
+		t.Errorf("UNIFI_VERIFY_SSL=maybe: %v", err)
 	}
 }

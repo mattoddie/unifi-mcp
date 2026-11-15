@@ -189,23 +189,27 @@ func registerDevices(c *Context) {
 	})
 
 	c.add(Def{
+		Toolset: "devices", Name: "unifi_refresh_firmware", Title: "Refresh firmware availability",
+		Description: "Ask the controller to re-check Ubiquiti's servers for new device firmware (cmd/productinfo check-firmware-update). Nothing is upgraded. The check runs in the background: read the result a minute later with unifi_get_firmware_status or unifi_check_updates.",
+		Gate:        Write,
+		Input:       props(siteArg()),
+		Handler: func(ctx context.Context, a Args) (any, error) {
+			if _, err := client.Cmd(ctx, c.site(a), "productinfo", "check-firmware-update", nil); err != nil {
+				return nil, err
+			}
+			return ojson.New("requested", "check-firmware-update", "next", "Read the result with unifi_get_firmware_status or unifi_check_updates in a minute"), nil
+		},
+	})
+
+	c.add(Def{
 		Toolset: "devices", Name: "unifi_get_firmware_status", Title: "Get firmware status",
-		Description: "Show each device's current firmware and whether an upgrade is available. Optionally ask the controller to refresh its firmware cache first (requires writes enabled), and/or list the firmware images it knows about.",
+		Description: "Show each device's current firmware and whether an upgrade is available, and optionally list the firmware images the controller knows about. To make the controller re-check Ubiquiti's servers first, use unifi_refresh_firmware (needs writes enabled).",
 		Input: props(
 			siteArg(),
-			P("refresh", Bool().Opt().D("Ask the controller to check for new device firmware first (cmd/productinfo; requires UNIFI_ALLOW_WRITES=true)")),
 			P("include_available", Bool().Opt().D("Also list firmware images available to the controller (cmd/firmware list-available)")),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
-			if a.Truthy("refresh") {
-				if !c.AllowWrites {
-					return nil, errorf("refresh requires UNIFI_ALLOW_WRITES=true")
-				}
-				if _, err := client.SitePost(ctx, s, "cmd/productinfo", ojson.New("cmd", "check-firmware-update")); err != nil {
-					return nil, err
-				}
-			}
 			res, err := client.SiteGet(ctx, s, "stat/device", nil)
 			if err != nil {
 				return nil, err

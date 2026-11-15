@@ -153,7 +153,7 @@ func main() {
 		"| 🟢 read | Always |",
 		"| 🟠 write | `UNIFI_ALLOW_WRITES=true` |",
 		"| 🔴 delete | `UNIFI_ALLOW_WRITES=true` and `UNIFI_ALLOW_DELETES=true` |", "",
-		"Every tool also needs its toolset to be enabled in `UNIFI_TOOLSETS`, which enables all toolsets by default. Most tools take an optional `site` argument, which defaults to `UNIFI_SITE`.", "",
+		"Every tool also needs its toolset to be enabled in `UNIFI_TOOLSETS`, which enables every toolset except `raw` by default (`raw` must be named). Most tools take an optional `site` argument, which defaults to `UNIFI_SITE`.", "",
 		"Every write and delete tool, and `unifi_api_request` when writes are enabled, also takes an optional `dry_run` argument (boolean), left out of the tables below. With `dry_run: true` the tool reads the current state and returns the first request it would send, with a field-level diff for updates, without changing anything. See [Previewing changes](usage.md#previewing-changes-with-dry_run).", "",
 		"List tools return `{total, returned, items}`: `total` counts the matches and `returned` the items sent after `limit`. They take `search`, `fields` and, on lists that can grow long, `limit`. See [Narrowing list results](usage.md#narrowing-list-results).", "",
 		"## Contents", "")

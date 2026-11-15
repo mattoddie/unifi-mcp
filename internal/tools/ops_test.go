@@ -84,6 +84,16 @@ func TestUpdateThreatManagement(t *testing.T) {
 	contains(t, "empty", env.callErr("unifi_update_threat_management", nil), "Nothing to update")
 }
 
+// Regression test: ips_mode "disabled" used to clear enabled_categories too,
+// although only the fields given are changed.
+func TestDisablingThreatManagementKeepsCategories(t *testing.T) {
+	env := opsEnv(t)
+	env.call("unifi_update_threat_management", `{"ips_mode":"disabled"}`)
+	put := lastTo(env.mock, "/api/s/default/rest/setting/ips/s_ips").Body
+	eq(t, "mode sent", get(put, "ips_mode"), "disabled")
+	eq(t, "categories kept", get(put, "enabled_categories"), js(`["emerging-malware"]`))
+}
+
 func TestCountryBlocking(t *testing.T) {
 	env := opsEnv(t)
 	res := env.call("unifi_update_country_blocking", `{"enabled":true,"mode":"block","countries":["cn","ru"]}`)
@@ -171,9 +181,13 @@ func TestBackups(t *testing.T) {
 
 func TestCheckUpdates(t *testing.T) {
 	env := opsEnv(t)
-	res := env.call("unifi_check_updates", `{"refresh":true}`)
+	res := env.call("unifi_check_updates", nil)
 	eq(t, "version", get(res, "controller", "version"), "9.1.0")
 	eq(t, "up to date", get(res, "devices_up_to_date"), 2.0)
+	if len(env.mock.RequestsTo("/api/s/default/cmd/productinfo")) != 0 {
+		t.Error("unifi_check_updates should only read")
+	}
+	env.call("unifi_refresh_firmware", nil)
 	eq(t, "refresh", lastTo(env.mock, "/api/s/default/cmd/productinfo").Body, js(`{"cmd":"check-firmware-update"}`))
 }
 
