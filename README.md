@@ -24,7 +24,7 @@ An open-source [Model Context Protocol](https://modelcontextprotocol.io) server 
 > **"Why is the lounge TV buffering?"**
 > *The TV is on the Lounge AP at -78 dBm and 12 Mbps, and that AP's 5 GHz radio is at 81% channel utilisation on channel 36. Moving the AP to channel 149 or adding a wired backhaul should fix it. Want me to change the channel?*
 
-Ask about your network in plain English. The assistant picks from **145 tools** to look things up and, if you allow it, make changes. Some examples:
+Ask about your network in plain English. The assistant picks from **148 tools** to look things up and, if you allow it, make changes. Some examples:
 
 - 🩺 *"Give me a health check of the network."*
 - 🔎 *"Which clients have a weak WiFi signal right now?"*

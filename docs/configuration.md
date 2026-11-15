@@ -140,7 +140,7 @@ If both `NAME` and `NAME_FILE` are set, the file wins.
 
 ## Keeping the tool list small
 
-Most MCP clients send every tool's name, description and argument schema to the model with each request. With every toolset enabled that's about 48 KB for the 59 read-only tools, 149 KB for 116 tools with writes on, and 174 KB for all 145 tools with deletes on too. That uses up context you'd rather spend on your conversation and the controller's data, and some clients warn about or cap the number of tools.
+Most MCP clients send every tool's name, description and argument schema to the model with each request. With the default toolsets (all except `raw`) that's about 47 KB for the 58 read-only tools, 149 KB for 116 tools with writes on, and 174 KB for 145 tools with deletes on too. That uses up context you'd rather spend on your conversation and the controller's data, and some clients warn about or cap the number of tools.
 
 `UNIFI_TOOLSETS` is the way to keep the list small. Enable only the toolsets you need: the model sees fewer tools, picks the right one more easily, and can't reach the rest at all.
 
@@ -173,16 +173,16 @@ The sizes are the `tools/list` result the client receives, measured by starting 
 
 | Goal | `UNIFI_TOOLSETS` | Read-only | With writes |
 |---|---|---:|---:|
-| Monitoring only | `overview,devices,clients,monitoring` | 23 tools, 21 KB | 41 tools, 41 KB |
-| Wi-Fi admin | `overview,devices,clients,wifi,monitoring` | 25 tools, 22 KB | 44 tools, 46 KB |
-| Switch ports and PoE | `overview,devices,clients,switching` | 13 tools, 10 KB | 33 tools, 37 KB |
-| Firewall and security work | `overview,networks,firewall,routing,security` | 24 tools, 18 KB | 45 tools, 67 KB |
-| Guest network and vouchers | `overview,clients,hotspot,wifi` | 11 tools, 8 KB | 21 tools, 23 KB |
-| VPN and RADIUS | `overview,networks,vpn` | 11 tools, 8 KB | 19 tools, 25 KB |
+| Monitoring only | `overview,devices,clients,monitoring` | 23 tools, 21 KB | 42 tools, 42 KB |
+| Wi-Fi admin | `overview,devices,clients,wifi,monitoring` | 24 tools, 21 KB | 44 tools, 46 KB |
+| Switch ports and PoE | `overview,devices,clients,switching` | 13 tools, 10 KB | 34 tools, 38 KB |
+| Firewall and security work | `overview,networks,firewall,routing,security` | 25 tools, 19 KB | 46 tools, 69 KB |
+| Guest network and vouchers | `overview,clients,hotspot,wifi` | 10 tools, 7 KB | 20 tools, 22 KB |
+| VPN and RADIUS | `overview,networks,vpn` | 11 tools, 7 KB | 19 tools, 24 KB |
 | Controller admin and backups | `overview,admin,monitoring` | 19 tools, 17 KB | 26 tools, 24 KB |
-| Everything except `raw` (default) | `all` | 59 tools, 48 KB | 116 tools, 149 KB |
+| Everything except `raw` (default) | `all` | 58 tools, 47 KB | 116 tools, 149 KB |
 
-Turning on deletes as well adds the delete tools: the firewall set grows to 61 tools and 81 KB, and `all` to 145 tools and 174 KB.
+Turning on deletes as well adds the delete tools: the firewall set grows to 62 tools and 83 KB, and `all` to 145 tools and 174 KB. Adding `raw` adds one tool (about 1 KB), and `UNIFI_BACKUP_DIR` adds `unifi_download_backup` when writes are on.
 
 ## Example configurations
 

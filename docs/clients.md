@@ -13,7 +13,7 @@ The HTTP endpoint is **stateless**: each request is handled on its own, so you c
 
 In the examples below, replace `<docker-host>` with the machine running the container and `<token>` with your `MCP_AUTH_TOKEN`.
 
-Most clients load every tool's definition into the model's context: about 48 KB for the 59 read-only tools, and up to 174 KB for all 145 tools with writes and deletes on. Enable only the toolsets you need: see [Keeping the tool list small](configuration.md#keeping-the-tool-list-small). Claude Code is the exception, see [below](#claude-code).
+Most clients load every tool's definition into the model's context: about 47 KB for the 58 read-only tools of the default toolsets, and up to 174 KB for 145 tools with writes and deletes on. Enable only the toolsets you need: see [Keeping the tool list small](configuration.md#keeping-the-tool-list-small). Claude Code is the exception, see [below](#claude-code).
 
 - [Claude Code](#claude-code)
 - [Claude Desktop](#claude-desktop)
@@ -84,7 +84,7 @@ To update, install the bundle from a newer release the same way.
 | **Allow changes** | `UNIFI_ALLOW_WRITES` | Off by default, which keeps the assistant read-only. Read [Security](security.md) before turning it on. |
 | **Allow deletes** | `UNIFI_ALLOW_DELETES` | Also allows deleting configuration and forgetting clients. Needs **Allow changes**. |
 | **Allow secrets** | `UNIFI_ALLOW_SECRETS` | Lets Claude ask for unredacted passwords and keys, and use the WiFi QR tool. Off keeps all output redacted. |
-| **Toolsets** | `UNIFI_TOOLSETS` | Optional, such as `overview,devices,clients,wifi,monitoring`. Empty means all except `raw` (list it by name to add it), which is 48 KB of the model's context read-only and up to 174 KB with changes allowed. See [Keeping the tool list small](configuration.md#keeping-the-tool-list-small). |
+| **Toolsets** | `UNIFI_TOOLSETS` | Optional, such as `overview,devices,clients,wifi,monitoring`. Empty means all except `raw` (list it by name to add it), which is 47 KB of the model's context read-only and up to 174 KB with changes allowed. See [Keeping the tool list small](configuration.md#keeping-the-tool-list-small). |
 | **Raw API paths** | `UNIFI_RAW_ALLOWED_PATHS` | Optional path prefixes that limit the raw API tool, such as `/api/s/default/stat`. Only matters when the `raw` toolset is listed in **Toolsets**. |
 | **Audit log file** | `UNIFI_AUDIT_LOG` | Optional full path to a file, such as `/Users/you/unifi-mcp-audit.jsonl`, that records every change Claude makes or previews. The folder must exist; the file is created. `stderr` writes the entries to the extension's log instead. Off when empty. See [Audit log](configuration.md#audit-log). |
 | **Backup folder** | `UNIFI_BACKUP_DIR` | Optional folder where Claude can save controller backups with `unifi_download_backup`. Needs **Allow changes**. Backups contain the whole configuration, including passwords. Off when empty. See [Saving backups](configuration.md#saving-backups). |
