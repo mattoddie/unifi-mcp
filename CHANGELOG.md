@@ -6,6 +6,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-15
+
 ### Added
 
 - `UNIFI_ALLOW_SECRETS` (off by default) gates access to secrets on the server side. When off, no tool offers `include_secrets`, a client that sends it anyway gets redacted output, and `unifi_get_wifi_qr` isn't registered. The startup log line shows `secrets redacted` or `secrets ALLOWED`, and the Claude Desktop extension has an **Allow secrets** setting.
@@ -157,7 +159,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.5.0...v0.6.0
