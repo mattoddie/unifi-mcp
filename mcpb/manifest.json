@@ -48,6 +48,10 @@
   },
   "tools": [
     {
+      "name": "unifi_check_firewall_path",
+      "description": "Read-only \"what if\": for a new connection from source to destination (and destination port), work out the source and destination zones from the networks' subnets (addresses outside every local subnet are in the External zone), then walk the enabled zone-based firewall policies between those zones in index order and report the first that matches, so the verdict (ALLOW, BLOCK or REJECT). Policies that might match first but can't be evaluated from addresses (apps, domains, regions, IP or port groups, schedules) are listed under may_match_first, and when one of them is listed the verdict is only certain if it doesn't match. Traffic rules that match the source and destination are listed too. It reads the configuration only: no traffic is sent, and the controller's own evaluation can differ in details. Network 9.0+ (zone-based firewall)."
+    },
+    {
       "name": "unifi_check_updates",
       "description": "Report whether a newer Network application version is available, and which devices have firmware upgrades. To make the controller re-check Ubiquiti's servers for device firmware first, use unifi_refresh_firmware (needs writes enabled)."
     },

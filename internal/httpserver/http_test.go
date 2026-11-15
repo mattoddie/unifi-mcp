@@ -91,7 +91,7 @@ func TestBearerAuth(t *testing.T) {
 				Tools []struct{ Name string } `json:"tools"`
 			} `json:"result"`
 		}
-		if err := json.Unmarshal([]byte(body), &out); err != nil || len(out.Result.Tools) != 59 {
+		if err := json.Unmarshal([]byte(body), &out); err != nil || len(out.Result.Tools) != 60 {
 			t.Errorf("tools/list: %v %d", err, len(out.Result.Tools))
 		}
 	}

@@ -147,7 +147,7 @@ Clients with their own tool search, such as Claude Code, load tool definitions o
 | `switching` | 7 | Switch ports, PoE |
 | `wifi` | 4 | SSIDs |
 | `networks` | 13 | VLANs, WAN, DNS, bandwidth profiles |
-| `firewall` | 20 | Port forwards, rules, policies, zones, traffic rules |
+| `firewall` | 21 | Port forwards, rules, policies, zones, traffic rules |
 | `routing` | 6 | Static routes, traffic routes |
 | `security` | 7 | IDS/IPS, country blocking, content filters |
 | `vpn` | 9 | VPNs, RADIUS |
