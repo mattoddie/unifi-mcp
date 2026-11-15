@@ -206,6 +206,8 @@ Paths must stay inside the Network application: `.` and `..` segments (also perc
 
 The `raw` toolset is off unless you name it in `UNIFI_TOOLSETS` (`all` leaves it out), so by default the assistant is limited to the curated tools.
 
+To enable it narrowly, list the paths it may use in `UNIFI_RAW_ALLOWED_PATHS`, for example `UNIFI_RAW_ALLOWED_PATHS=/api/s/default/stat,/v2/api/site/default/trafficroutes`. The tool then refuses every other path, and its description tells the assistant which paths it has. A prefix covers itself and the paths under it, matched whole segment by segment (`/api/s/default/stat` allows `/api/s/default/stat/device` but not `/api/s/default/statistics`). The other rules above still apply within those paths.
+
 ## Tips for good results
 
 - **Be specific about scope.** *"APs on the first floor"* or *"the last 2 hours"* lead to tighter tool calls.

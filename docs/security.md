@@ -67,7 +67,7 @@ A plain `http://` `UNIFI_URL` is allowed, for example for a controller reached o
 
 - Local admin, or an API key from a dedicated admin
 - `UNIFI_ALLOW_WRITES=true`, deletes off
-- Only the toolsets you work with, without `raw` (`all` leaves it out unless you name it)
+- Only the toolsets you work with, without `raw` (`all` leaves it out unless you name it). If you need `raw`, limit it to the paths you use with `UNIFI_RAW_ALLOWED_PATHS`
 - Keep tool confirmations on in your MCP client, so you approve each destructive call
 - Ask for a dry run before big changes, and turn on `UNIFI_AUDIT_LOG` so you can review what was changed
 

@@ -85,6 +85,7 @@ To update, install the bundle from a newer release the same way.
 | **Allow deletes** | `UNIFI_ALLOW_DELETES` | Also allows deleting configuration and forgetting clients. Needs **Allow changes**. |
 | **Allow secrets** | `UNIFI_ALLOW_SECRETS` | Lets Claude ask for unredacted passwords and keys, and use the WiFi QR tool. Off keeps all output redacted. |
 | **Toolsets** | `UNIFI_TOOLSETS` | Optional, such as `overview,devices,clients,wifi,monitoring`. Empty means all except `raw` (list it by name to add it), which is 48 KB of the model's context read-only and up to 174 KB with changes allowed. See [Keeping the tool list small](configuration.md#keeping-the-tool-list-small). |
+| **Raw API paths** | `UNIFI_RAW_ALLOWED_PATHS` | Optional path prefixes that limit the raw API tool, such as `/api/s/default/stat`. Only matters when the `raw` toolset is listed in **Toolsets**. |
 | **Audit log file** | `UNIFI_AUDIT_LOG` | Optional full path to a file, such as `/Users/you/unifi-mcp-audit.jsonl`, that records every change Claude makes or previews. The folder must exist; the file is created. `stderr` writes the entries to the extension's log instead. Off when empty. See [Audit log](configuration.md#audit-log). |
 | **Backup folder** | `UNIFI_BACKUP_DIR` | Optional folder where Claude can save controller backups with `unifi_download_backup`. Needs **Allow changes**. Backups contain the whole configuration, including passwords. Off when empty. See [Saving backups](configuration.md#saving-backups). |
 

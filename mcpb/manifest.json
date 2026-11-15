@@ -37,6 +37,7 @@
         "UNIFI_ALLOW_DELETES": "${user_config.allow_deletes}",
         "UNIFI_ALLOW_SECRETS": "${user_config.allow_secrets}",
         "UNIFI_TOOLSETS": "${user_config.toolsets}",
+        "UNIFI_RAW_ALLOWED_PATHS": "${user_config.raw_allowed_paths}",
         "UNIFI_AUDIT_LOG": "${user_config.audit_log}",
         "UNIFI_BACKUP_DIR": "${user_config.backup_dir}"
       },
@@ -415,6 +416,12 @@
       "type": "string",
       "title": "Toolsets",
       "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients,wifi,monitoring. Empty means all except raw, which has to be listed by name.",
+      "default": ""
+    },
+    "raw_allowed_paths": {
+      "type": "string",
+      "title": "Raw API paths",
+      "description": "Optional comma-separated API path prefixes, e.g. /api/s/default/stat, that limit the raw API tool (toolset raw) to those paths. Empty allows any path.",
       "default": ""
     },
     "audit_log": {

@@ -433,3 +433,34 @@ func TestBackupDir(t *testing.T) {
 		t.Errorf("placeholder: %q", got)
 	}
 }
+
+func TestRawAllowedPaths(t *testing.T) {
+	if p := mustLoad(t, base).Tools.RawAllowedPaths; p != nil {
+		t.Errorf("default: %v", p)
+	}
+	got := mustLoad(t, base, "UNIFI_RAW_ALLOWED_PATHS", " /api/s/default/stat/ , /v2/api/site/default/trafficroutes,,/").Tools.RawAllowedPaths
+	if !reflect.DeepEqual(got, []string{"/api/s/default/stat", "/v2/api/site/default/trafficroutes", "/"}) {
+		t.Errorf("parsed: %v", got)
+	}
+	for _, bad := range []string{"api/s", "/api/%73", "/api;x", "/api//s", "/api/../s", "/api/./s", "/api?x=1", "/api#x", `/api\s`, "/a b"} {
+		if _, err := load(t, base, "UNIFI_RAW_ALLOWED_PATHS", bad); err == nil || !strings.Contains(err.Error(), "is not a plain path prefix") {
+			t.Errorf("%q: %v", bad, err)
+		}
+	}
+	prefixes := []string{"/api/s/default/stat", "/integration/v1/sites"}
+	for path, want := range map[string]bool{
+		"/api/s/default/stat":             true,
+		"/api/s/default/stat/device":      true,
+		"/api/s/default/statistics":       false,
+		"/api/s/default/cmd/devmgr":       false,
+		"/integration/v1/sites/x/devices": true,
+		"/API/s/default/stat":             false,
+	} {
+		if RawPathAllowed(prefixes, path) != want {
+			t.Errorf("%s: want %v", path, want)
+		}
+	}
+	if !RawPathAllowed(nil, "/anything") || !RawPathAllowed([]string{"/"}, "/anything") {
+		t.Error("no prefixes, or /, allows everything")
+	}
+}
