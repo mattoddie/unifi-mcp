@@ -134,8 +134,24 @@ func handler(run runner) mcp.ToolHandler {
 	}
 }
 
+// withoutSecretsArg returns the props without include_secrets.
+func withoutSecretsArg(ps []Prop) []Prop {
+	out := make([]Prop, 0, len(ps))
+	for _, p := range ps {
+		if p.Name != "include_secrets" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // build makes the MCP tool (annotations and input schema) and its runner.
+// Without UNIFI_ALLOW_SECRETS it drops include_secrets from every tool's input,
+// so no tool can offer it by accident and calls that send it have it dropped.
 func (c *Context) build(d Def) (*mcp.Tool, runner, *ojson.Obj) {
+	if !c.AllowSecrets {
+		d.Input = withoutSecretsArg(d.Input)
+	}
 	readOnly := d.readOnly()
 	ann := &mcp.ToolAnnotations{Title: d.Title, ReadOnlyHint: readOnly, OpenWorldHint: boolPtr(false)}
 	if !readOnly {

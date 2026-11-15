@@ -141,7 +141,7 @@ func registerNetworks(c *Context) {
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_networks", Title: "List networks",
 		Description: "List configured networks (LANs/VLANs, WANs, VPNs) with subnet, VLAN ID and DHCP settings.",
-		Input:       props(siteArg(), netList.args(), rawArg(), c.secretsArg(secretsPassphrases)),
+		Input:       props(siteArg(), netList.args(), rawArg(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "rest/networkconf", nil)
 			if err != nil {
@@ -582,8 +582,8 @@ func registerNetworks(c *Context) {
 	ddnsList := listing{Search: []string{"service", "hostname", "server", "interface"}}
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_dynamic_dns", Title: "List dynamic DNS",
-		Description: "List dynamic DNS configurations (passwords redacted unless include_secrets).",
-		Input:       props(siteArg(), ddnsList.args(), c.secretsArg(secretsPassphrases)),
+		Description: "List dynamic DNS configurations (" + c.redacted("passwords") + ").",
+		Input:       props(siteArg(), ddnsList.args(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			entries, err := restList(ctx, client, c.site(a), "dynamicdns")
 			if err != nil {

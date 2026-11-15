@@ -220,7 +220,7 @@ func registerHotspot(c *Context) {
 		Description: "Get guest portal / hotspot settings: authentication method, session length, voucher/password/payment options, redirect, allowed subnets.",
 		Input: props(
 			siteArg(),
-			c.secretsArg("Include the portal password and payment/RADIUS secrets"),
+			secretsArg("Include the portal password and payment/RADIUS secrets"),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			g, err := getSetting(ctx, client, c.site(a), "guest_access")

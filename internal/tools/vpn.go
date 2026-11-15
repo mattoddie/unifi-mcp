@@ -130,7 +130,7 @@ func registerVPN(c *Context) {
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_list_vpns", Title: "List VPNs",
 		Description: "List VPN servers (WireGuard, OpenVPN, L2TP), VPN clients and site-to-site VPNs configured on the gateway. Use raw: true to see every field.",
-		Input:       props(siteArg(), vpnList.args(), rawArg(), c.secretsArg(secretsVPN)),
+		Input:       props(siteArg(), vpnList.args(), rawArg(), secretsArg(secretsVPN)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "networkconf")
 			if err != nil {
@@ -294,8 +294,8 @@ func registerVPN(c *Context) {
 
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_list_radius_profiles", Title: "List RADIUS profiles",
-		Description: "List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP VPN (secrets redacted unless include_secrets).",
-		Input:       props(siteArg(), radiusProfileList.args(), c.secretsArg(secretsVPN)),
+		Description: "List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP VPN (" + c.redacted("secrets") + ").",
+		Input:       props(siteArg(), radiusProfileList.args(), secretsArg(secretsVPN)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "radiusprofile")
 			if err != nil {
@@ -381,8 +381,8 @@ func registerVPN(c *Context) {
 
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_list_radius_accounts", Title: "List RADIUS accounts",
-		Description: "List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise). Passwords redacted unless include_secrets.",
-		Input:       props(siteArg(), nameList.args(), c.secretsArg(secretsVPN)),
+		Description: "List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise). " + c.redacted("Passwords") + ".",
+		Input:       props(siteArg(), nameList.args(), secretsArg(secretsVPN)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "account")
 			if err != nil {

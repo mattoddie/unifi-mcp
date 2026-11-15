@@ -110,7 +110,7 @@ func registerWifi(c *Context) {
 	c.add(Def{
 		Toolset: "wifi", Name: "unifi_list_wlans", Title: "List WiFi networks",
 		Description: "List wireless networks (SSIDs) with security, bands, linked network and enabled state.",
-		Input:       props(siteArg(), listing{}.args(), rawArg(), c.secretsArg(secretsPassphrases)),
+		Input:       props(siteArg(), listing{}.args(), rawArg(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "rest/wlanconf", nil)
 			if err != nil {

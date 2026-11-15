@@ -45,7 +45,7 @@ func registerAdmin(c *Context) {
 		Input: props(
 			siteArg(),
 			P("key", Str().Opt().D("Setting key to return in full; omit to list available keys")),
-			c.secretsArg(secretsPasswords),
+			secretsArg(secretsPasswords),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "rest/setting", nil)

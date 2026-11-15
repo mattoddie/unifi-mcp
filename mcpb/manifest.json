@@ -165,7 +165,7 @@
     },
     {
       "name": "unifi_list_dynamic_dns",
-      "description": "List dynamic DNS configurations (passwords redacted unless include_secrets)."
+      "description": "List dynamic DNS configurations (passwords redacted)."
     },
     {
       "name": "unifi_list_events",
@@ -225,11 +225,11 @@
     },
     {
       "name": "unifi_list_radius_accounts",
-      "description": "List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise). Passwords redacted unless include_secrets."
+      "description": "List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise). Passwords redacted."
     },
     {
       "name": "unifi_list_radius_profiles",
-      "description": "List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP VPN (secrets redacted unless include_secrets)."
+      "description": "List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP VPN (secrets redacted)."
     },
     {
       "name": "unifi_list_rogue_aps",
