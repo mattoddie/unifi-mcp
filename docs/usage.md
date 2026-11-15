@@ -51,6 +51,7 @@ Once the server is connected, just talk to your assistant about your network. Th
 **Firewall and security**
 
 - *"Which ports are forwarded to the internet, and to which hosts?"*
+- *"Can the thermostat at 192.168.20.31 reach the NAS on port 445? Which firewall policy decides?"* (`unifi_check_firewall_path`, zone-based firewall)
 - *"Is IDS/IPS on? What threats were blocked this week?"*
 - *"Add a traffic rule that blocks social media on the kids' network."* (writes)
 - *"Block traffic from the IoT VLAN to the main LAN."* (writes)

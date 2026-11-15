@@ -41,6 +41,7 @@ func NewServer(client *unifi.Client, opts config.Tools, registered *[]Info) *mcp
 	registerWifi(c)
 	registerNetworks(c)
 	registerFirewall(c)
+	registerFirewallWhatIf(c)
 	registerRouting(c)
 	registerSecurity(c)
 	registerVPN(c)
