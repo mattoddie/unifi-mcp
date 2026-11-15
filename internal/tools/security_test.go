@@ -95,6 +95,33 @@ func TestRawToolEncodedDeleteIsRejected(t *testing.T) {
 	eq(t, "decoded", deleteLikeReason("/v2/x/batch-d%65lete", ojson.Undefined), `path segment "batch-delete"`)
 }
 
+// Regression test: nginx merges repeated slashes and Tomcat drops ";params",
+// so these paths reach cmd/devmgr while skipping the known-commands check.
+func TestRawToolRefusesPathsTheServerNormalises(t *testing.T) {
+	env := startMock(t, toolOptions(true, false))
+	before := len(env.mock.Requests())
+	for _, path := range []string{
+		"/api/s/default//cmd/devmgr",
+		"/api/s/default/cmd//devmgr",
+		"//api/s/default/cmd/devmgr",
+		"/api/s/default/cmd/devmgr;x",
+		"/api/s/default;x/cmd/devmgr",
+		"/api/s/default/cmd/devmgr%3Bx",
+		"/api/s/default/cmd%2F%2Fdevmgr",
+		"/api/s/default/cmd/devm%2561nager",
+	} {
+		contains(t, path, env.callErr("unifi_api_request", `{"method":"POST","path":"`+path+`","body":{"cmd":"migrate"}}`), "Invalid API path")
+		contains(t, path+" GET", env.callErr("unifi_api_request", `{"path":"`+path+`"}`), "Invalid API path")
+	}
+	if reqs := env.mock.Requests()[before:]; len(reqs) != 0 {
+		t.Errorf("normalised path reached the controller: %+v", reqs)
+	}
+	// A trailing slash is still fine, and is still checked against the known commands.
+	contains(t, "trailing", env.callErr("unifi_api_request", `{"method":"POST","path":"/api/s/default/cmd/devmgr/","body":{"cmd":"migrate"}}`), `command "migrate" for devmgr`)
+	contains(t, "upper case", env.callErr("unifi_api_request", `{"method":"POST","path":"/API/s/default/CMD/devmgr","body":{"cmd":"migrate"}}`), `command "migrate" for devmgr`)
+	env.call("unifi_api_request", `{"path":"/api/s/default/stat/device"}`)
+}
+
 func TestForgetAndRevokeAreDeletes(t *testing.T) {
 	env := startMock(t, toolOptions(true, false))
 	writes := toolMap(t, env.mcp)
@@ -109,11 +136,27 @@ func TestForgetAndRevokeAreDeletes(t *testing.T) {
 	}
 }
 
-func TestFirmwareRefreshNeedsWrites(t *testing.T) {
+// Regression test: the firmware refresh used to be a refresh argument on two
+// read tools, which POSTed cmd/productinfo with writes on, unaudited and
+// marked read-only. It is its own write tool now, and the read tools only read.
+func TestFirmwareRefreshIsAWriteTool(t *testing.T) {
 	env := startMock(t, toolOptions(false, false))
+	tools := toolMap(t, env.mcp)
+	if tools["unifi_refresh_firmware"] != nil {
+		t.Error("unifi_refresh_firmware registered without writes")
+	}
+	for _, name := range []string{"unifi_get_firmware_status", "unifi_check_updates"} {
+		if tools[name].InputSchema.(map[string]any)["properties"].(map[string]any)["refresh"] != nil {
+			t.Errorf("%s still offers refresh", name)
+		}
+	}
+	w := toolMap(t, connect(t, env.client, toolOptions(true, false)))
+	if tool := w["unifi_refresh_firmware"]; tool == nil || tool.Annotations.ReadOnlyHint {
+		t.Error("unifi_refresh_firmware should be a write tool")
+	}
 	before := len(env.mock.Requests())
-	contains(t, "refresh", env.callErr("unifi_get_firmware_status", `{"refresh":true}`), "refresh requires UNIFI_ALLOW_WRITES=true")
-	contains(t, "check_updates", env.callErr("unifi_check_updates", `{"refresh":true}`), "refresh requires UNIFI_ALLOW_WRITES")
+	env.call("unifi_get_firmware_status", `{"refresh":true}`)
+	env.call("unifi_check_updates", `{"refresh":true}`)
 	for _, r := range env.mock.Requests()[before:] {
 		if r.Method != "GET" {
 			t.Errorf("non-GET request without writes: %s %s", r.Method, r.Path)

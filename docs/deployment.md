@@ -177,7 +177,7 @@ Release binaries don't update themselves. Watch the repository's releases (**Wat
 
 ### Build it yourself
 
-You need [Go](https://go.dev/dl/) 1.25 or later. With `go install`:
+You need [Go](https://go.dev/dl/) 1.26 or later. With `go install`:
 
 ```sh
 go install github.com/mattoddie/unifi-mcp/cmd/unifi-mcp@latest

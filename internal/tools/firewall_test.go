@@ -2,7 +2,9 @@ package tools
 
 import (
 	"context"
+	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -212,7 +214,7 @@ func TestZonesAndOrderingThroughTheIntegrationAPI(t *testing.T) {
 	put := env.call("unifi_set_firewall_policy_ordering", `{"source_zone_id":"z1","destination_zone_id":"z2","before_system_defined":["b","a"]}`)
 	eq(t, "put", put, js(`{"orderedFirewallPolicyIds":{"beforeSystemDefined":["b","a"],"afterSystemDefined":[]}}`))
 	contains(t, "wrong ids", env.callErr("unifi_set_firewall_policy_ordering", `{"source_zone_id":"z1","destination_zone_id":"z2","before_system_defined":["a"]}`), "exactly the current policy IDs: a, b")
-	if r := env.mock.RequestsTo("/integration/v1/sites"); r[0].Header.Get("X-API-KEY") != "key123" || r[0].Path != "/proxy/network/integration/v1/sites?limit=200" {
+	if r := env.mock.RequestsTo("/integration/v1/sites"); r[0].Header.Get("X-API-KEY") != "key123" || r[0].Path != "/proxy/network/integration/v1/sites?offset=0&limit=200" {
 		t.Errorf("integration request: %s %v", r[0].Path, r[0].Header)
 	}
 	// A site that isn't found is an error, even when the controller has only one site.
@@ -317,4 +319,47 @@ func TestFirewallRuleOrdering(t *testing.T) {
 	res := env.list("unifi_list_firewall_rules", nil)
 	eq(t, "order", ojson.Map(res.([]any), func(r any) any { return ojson.Get(r, "id") }), js(`["d","c","b","a"]`))
 	eq(t, "states", get(res, 0, "states"), js(`[]`))
+}
+
+// Regression test: the integration API lookups fetched only the first 200
+// items, so a zone or site on a later page was never found.
+func TestIntegrationListsArePaged(t *testing.T) {
+	env := firewallEnv(t)
+	var offsets []string
+	env.mock.On("GET", `^/integration/v1/sites/[^/]+/firewall/zones$`, func(_ any, _ []string, q url.Values) (int, any) {
+		offsets = append(offsets, q.Get("offset"))
+		offset, _ := strconv.Atoi(q.Get("offset"))
+		data := []any{}
+		for i := offset; i < min(offset+200, 250); i++ {
+			data = append(data, ojson.New("id", fmt.Sprintf("iz-%d", i), "name", fmt.Sprintf("Zone %d", i)))
+		}
+		return 200, ojson.New("offset", float64(offset), "limit", 200.0, "count", float64(len(data)), "totalCount", 250.0, "data", data)
+	})
+	zones, err := integrationZones(context.Background(), env.client, "site-uuid")
+	if err != nil || len(zones) != 250 || ojson.Get(zones[249], "id") != "iz-249" {
+		t.Fatalf("zones: %d %v", len(zones), err)
+	}
+	eq(t, "offsets", offsets, []string{"0", "200"})
+}
+
+// Regression test: with no current IDs from the controller, the "same IDs"
+// check was skipped and any order was sent.
+func TestPolicyOrderingRefusesWithoutCurrentIDs(t *testing.T) {
+	env := firewallEnv(t)
+	env.mock.
+		On("GET", `^/integration/v1/sites$`, func(any, []string, url.Values) (int, any) {
+			return 200, js(`{"data":[{"id":"site-uuid","internalReference":"default"}]}`)
+		}).
+		On("GET", `^/integration/v1/sites/[^/]+/firewall/zones$`, func(any, []string, url.Values) (int, any) {
+			return 200, js(`{"data":[{"id":"iz-a","name":"A"},{"id":"iz-b","name":"B"}]}`)
+		}).
+		On("GET", `^/integration/v1/sites/[^/]+/firewall/policies/ordering$`, func(any, []string, url.Values) (int, any) {
+			return 200, js(`{}`)
+		})
+	contains(t, "no ids", env.callErr("unifi_set_firewall_policy_ordering", `{"source_zone_id":"iz-a","destination_zone_id":"iz-b","before_system_defined":["x"]}`), "no current policy IDs")
+	for _, r := range env.mock.Requests() {
+		if r.Method == "PUT" {
+			t.Errorf("sent %s %s", r.Method, r.Path)
+		}
+	}
 }

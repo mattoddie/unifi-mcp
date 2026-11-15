@@ -42,7 +42,7 @@ A variable set to an empty value counts as unset and gets its default. So does o
 | `UNIFI_ALLOW_WRITES` | `false` | Register tools that change state: restarting devices, blocking clients, editing WiFi, firewall, networks and so on. |
 | `UNIFI_ALLOW_DELETES` | `false` | Also register tools that delete or forget things, such as networks, WLANs, firewall rules, sites, clients' history or hotspot vouchers. Requires `UNIFI_ALLOW_WRITES=true`. |
 | `UNIFI_ALLOW_SECRETS` | `false` | Offer the `include_secrets` argument (unredacted passphrases, keys and passwords) and register `unifi_get_wifi_qr`, which returns a WiFi password. Independent of writes. Off means output is always redacted. |
-| `UNIFI_TOOLSETS` | `all` | Comma-separated list of [toolsets](#toolsets) to expose. See [Keeping the tool list small](#keeping-the-tool-list-small). |
+| `UNIFI_TOOLSETS` | `all` | Comma-separated list of [toolsets](#toolsets) to expose. `all` means every toolset except `raw`, which has to be named, e.g. `all,raw`. See [Keeping the tool list small](#keeping-the-tool-list-small). |
 
 Tools that aren't allowed are **not registered at all**. The assistant can't find them, so it can't call them or be talked into calling them.
 
@@ -142,7 +142,7 @@ Clients with their own tool search, such as Claude Code, load tool definitions o
 | Toolset | Tools | Use it for |
 |---|---:|---|
 | `overview` | 3 | Sites and health. **Always include it.** |
-| `devices` | 19 | APs, switches, gateways, firmware |
+| `devices` | 20 | APs, switches, gateways, firmware |
 | `clients` | 8 | Who's connected, blocking |
 | `switching` | 7 | Switch ports, PoE |
 | `wifi` | 4 | SSIDs |
@@ -154,7 +154,7 @@ Clients with their own tool search, such as Claude Code, load tool definitions o
 | `hotspot` | 10 | Vouchers, guests |
 | `monitoring` | 13 | Events, alarms, stats, logs |
 | `admin` | 12 | Settings, admins, backups |
-| `raw` | 1 | Any API path. Handy, but gives broad access. |
+| `raw` | 1 | Any API path. Handy, but gives broad access, so `all` leaves it out: list it by name to enable it. |
 
 The counts include write and delete tools, so a read-only setup registers far fewer tools.
 
@@ -171,7 +171,7 @@ The sizes are the `tools/list` result the client receives, measured by starting 
 | Guest network and vouchers | `overview,clients,hotspot,wifi` | 11 tools, 8 KB | 21 tools, 23 KB |
 | VPN and RADIUS | `overview,networks,vpn` | 11 tools, 8 KB | 19 tools, 25 KB |
 | Controller admin and backups | `overview,admin,monitoring` | 19 tools, 17 KB | 26 tools, 24 KB |
-| Everything (default) | `all` | 59 tools, 48 KB | 116 tools, 149 KB |
+| Everything except `raw` (default) | `all` | 59 tools, 48 KB | 116 tools, 149 KB |
 
 Turning on deletes as well adds the delete tools: the firewall set grows to 61 tools and 81 KB, and `all` to 145 tools and 174 KB.
 

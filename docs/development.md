@@ -14,7 +14,7 @@ This page is for people working on unifi-mcp itself. Start with [CONTRIBUTING.md
 
 ## Setup
 
-You need Go 1.25 or later, and Docker for building the image.
+You need Go 1.26 or later, and Docker for building the image.
 
 ```sh
 git clone https://github.com/mattoddie/unifi-mcp.git

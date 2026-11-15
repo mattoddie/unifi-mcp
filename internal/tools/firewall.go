@@ -123,13 +123,41 @@ func summarizeTrafficMatch(r *Obj) *Obj {
 	)
 }
 
+// integrationPageSize is the page size for integration API lists (the API's maximum is 200).
+const integrationPageSize = 200
+
+// integrationMaxPages bounds the paging, so a controller that keeps returning
+// full pages can't keep a call going for ever.
+const integrationMaxPages = 50
+
+// integrationList fetches every item of an official integration API list,
+// following its offset/limit paging ({offset, limit, count, totalCount, data}).
+func integrationList(ctx context.Context, client *unifi.Client, path string) ([]any, error) {
+	var all []any
+	for page := 0; page < integrationMaxPages; page++ {
+		res, err := client.Request(ctx, "GET", path, &unifi.Options{Body: U, Query: []unifi.Param{
+			{Key: "offset", Value: float64(len(all))},
+			{Key: "limit", Value: float64(integrationPageSize)},
+		}})
+		if err != nil {
+			return nil, err
+		}
+		data := arr(ojson.Coalesce(ojson.Get(res, "data"), []any{}))
+		all = append(all, data...)
+		total := ojson.Get(res, "totalCount")
+		if len(data) == 0 || len(data) < integrationPageSize || (ojson.Truthy(total) && float64(len(all)) >= ojson.ToNumber(total)) {
+			return all, nil
+		}
+	}
+	return nil, fmt.Errorf("%s returned more than %d pages of %d items; giving up", path, integrationMaxPages, integrationPageSize)
+}
+
 // integrationSiteID resolves a site name to the official integration API site UUID.
 func integrationSiteID(ctx context.Context, client *unifi.Client, site string) (string, error) {
-	res, err := client.Request(ctx, "GET", "/integration/v1/sites", &unifi.Options{Body: U, Query: []unifi.Param{{Key: "limit", Value: 200.0}}})
+	sites, err := integrationList(ctx, client, "/integration/v1/sites")
 	if err != nil {
 		return "", err
 	}
-	sites := arr(ojson.Coalesce(ojson.Get(res, "data"), []any{}))
 	match := ojson.Find(sites, func(s any) bool {
 		return ojson.Includes([]any{ojson.Get(s, "internalReference"), ojson.Get(s, "name"), ojson.Get(s, "id")}, site)
 	})
@@ -141,11 +169,7 @@ func integrationSiteID(ctx context.Context, client *unifi.Client, site string) (
 }
 
 func integrationZones(ctx context.Context, client *unifi.Client, siteID string) ([]any, error) {
-	res, err := client.Request(ctx, "GET", "/integration/v1/sites/"+siteID+"/firewall/zones", &unifi.Options{Body: U, Query: []unifi.Param{{Key: "limit", Value: 200.0}}})
-	if err != nil {
-		return nil, err
-	}
-	return arr(ojson.Coalesce(ojson.Get(res, "data"), []any{})), nil
+	return integrationList(ctx, client, "/integration/v1/sites/"+siteID+"/firewall/zones")
 }
 
 // resolveIntegrationZone maps a v2 zone _id (or an integration zone id/name) to the integration zone record.
@@ -904,12 +928,16 @@ func registerFirewall(c *Context) {
 			want := append(append([]any{}, before...), after...)
 			sortStrings(have)
 			sortStrings(want)
-			if len(have) > 0 {
-				h, _ := ojson.Stringify(have)
-				w, _ := ojson.Stringify(want)
-				if h != w {
-					return nil, fmt.Errorf("The new order must contain exactly the current policy IDs: %s", joinValues(have, ", "))
-				}
+			// With no current IDs to compare against (an unexpected response
+			// shape, or no user-defined policies), the order can't be checked, so
+			// it isn't sent: a wrong list could drop policies from the order.
+			if len(have) == 0 {
+				return nil, errorf("The controller reported no current policy IDs for these zones, so the new order can't be checked against them. Check the zones with unifi_get_firewall_policy_ordering.")
+			}
+			h, _ := ojson.Stringify(have)
+			w, _ := ojson.Stringify(want)
+			if h != w {
+				return nil, fmt.Errorf("The new order must contain exactly the current policy IDs: %s", joinValues(have, ", "))
 			}
 			return client.Request(ctx, "PUT", path, &unifi.Options{Query: query, Body: ojson.New("orderedFirewallPolicyIds", ordered)})
 		},

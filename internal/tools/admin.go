@@ -297,21 +297,10 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_check_updates", Title: "Check for updates",
-		Description: "Report whether a newer Network application version is available, and which devices have firmware upgrades. With refresh: true (requires writes enabled) the controller first re-checks Ubiquiti's servers for device firmware.",
-		Input: props(
-			siteArg(),
-			P("refresh", Bool().Opt().D("Ask the controller to re-check for device firmware first")),
-		),
+		Description: "Report whether a newer Network application version is available, and which devices have firmware upgrades. To make the controller re-check Ubiquiti's servers for device firmware first, use unifi_refresh_firmware (needs writes enabled).",
+		Input:       props(siteArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
-			if a.Truthy("refresh") {
-				if !c.AllowWrites {
-					return nil, errorf("refresh requires UNIFI_ALLOW_WRITES=true")
-				}
-				if _, err := client.Cmd(ctx, s, "productinfo", "check-firmware-update", nil); err != nil {
-					return nil, err
-				}
-			}
 			latest, err := client.SiteGet(ctx, s, "stat/fwupdate/latest-version", nil)
 			if err != nil {
 				latest = []any{ojson.New("error", err.Error())}

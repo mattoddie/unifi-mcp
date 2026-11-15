@@ -77,7 +77,7 @@
         },
         {
           "name": "UNIFI_TOOLSETS",
-          "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients. Empty means all."
+          "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients. Empty means all except raw, which has to be listed by name."
         },
         {
           "name": "UNIFI_AUDIT_LOG",

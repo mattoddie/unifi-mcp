@@ -19,7 +19,30 @@ import (
 var deleteLike = regexp.MustCompile(`(?i)delete|\bdel-|forget|revoke|remove|destroy|reset|set-default|factory|clear|purge|erase|wipe`)
 
 // classicCmdPath matches classic API command endpoints: /api/s/<site>/cmd/<manager>[/<command>].
-var classicCmdPath = regexp.MustCompile(`^/api/s/[^/]+/cmd/([^/]+)(?:/([^/]+))?/?$`)
+var classicCmdPath = regexp.MustCompile(`(?i)^/api/s/[^/]+/cmd/([^/]+)(?:/([^/]+))?/?$`)
+
+// assertRawPath adds the raw tool's own path rules to unifi.AssertSafePath.
+// The delete checks match the path as written, but the web servers in front
+// of the Network application normalise it first: nginx merges repeated
+// slashes and Tomcat drops ";parameters" from each segment. So
+// /api/s/default//cmd/devmgr or /api/s/default/cmd/devmgr;x would reach
+// cmd/devmgr without matching classicCmdPath. Empty segments (other than a
+// trailing slash) and ";" are refused, also percent-encoded.
+func assertRawPath(path string) error {
+	decoded, err := url.PathUnescape(path)
+	if err != nil {
+		return fmt.Errorf("Invalid API path %q: malformed percent-encoding", path)
+	}
+	for _, p := range []string{path, decoded} {
+		if strings.Contains(p, ";") {
+			return fmt.Errorf("Invalid API path %q: \";\" is not allowed", path)
+		}
+		if strings.Contains(strings.TrimSuffix(p, "/"), "//") {
+			return fmt.Errorf("Invalid API path %q: empty path segments (\"//\") are not allowed", path)
+		}
+	}
+	return nil
+}
 
 // knownCommands are the commands of the classic API managers that are known
 // not to delete anything. With deletes disabled, a command sent to one of these
@@ -134,6 +157,9 @@ func registerRaw(c *Context) {
 			}
 			path := a.Str("path")
 			if err := unifi.AssertSafePath(path); err != nil {
+				return nil, err
+			}
+			if err := assertRawPath(path); err != nil {
 				return nil, err
 			}
 			if method != "GET" && !c.AllowDeletes {

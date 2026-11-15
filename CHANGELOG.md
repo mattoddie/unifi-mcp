@@ -6,6 +6,25 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Added
+
+- `unifi_refresh_firmware` (write) asks the controller to re-check Ubiquiti's servers for device firmware. It replaces the `refresh` argument of `unifi_get_firmware_status` and `unifi_check_updates`.
+
+### Changed
+
+- **Breaking:** `UNIFI_TOOLSETS=all`, and the default, no longer include the `raw` toolset (`unifi_api_request`). It reaches every endpoint, including ones the curated tools gate more finely, so it now has to be named, e.g. `UNIFI_TOOLSETS=all,raw`.
+- **Breaking:** boolean variables (`UNIFI_ALLOW_WRITES`, `UNIFI_ALLOW_DELETES`, `UNIFI_ALLOW_SECRETS`, `UNIFI_VERIFY_SSL`, `MCP_ALLOW_UNAUTHENTICATED`) accept only `true`/`false`, `1`/`0`, `yes`/`no` and `on`/`off`, and the server refuses to start on anything else. Before, a typo such as `UNIFI_VERIFY_SSL=ture` quietly read as `false`, which turned certificate checks off and counted as an explicit TLS choice.
+- **Breaking:** `unifi_get_firmware_status` and `unifi_check_updates` lost their `refresh` argument and only read now. With writes on, it sent a `POST` from a tool marked read-only, without an audit log entry. Use `unifi_refresh_firmware`.
+- The minimum Go version for building from source is 1.26.
+
+### Fixed
+
+- `unifi_api_request` refuses paths with empty segments (`//`), `;` or double percent-encoding (`%25`). nginx merges repeated slashes and Tomcat drops `;parameters`, so a path such as `/api/s/default//cmd/devmgr` or `/api/s/default/cmd/devmgr;x` reached `cmd/devmgr` without the check that, with deletes off, only allows commands known not to delete anything. Every API path now refuses a `%` left after decoding.
+- `unifi_set_switch_port` with `enabled: true` keeps a port security MAC allow-list. It used to switch port security off, wiping the allow-list.
+- `unifi_update_threat_management` with `ips_mode: "disabled"` no longer clears `enabled_categories`; only the fields given are changed.
+- The firewall zone and policy order tools page through the integration API's site and zone lists, so a site or zone after the first 200 is found.
+- `unifi_set_firewall_policy_ordering` refuses to send a new order when the controller reports no current policy IDs, instead of skipping the check that the new order holds exactly the current IDs.
+
 ## [0.7.0] - 2026-11-15
 
 ### Added
