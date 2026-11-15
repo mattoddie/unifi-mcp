@@ -6,6 +6,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-15
+
 ### Added
 
 - `UNIFI_RAW_ALLOWED_PATHS` limits `unifi_api_request` to a comma-separated list of path prefixes, so the `raw` toolset can be enabled narrowly. Prefixes match whole path segments, both as sent and decoded, and the tool's description lists them. The Claude Desktop extension has a **Raw API paths** setting.
@@ -181,7 +183,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.0...v0.6.1
