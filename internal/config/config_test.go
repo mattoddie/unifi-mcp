@@ -412,3 +412,24 @@ func TestBooleansRejectUnknownValues(t *testing.T) {
 		t.Errorf("UNIFI_VERIFY_SSL=maybe: %v", err)
 	}
 }
+
+func TestBackupDir(t *testing.T) {
+	if dir := mustLoad(t, base).Tools.BackupDir; dir != "" {
+		t.Errorf("default: %q", dir)
+	}
+	dir := t.TempDir()
+	if got := mustLoad(t, base, "UNIFI_BACKUP_DIR", dir).Tools.BackupDir; got != dir {
+		t.Errorf("dir: %q", got)
+	}
+	if _, err := load(t, base, "UNIFI_BACKUP_DIR", filepath.Join(dir, "missing")); err == nil || !strings.Contains(err.Error(), "UNIFI_BACKUP_DIR: ENOENT") {
+		t.Errorf("missing: %v", err)
+	}
+	file := filepath.Join(dir, "f")
+	os.WriteFile(file, nil, 0o600)
+	if _, err := load(t, base, "UNIFI_BACKUP_DIR", file); err == nil || !strings.Contains(err.Error(), "is not a directory") {
+		t.Errorf("file: %v", err)
+	}
+	if got := mustLoad(t, base, "UNIFI_BACKUP_DIR", "${user_config.backup_dir}").Tools.BackupDir; got != "" {
+		t.Errorf("placeholder: %q", got)
+	}
+}

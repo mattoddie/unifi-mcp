@@ -69,6 +69,9 @@ type Def struct {
 	// RevealsSecrets marks a tool whose purpose is to return a secret (such as
 	// unifi_get_wifi_qr); it is only registered with UNIFI_ALLOW_SECRETS.
 	RevealsSecrets bool
+	// NeedsBackupDir marks a tool that saves files in UNIFI_BACKUP_DIR; it is
+	// only registered when that is set.
+	NeedsBackupDir bool
 	Input          []Prop
 	Handler        func(ctx context.Context, a Args) (any, error)
 	// Reads, for a tool that changes things, reports whether these arguments
@@ -99,7 +102,8 @@ func (c *Context) enabled(d Def) bool {
 	return c.Toolsets[d.Toolset] &&
 		(d.Gate == Read || c.AllowWrites) &&
 		(d.Gate != Delete || c.AllowDeletes) &&
-		(!d.RevealsSecrets || c.AllowSecrets)
+		(!d.RevealsSecrets || c.AllowSecrets) &&
+		(!d.NeedsBackupDir || c.BackupDir != "")
 }
 
 // includeSecrets reports whether a call asked for include_secrets and

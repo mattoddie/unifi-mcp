@@ -37,7 +37,8 @@
         "UNIFI_ALLOW_DELETES": "${user_config.allow_deletes}",
         "UNIFI_ALLOW_SECRETS": "${user_config.allow_secrets}",
         "UNIFI_TOOLSETS": "${user_config.toolsets}",
-        "UNIFI_AUDIT_LOG": "${user_config.audit_log}"
+        "UNIFI_AUDIT_LOG": "${user_config.audit_log}",
+        "UNIFI_BACKUP_DIR": "${user_config.backup_dir}"
       },
       "platform_overrides": {
         "win32": {
@@ -420,6 +421,12 @@
       "type": "string",
       "title": "Audit log file",
       "description": "Optional full path to a file, e.g. /Users/you/unifi-mcp-audit.jsonl, where every change Claude makes or previews is appended as a JSON line. The file is created if it doesn't exist; its folder must exist. stderr writes the lines to Claude Desktop's MCP log instead. Off when left empty.",
+      "default": ""
+    },
+    "backup_dir": {
+      "type": "directory",
+      "title": "Backup folder",
+      "description": "Optional folder where Claude can save controller backups (unifi_download_backup, needs Allow changes). Backups contain the whole configuration, including passwords. Off when left empty.",
       "default": ""
     }
   }

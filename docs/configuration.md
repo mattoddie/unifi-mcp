@@ -86,6 +86,14 @@ services:
 
 Create the directory first and let UID 65532 write to it, for example `mkdir audit && sudo chown 65532 audit`. `UNIFI_AUDIT_LOG=stderr` needs no volume: the lines appear in `docker compose logs`.
 
+## Saving backups
+
+| Variable | Default | Description |
+|---|---|---|
+| `UNIFI_BACKUP_DIR` | (off) | A directory where `unifi_download_backup` saves controller backups (`.unf`). The tool is only registered when this is set and `UNIFI_ALLOW_WRITES=true`. The directory must exist when the server starts. |
+
+The tool saves a backup made with `unifi_create_backup`, or an automatic backup from `unifi_list_backups`, under the backup's own name. It writes only inside the directory (through Go's `os.Root`, so a symlink can't lead outside it), creates files with mode `0600`, and keeps an existing file unless asked to overwrite it. A backup holds the whole controller configuration, including WiFi passphrases and other secrets, so keep the directory private. In Docker, mount a writable directory for it (the image runs as UID 65532).
+
 ## MCP transport
 
 | Variable | Default | Description |
@@ -153,7 +161,7 @@ Clients with their own tool search, such as Claude Code, load tool definitions o
 | `vpn` | 9 | VPNs, RADIUS |
 | `hotspot` | 10 | Vouchers, guests |
 | `monitoring` | 13 | Events, alarms, stats, logs |
-| `admin` | 12 | Settings, admins, backups |
+| `admin` | 13 | Settings, admins, backups |
 | `raw` | 1 | Any API path. Handy, but gives broad access, so `all` leaves it out: list it by name to enable it. |
 
 The counts include write and delete tools, so a read-only setup registers far fewer tools.
