@@ -467,8 +467,9 @@ func registerFirewallWhatIf(c *Context) {
 				proto = "tcp"
 			}
 			port := 0
-			if proto != "icmp" && a.Has("port") {
-				port = int(ojson.ToNumber(a.Get("port")))
+			// The schema already limits port to 1-65535; the check keeps the conversion bounded.
+			if n := ojson.ToNumber(a.Get("port")); proto != "icmp" && n >= 1 && n <= 65535 {
+				port = int(n)
 			}
 
 			policies, err := v2List(ctx, client, s, "firewall-policies")
