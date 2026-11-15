@@ -116,8 +116,8 @@ func registerWifi(c *Context) {
 			if err != nil {
 				return nil, err
 			}
-			include := a.Truthy("include_secrets")
-			return listing{}.result(a, arr(res), func(w *Obj) any { return summarizeWlanFull(w, include) }, rawWithSecrets(a)), nil
+			include := c.includeSecrets(a)
+			return listing{}.result(a, arr(res), func(w *Obj) any { return summarizeWlanFull(w, include) }, rawWithSecrets(c, a)), nil
 		},
 	})
 
@@ -270,7 +270,9 @@ func registerWifi(c *Context) {
 	c.add(Def{
 		Toolset: "wifi", Name: "unifi_get_wifi_qr", Title: "Get WiFi join string (QR)",
 		Description: "Get the standard WIFI: join string for an SSID, which phones understand when encoded as a QR code. NOTE: this reveals the WiFi password.",
-		Input:       props(siteArg(), idArg("WLAN")),
+		// The join string contains the passphrase, so the tool needs UNIFI_ALLOW_SECRETS.
+		RevealsSecrets: true,
+		Input:          props(siteArg(), idArg("WLAN")),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			w, err := restGet(ctx, client, c.site(a), "wlanconf", a.Str("id"))
 			if err != nil {

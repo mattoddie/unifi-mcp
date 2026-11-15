@@ -137,7 +137,7 @@ func registerVPN(c *Context) {
 				return nil, err
 			}
 			vpns := ojson.Filter(list, func(n any) bool { return ojson.Includes(vpnPurposes, ojson.Get(n, "purpose")) })
-			return vpnList.result(a, vpns, func(n *Obj) any { return summarizeVPN(n) }, rawWithSecrets(a)), nil
+			return vpnList.result(a, vpns, func(n *Obj) any { return summarizeVPN(n) }, rawWithSecrets(c, a)), nil
 		},
 	})
 
@@ -294,14 +294,14 @@ func registerVPN(c *Context) {
 
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_list_radius_profiles", Title: "List RADIUS profiles",
-		Description: "List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP VPN (secrets redacted unless include_secrets).",
+		Description: "List RADIUS profiles used by WPA-Enterprise WiFi, 802.1X switch ports and L2TP VPN (" + c.redacted("secrets") + ").",
 		Input:       props(siteArg(), radiusProfileList.args(), secretsArg(secretsVPN)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "radiusprofile")
 			if err != nil {
 				return nil, err
 			}
-			include := a.Truthy("include_secrets")
+			include := c.includeSecrets(a)
 			return radiusProfileList.result(a, list, func(p *Obj) any { return summarizeRadiusProfile(p, include) }, nil), nil
 		},
 	})
@@ -381,14 +381,14 @@ func registerVPN(c *Context) {
 
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_list_radius_accounts", Title: "List RADIUS accounts",
-		Description: "List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise). Passwords redacted unless include_secrets.",
+		Description: "List users of the built-in RADIUS server (used for L2TP VPN and WPA-Enterprise). " + c.redacted("Passwords") + ".",
 		Input:       props(siteArg(), nameList.args(), secretsArg(secretsVPN)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "account")
 			if err != nil {
 				return nil, err
 			}
-			include := a.Truthy("include_secrets")
+			include := c.includeSecrets(a)
 			return nameList.result(a, list, func(x *Obj) any { return summarizeRadiusAccount(x, include) }, nil), nil
 		},
 	})

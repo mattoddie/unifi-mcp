@@ -54,7 +54,7 @@ func TestDefaults(t *testing.T) {
 	if u.URL != "https://10.0.0.1" || u.Site != "default" || u.VerifySSL || u.ControllerType != "auto" || u.TimeoutMs != 30000 || u.CAFile != "" || u.TLSFingerprints != nil {
 		t.Errorf("unifi defaults: %+v", u)
 	}
-	if cfg.Tools.AllowWrites || cfg.Tools.AllowDeletes || len(cfg.Tools.Toolsets) != len(Toolsets) {
+	if cfg.Tools.AllowWrites || cfg.Tools.AllowDeletes || cfg.Tools.AllowSecrets || len(cfg.Tools.Toolsets) != len(Toolsets) {
 		t.Errorf("tool defaults: %+v", cfg.Tools)
 	}
 	h := cfg.HTTP
@@ -92,6 +92,13 @@ func TestGatingAndToolsets(t *testing.T) {
 		if mustLoad(t, base, "UNIFI_ALLOW_WRITES", v).Tools.AllowWrites {
 			t.Errorf("%q should not enable writes", v)
 		}
+	}
+	// UNIFI_ALLOW_SECRETS is independent of writes.
+	if !mustLoad(t, base, "UNIFI_ALLOW_SECRETS", "true").Tools.AllowSecrets {
+		t.Error("UNIFI_ALLOW_SECRETS=true should allow secrets")
+	}
+	if mustLoad(t, base, "UNIFI_ALLOW_SECRETS", "false", "UNIFI_ALLOW_WRITES", "true").Tools.AllowSecrets {
+		t.Error("writes should not allow secrets")
 	}
 }
 
@@ -251,7 +258,7 @@ func TestInsecureTLSWarning(t *testing.T) {
 
 func TestAllTools(t *testing.T) {
 	all := AllTools()
-	if !all.AllowWrites || !all.AllowDeletes || len(all.Toolsets) != 14 {
+	if !all.AllowWrites || !all.AllowDeletes || !all.AllowSecrets || len(all.Toolsets) != 14 {
 		t.Errorf("AllTools: %+v", all)
 	}
 }

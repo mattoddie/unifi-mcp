@@ -338,9 +338,10 @@ func asIs(o *Obj) any { return o }
 // redacted returns the controller object with secrets redacted, for raw output.
 func redacted(o *Obj) any { return unifi.RedactSecrets(o) }
 
-// rawWithSecrets returns raw output that redacts secrets unless include_secrets is set.
-func rawWithSecrets(a Args) func(*Obj) any {
-	if a.Truthy("include_secrets") {
+// rawWithSecrets returns raw output that redacts secrets unless include_secrets
+// is set and UNIFI_ALLOW_SECRETS permits it.
+func rawWithSecrets(c *Context, a Args) func(*Obj) any {
+	if c.includeSecrets(a) {
 		return asIs
 	}
 	return redacted

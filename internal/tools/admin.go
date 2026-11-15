@@ -63,7 +63,7 @@ func registerAdmin(c *Context) {
 			if !ojson.Truthy(setting) {
 				return nil, fmt.Errorf(`Setting "%s" not found; available: %s`, key, joinValues(ojson.Map(all, func(s any) any { return ojson.Get(s, "key") }), ", "))
 			}
-			if a.Truthy("include_secrets") {
+			if c.includeSecrets(a) {
 				return setting, nil
 			}
 			return unifi.RedactSecrets(setting), nil

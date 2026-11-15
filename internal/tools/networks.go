@@ -147,7 +147,7 @@ func registerNetworks(c *Context) {
 			if err != nil {
 				return nil, err
 			}
-			return netList.result(a, arr(res), func(n *Obj) any { return unifi.SummarizeNetwork(n) }, rawWithSecrets(a)), nil
+			return netList.result(a, arr(res), func(n *Obj) any { return unifi.SummarizeNetwork(n) }, rawWithSecrets(c, a)), nil
 		},
 	})
 
@@ -582,7 +582,7 @@ func registerNetworks(c *Context) {
 	ddnsList := listing{Search: []string{"service", "hostname", "server", "interface"}}
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_dynamic_dns", Title: "List dynamic DNS",
-		Description: "List dynamic DNS configurations (passwords redacted unless include_secrets).",
+		Description: "List dynamic DNS configurations (" + c.redacted("passwords") + ").",
 		Input:       props(siteArg(), ddnsList.args(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			entries, err := restList(ctx, client, c.site(a), "dynamicdns")
@@ -590,7 +590,7 @@ func registerNetworks(c *Context) {
 				return nil, err
 			}
 			shown := entries
-			if !a.Truthy("include_secrets") {
+			if !c.includeSecrets(a) {
 				shown = arr(unifi.RedactSecrets(entries))
 			}
 			return ddnsList.result(a, shown, func(d *Obj) any {

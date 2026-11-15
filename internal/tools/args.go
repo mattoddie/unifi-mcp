@@ -30,8 +30,19 @@ func rawArg() Prop {
 	return P("raw", Bool().Opt().D("Return the full controller objects (large)"))
 }
 
+// secretsArg is the include_secrets argument. build drops it unless
+// UNIFI_ALLOW_SECRETS is on.
 func secretsArg(desc string) Prop {
 	return P("include_secrets", Bool().Opt().D(desc))
+}
+
+// redacted describes what a tool redacts, mentioning include_secrets only
+// when UNIFI_ALLOW_SECRETS offers it.
+func (c *Context) redacted(what string) string {
+	if c.AllowSecrets {
+		return what + " redacted unless include_secrets"
+	}
+	return what + " redacted"
 }
 
 const secretsPassphrases = "Include secret fields such as passphrases and shared keys (redacted by default)"

@@ -96,7 +96,7 @@ func TestDefaultEnv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for k, want := range map[string]string{"MCP_TRANSPORT": "stdio", "UNIFI_URL": samples["url"], "UNIFI_ALLOW_WRITES": "false", "UNIFI_ALLOW_DELETES": "false", "UNIFI_VERIFY_SSL": "", "UNIFI_SITE": "default"} {
+	for k, want := range map[string]string{"MCP_TRANSPORT": "stdio", "UNIFI_URL": samples["url"], "UNIFI_ALLOW_WRITES": "false", "UNIFI_ALLOW_DELETES": "false", "UNIFI_ALLOW_SECRETS": "false", "UNIFI_VERIFY_SSL": "", "UNIFI_SITE": "default"} {
 		if env[k] != want {
 			t.Errorf("%s = %q, want %q", k, env[k], want)
 		}
