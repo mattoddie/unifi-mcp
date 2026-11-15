@@ -124,7 +124,7 @@ The docs are also published at **[unifi-mcp.mattoddie.dev/docs](https://unifi-mc
 | ⚙️ [Configuration](docs/configuration.md) | Every environment variable, Docker secrets, toolsets |
 | 🐳 [Deployment](docs/deployment.md) | Compose, image tags, upgrades, TLS reverse proxy, hardening |
 | 💬 [Using unifi-mcp](docs/usage.md) | Example conversations, prompts, how saves and secrets work |
-| 🧰 [Tool reference](docs/tools.md) | All 145 tools and 5 prompts, generated from the code |
+| 🧰 [Tool reference](docs/tools.md) | All 148 tools and 5 prompts, generated from the code |
 | 🛡️ [Security](docs/security.md) | Threat model, least privilege, safe write setups |
 | 📡 [Compatibility](docs/compatibility.md) | Supported controllers and versions, API caveats |
 | 🩹 [Troubleshooting](docs/troubleshooting.md) | Common errors and how to fix them |
