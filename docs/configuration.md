@@ -43,6 +43,7 @@ A variable set to an empty value counts as unset and gets its default. So does o
 | `UNIFI_ALLOW_DELETES` | `false` | Also register tools that delete or forget things, such as networks, WLANs, firewall rules, sites, clients' history or hotspot vouchers. Requires `UNIFI_ALLOW_WRITES=true`. |
 | `UNIFI_ALLOW_SECRETS` | `false` | Offer the `include_secrets` argument (unredacted passphrases, keys and passwords) and register `unifi_get_wifi_qr`, which returns a WiFi password. Independent of writes. Off means output is always redacted. |
 | `UNIFI_TOOLSETS` | `all` | Comma-separated list of [toolsets](#toolsets) to expose. `all` means every toolset except `raw`, which has to be named, e.g. `all,raw`. See [Keeping the tool list small](#keeping-the-tool-list-small). |
+| `UNIFI_RAW_ALLOWED_PATHS` | (any path) | Comma-separated path prefixes, such as `/api/s/default/stat,/v2/api/site/default/trafficroutes`, that limit `unifi_api_request` (toolset `raw`) to those paths and the paths under them. Prefixes match whole path segments and must be plain paths: no percent-encoding, `;`, `//`, `.` or `..` segments. See [The raw API tool](usage.md#the-raw-api-tool). |
 
 Tools that aren't allowed are **not registered at all**. The assistant can't find them, so it can't call them or be talked into calling them.
 

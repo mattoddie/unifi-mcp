@@ -80,6 +80,10 @@
           "description": "Optional comma-separated list to expose fewer tools, e.g. overview,devices,clients. Empty means all except raw, which has to be listed by name."
         },
         {
+          "name": "UNIFI_RAW_ALLOWED_PATHS",
+          "description": "Optional comma-separated API path prefixes, e.g. /api/s/default/stat, that limit the raw API tool (toolset raw) to those paths. Empty allows any path."
+        },
+        {
           "name": "UNIFI_AUDIT_LOG",
           "description": "Set to stderr to log every change the assistant makes or previews as JSON lines. Off when empty."
         }

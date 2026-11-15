@@ -122,6 +122,37 @@ func TestRawToolRefusesPathsTheServerNormalises(t *testing.T) {
 	env.call("unifi_api_request", `{"path":"/api/s/default/stat/device"}`)
 }
 
+// UNIFI_RAW_ALLOWED_PATHS narrows the raw tool to the listed prefixes.
+func TestRawAllowedPaths(t *testing.T) {
+	opts := toolOptions(true, false)
+	opts.RawAllowedPaths = []string{"/api/s/default/stat", "/api/self/sites"}
+	env := startMock(t, opts)
+	contains(t, "description", toolMap(t, env.mcp)["unifi_api_request"].Description, "(UNIFI_RAW_ALLOWED_PATHS): /api/s/default/stat, /api/self/sites.")
+	env.call("unifi_api_request", `{"path":"/api/s/default/stat/device"}`)
+	env.call("unifi_api_request", `{"path":"/api/self/sites"}`)
+	before := len(env.mock.Requests())
+	for _, path := range []string{
+		"/api/s/default/statistics",
+		"/api/s/default/cmd/devmgr",
+		"/api/s/default/stat%2F..%2F..%2Fcmd",
+		"/api/s/default/stat%2Fdevice",
+		"/v2/api/site/default/trafficroutes",
+	} {
+		contains(t, path, env.callErr("unifi_api_request", `{"method":"POST","path":"`+path+`","body":{"cmd":"restart"}}`), "")
+		msg := env.callErr("unifi_api_request", `{"path":"`+path+`"}`)
+		if !strings.Contains(msg, "is not allowed: UNIFI_RAW_ALLOWED_PATHS limits this tool to /api/s/default/stat, /api/self/sites") && !strings.Contains(msg, "Invalid API path") {
+			t.Errorf("%s: %s", path, msg)
+		}
+	}
+	if reqs := env.mock.Requests()[before:]; len(reqs) != 0 {
+		t.Errorf("paths outside the allow-list reached the controller: %+v", reqs)
+	}
+	// Without the variable, the description says nothing about it.
+	if strings.Contains(toolMap(t, connect(t, env.client, toolOptions(true, false)))["unifi_api_request"].Description, "UNIFI_RAW_ALLOWED_PATHS") {
+		t.Error("description mentions the allow-list when none is set")
+	}
+}
+
 func TestForgetAndRevokeAreDeletes(t *testing.T) {
 	env := startMock(t, toolOptions(true, false))
 	writes := toolMap(t, env.mcp)

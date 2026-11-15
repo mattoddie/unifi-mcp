@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/mattoddie/unifi-mcp/internal/config"
 	"github.com/mattoddie/unifi-mcp/internal/ojson"
 	"github.com/mattoddie/unifi-mcp/internal/unifi"
 )
@@ -129,6 +130,10 @@ func registerRaw(c *Context) {
 		mode = "DELETE, and requests that delete, forget, revoke, remove, reset, clear, purge or factory-reset something, are not allowed because delete access is disabled (UNIFI_ALLOW_DELETES=false). Classic cmd/<manager> commands must also be ones known not to delete anything."
 	}
 
+	if len(c.RawAllowedPaths) > 0 {
+		mode += " Only these paths, and paths under them, are allowed (UNIFI_RAW_ALLOWED_PATHS): " + strings.Join(c.RawAllowedPaths, ", ") + "."
+	}
+
 	c.add(Def{
 		Toolset: "raw", Name: "unifi_api_request", Title: "Raw UniFi API request",
 		Description: "Call any UniFi Network API endpoint directly, for anything the other tools don't cover. `path` is relative to the Network application, e.g. /api/s/default/stat/ccode, /v2/api/site/default/trafficroutes or /integration/v1/sites (official API, API-key auth). " + mode,
@@ -161,6 +166,12 @@ func registerRaw(c *Context) {
 			}
 			if err := assertRawPath(path); err != nil {
 				return nil, err
+			}
+			// Both the path as sent and its decoded form must be under an
+			// allowed prefix, so an encoded "/" can't stand in for a segment.
+			decoded, _ := url.PathUnescape(path)
+			if !config.RawPathAllowed(c.RawAllowedPaths, path) || !config.RawPathAllowed(c.RawAllowedPaths, decoded) {
+				return nil, fmt.Errorf("Path %q is not allowed: UNIFI_RAW_ALLOWED_PATHS limits this tool to %s and paths under them", path, strings.Join(c.RawAllowedPaths, ", "))
 			}
 			if method != "GET" && !c.AllowDeletes {
 				if reason := deleteLikeReason(path, a.Get("body")); reason != "" {

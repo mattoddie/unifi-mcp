@@ -79,6 +79,9 @@ type Tools struct {
 	// AuditLog is where calls of tools that change things are logged
 	// (UNIFI_AUDIT_LOG): a file path, AuditLogStderr, or "" for no log.
 	AuditLog string
+	// RawAllowedPaths, when set (UNIFI_RAW_ALLOWED_PATHS), limits the raw
+	// API tool to paths equal to or under one of these prefixes.
+	RawAllowedPaths []string
 	// BackupDir is the directory unifi_download_backup saves backups in
 	// (UNIFI_BACKUP_DIR), as an absolute path; "" leaves the tool out.
 	BackupDir string
@@ -302,6 +305,9 @@ func Load(env Env) (*Config, error) {
 	}
 	var err error
 
+	if t.RawAllowedPaths, err = rawAllowedPaths(get("UNIFI_RAW_ALLOWED_PATHS")); err != nil {
+		return nil, err
+	}
 	if t.BackupDir, err = backupDir(get("UNIFI_BACKUP_DIR")); err != nil {
 		return nil, err
 	}
@@ -432,6 +438,53 @@ func CheckAuditLog(path string) error {
 		return fmt.Errorf("UNIFI_AUDIT_LOG: cannot write to %s: %s. Its directory must exist and be writable by the server (in Docker, mount a writable directory; the image runs as UID 65532)", path, errorMessage(err))
 	}
 	return f.Close()
+}
+
+// rawAllowedPaths parses UNIFI_RAW_ALLOWED_PATHS: comma-separated path
+// prefixes relative to the Network application, such as
+// /api/s/default/stat,/v2/api/site/default/trafficroutes. They are matched
+// whole segment by segment against the path as sent, so they must be plain:
+// no percent-encoding, ";", empty, "." or ".." segments, query or fragment.
+func rawAllowedPaths(v string) ([]string, error) {
+	var out []string
+	for _, p := range strings.Split(v, ",") {
+		if p = strings.TrimSpace(p); p == "" {
+			continue
+		}
+		bad := !strings.HasPrefix(p, "/") || strings.ContainsAny(p, "%;?#\\ ") || strings.Contains(p, "//")
+		for _, seg := range strings.Split(p, "/") {
+			if seg == "." || seg == ".." {
+				bad = true
+			}
+		}
+		for _, r := range p {
+			if r < 0x20 || r == 0x7f {
+				bad = true
+			}
+		}
+		if bad {
+			return nil, fmt.Errorf(`UNIFI_RAW_ALLOWED_PATHS: "%s" is not a plain path prefix; use paths such as /api/s/default/stat (starting with /, without percent-encoding, ";", "//", "." or ".." segments, or a query string)`, p)
+		}
+		if p != "/" {
+			p = strings.TrimRight(p, "/")
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// RawPathAllowed reports whether path is one of the prefixes or under one.
+// With no prefixes, every path is allowed.
+func RawPathAllowed(prefixes []string, path string) bool {
+	if len(prefixes) == 0 {
+		return true
+	}
+	for _, p := range prefixes {
+		if p == "/" || path == p || strings.HasPrefix(path, p+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // backupDir checks UNIFI_BACKUP_DIR at startup: it must be an existing
