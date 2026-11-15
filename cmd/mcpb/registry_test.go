@@ -58,8 +58,8 @@ func TestStampServerJSON(t *testing.T) {
 }
 
 // ociOnlyInBundle are bundle settings the image's package leaves out: a file
-// on the user's computer isn't visible inside the container.
-var ociOnlyInBundle = map[string]bool{"UNIFI_CA_FILE": true}
+// or folder on the user's computer isn't visible inside the container.
+var ociOnlyInBundle = map[string]bool{"UNIFI_CA_FILE": true, "UNIFI_BACKUP_DIR": true}
 
 // server.json's image package must declare the same variables as the bundle's
 // manifest, with the same required, secret and default values, so the two

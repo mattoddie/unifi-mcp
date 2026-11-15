@@ -241,6 +241,12 @@ func (m *Mock) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	m.mu.Unlock()
 	time.Sleep(wait)
+	if raw, ok := payload.(Raw); ok {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.WriteHeader(status)
+		_, _ = w.Write(raw)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	for k, vs := range headers {
 		for _, v := range vs {
@@ -252,6 +258,10 @@ func (m *Mock) serve(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, s)
 	}
 }
+
+// Raw is a handler payload sent as it is, as application/octet-stream, for
+// downloads such as backup files.
+type Raw []byte
 
 func ok(data any) (int, any) {
 	return 200, ojson.New("meta", ojson.New("rc", "ok"), "data", data)

@@ -42,7 +42,20 @@ type Options struct {
 	// isn't recorded as a change. Every other non-GET request is treated as
 	// changing state.
 	Read bool
+	// Sink, when set, receives a successful response body as it arrives
+	// instead of it being parsed as JSON, for downloads such as backups.
+	// Request then returns the number of bytes written. At most
+	// MaxDownloadBytes are written, and the request may take up to
+	// DownloadTimeout.
+	Sink io.Writer
 }
+
+// MaxDownloadBytes is the largest response written to an Options.Sink.
+const MaxDownloadBytes = 4 << 30
+
+// DownloadTimeout bounds a request with an Options.Sink, which can take far
+// longer than UNIFI_TIMEOUT_MS allows for API calls.
+const DownloadTimeout = 15 * time.Minute
 
 // MaxResponseBytes is the largest controller response read; anything bigger is an error.
 const MaxResponseBytes = 64 << 20
@@ -60,6 +73,8 @@ const unifiOSPrefix = "/proxy/network"
 type Client struct {
 	cfg  config.Unifi
 	http *http.Client
+	// download is http with a longer timeout, for requests with an Options.Sink.
+	download *http.Client
 	// basePath is the path component of UNIFI_URL (normally empty).
 	basePath string
 
@@ -104,6 +119,9 @@ func New(cfg config.Unifi) (*Client, error) {
 		},
 		basePath: strings.TrimRight(whatwgPathname(cfg.URL), "/"),
 	}
+	download := *c.http
+	download.Timeout = max(DownloadTimeout, c.http.Timeout)
+	c.download = &download
 	if cfg.APIKey != "" || cfg.ControllerType == config.ControllerUnifiOS {
 		yes := true
 		c.unifiOS = &yes
@@ -256,6 +274,9 @@ func (c *Client) Request(ctx context.Context, method, path string, opts *Options
 		if res, err = send(); err != nil {
 			return nil, err
 		}
+	}
+	if opts.Sink != nil && res.ok() {
+		return float64(res.written), nil
 	}
 	data, err := c.parse(res, method, path)
 	if err == nil && method == "GET" && call != nil {
@@ -438,6 +459,8 @@ type response struct {
 	status int
 	header http.Header
 	body   []byte
+	// written is how much of a successful body went to Options.Sink.
+	written int64
 }
 
 func (r *response) ok() bool { return r.status >= 200 && r.status <= 299 }
@@ -484,6 +507,11 @@ func (c *Client) send(ctx context.Context, method, path string, opts *Options, r
 	}
 	req.URL = u
 	req.Header.Set("Accept", "application/json")
+	httpClient := c.http
+	if opts.Sink != nil {
+		req.Header.Set("Accept", "*/*")
+		httpClient = c.download
+	}
 	if hasBody {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -504,11 +532,26 @@ func (c *Client) send(ctx context.Context, method, path string, opts *Options, r
 		c.mu.Unlock()
 	}
 
-	res, err := c.http.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return nil, c.networkError(err)
 	}
 	defer res.Body.Close()
+	if opts.Sink != nil && res.StatusCode >= 200 && res.StatusCode <= 299 {
+		sink := &sinkWriter{w: opts.Sink}
+		n, err := io.Copy(sink, io.LimitReader(res.Body, MaxDownloadBytes+1))
+		if sink.err != nil {
+			return nil, &Error{Message: fmt.Sprintf("%s %s: could not save the download: %s", method, path, sink.err.Error())}
+		}
+		if err != nil {
+			return nil, c.networkError(err)
+		}
+		if n > MaxDownloadBytes {
+			return nil, &Error{Message: fmt.Sprintf("%s %s: the download is larger than %d GiB, so it was stopped", method, path, MaxDownloadBytes>>30)}
+		}
+		c.captureSession(res.Header)
+		return &response{status: res.StatusCode, header: res.Header, written: n}, nil
+	}
 	data, err := io.ReadAll(io.LimitReader(res.Body, MaxResponseBytes+1))
 	if err != nil {
 		return nil, c.networkError(err)
@@ -518,6 +561,21 @@ func (c *Client) send(ctx context.Context, method, path string, opts *Options, r
 	}
 	c.captureSession(res.Header)
 	return &response{status: res.StatusCode, header: res.Header, body: data}, nil
+}
+
+// sinkWriter remembers a write error, so a failure to save a download isn't
+// reported as a failure to reach the controller.
+type sinkWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (s *sinkWriter) Write(p []byte) (int, error) {
+	n, err := s.w.Write(p)
+	if err != nil {
+		s.err = err
+	}
+	return n, err
 }
 
 func appendParam(q []string, key, value string) []string {

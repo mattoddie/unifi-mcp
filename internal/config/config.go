@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -78,6 +79,9 @@ type Tools struct {
 	// AuditLog is where calls of tools that change things are logged
 	// (UNIFI_AUDIT_LOG): a file path, AuditLogStderr, or "" for no log.
 	AuditLog string
+	// BackupDir is the directory unifi_download_backup saves backups in
+	// (UNIFI_BACKUP_DIR), as an absolute path; "" leaves the tool out.
+	BackupDir string
 }
 
 // AuditLogStderr is the UNIFI_AUDIT_LOG value that writes the audit log to standard error.
@@ -85,7 +89,7 @@ const AuditLogStderr = "stderr"
 
 // AllTools enables every tool, for documentation and tests.
 func AllTools() Tools {
-	t := Tools{AllowWrites: true, AllowDeletes: true, AllowSecrets: true, Toolsets: map[string]bool{}}
+	t := Tools{AllowWrites: true, AllowDeletes: true, AllowSecrets: true, BackupDir: os.TempDir(), Toolsets: map[string]bool{}}
 	for _, ts := range Toolsets {
 		t.Toolsets[ts] = true
 	}
@@ -296,6 +300,14 @@ func Load(env Env) (*Config, error) {
 	if err := CheckAuditLog(t.AuditLog); err != nil {
 		return nil, err
 	}
+	var err error
+
+	if t.BackupDir, err = backupDir(get("UNIFI_BACKUP_DIR")); err != nil {
+		return nil, err
+	}
+	if err := check(); err != nil {
+		return nil, err
+	}
 
 	t.Toolsets = map[string]bool{}
 	toolsets := or(get("UNIFI_TOOLSETS"), "all")
@@ -341,7 +353,6 @@ func Load(env Env) (*Config, error) {
 		return nil, errors.New(UnauthenticatedNeedsHosts)
 	}
 
-	var err error
 	u := &cfg.Unifi
 	u.CAFile = get("UNIFI_CA_FILE")
 	if err := check(); err != nil {
@@ -421,6 +432,27 @@ func CheckAuditLog(path string) error {
 		return fmt.Errorf("UNIFI_AUDIT_LOG: cannot write to %s: %s. Its directory must exist and be writable by the server (in Docker, mount a writable directory; the image runs as UID 65532)", path, errorMessage(err))
 	}
 	return f.Close()
+}
+
+// backupDir checks UNIFI_BACKUP_DIR at startup: it must be an existing
+// directory. It returns the absolute path, so the tool's output says where a
+// backup went whatever the working directory.
+func backupDir(dir string) (string, error) {
+	if dir == "" {
+		return "", nil
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", fmt.Errorf("UNIFI_BACKUP_DIR: %s", err.Error())
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return "", fmt.Errorf("UNIFI_BACKUP_DIR: %s. The directory must exist and be writable by the server (in Docker, mount a writable directory; the image runs as UID 65532)", errorMessage(err))
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("UNIFI_BACKUP_DIR: %s is not a directory", abs)
+	}
+	return abs, nil
 }
 
 // validURL is a close approximation of `new URL(v)` succeeding: a scheme and,

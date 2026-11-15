@@ -8,6 +8,7 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ### Added
 
+- `unifi_download_backup` (write) saves a controller backup, made with `unifi_create_backup` or an automatic one from `unifi_list_backups`, in the directory set by the new `UNIFI_BACKUP_DIR` variable (off by default; the tool exists only when it is set). It writes only inside that directory, through `os.Root`, with mode `0600`, and keeps an existing file unless `overwrite` is true. The Claude Desktop extension has a **Backup folder** setting.
 - `unifi_check_firewall_path` (read) answers "what if" questions about the zone-based firewall: for a new connection from a source IP or client MAC to a destination, with protocol and port, it works out both zones from the networks' subnets and reports the first enabled zone policy that matches, with its action. Policies that might match first but depend on things it can't evaluate from addresses (apps, domains, regions, IP and port groups, schedules) are listed with the reason, and matching traffic rules are listed too. It only reads the configuration.
 - `unifi_refresh_firmware` (write) asks the controller to re-check Ubiquiti's servers for device firmware. It replaces the `refresh` argument of `unifi_get_firmware_status` and `unifi_check_updates`.
 
