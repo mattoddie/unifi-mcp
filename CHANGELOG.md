@@ -6,6 +6,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-17
+
+This release describes what each tool returns and when to use it, gives every argument a description, and stops descriptions from naming tools the current settings turn off. No tool or argument names change. unifi-mcp has 148 tools (60 read, 59 write and 29 delete) and 5 prompts.
+
 ### Changed
 
 - Tool descriptions say what each tool returns, its defaults and ordering, and which similar tool to use instead, and every argument has a description, including the list arguments `search`, `fields` and `limit`. A description only mentions another tool when that tool is registered, so a read-only server no longer points at write tools such as `unifi_run_rf_scan` and `unifi_refresh_firmware`.
@@ -213,7 +217,8 @@ This release fixes alarms and DPI statistics on Network 10.6 and later, and rena
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.2...v0.7.0
