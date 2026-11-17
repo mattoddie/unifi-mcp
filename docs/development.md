@@ -119,6 +119,7 @@ The `Def` fields that control registration:
 | `Destructive` | Marks a write tool as destructive (`destructiveHint`), so clients confirm before running it. Use it for anything that disconnects clients, reboots devices, changes configuration or grants access (admins, sites, guest authorization, vouchers, RADIUS accounts, unblocking). |
 | `Idempotent` | Overrides the idempotent hint (`idempotentHint`: repeating the call changes nothing more). It defaults to true for `unifi_set_*` and `unifi_update_*` write tools, which set fields to the given values, and false otherwise; set it for other tools that behave the same way, such as `unifi_reset_switch_port`. |
 | `ReadOnly` | Overrides the read-only hint. This is rarely needed. |
+| `Hints` | Description sentences that name another tool, added with `seeTool(tool, text)`. Each is appended to the description only when that tool is registered too, so a read tool never points at a write tool on a read-only server, or at a tool in a disabled toolset. Put every mention of a gated tool in a hint rather than in `Description`; `TestDescriptionsNameOnlyRegisteredTools` checks this. |
 
 Checklist for a new tool:
 
@@ -127,7 +128,7 @@ Checklist for a new tool:
 3. For configuration objects, follow the **`save_*` convention**: no `id` creates, `id` updates only the fields passed (`restSave`/`v2Save` do this), and offer `extra` for raw fields.
 4. Read before you write, and **mark reads that `POST`**. Any request other than `GET` counts as a change: a dry run stops at the first one and returns it as the preview. For a controller endpoint that only reads but is `POST`ed (`stat/report`, `stat/event`, v2 `system-log`, `cmd/sitemgr get-admins`…), use `SitePostRead`, `V2PostRead` or `CmdRead` (or `Options.Read`). `TestDryRunEveryWriteTool` fails if a dry run stops at a read.
 5. Return a **compact summary** and offer `raw: true` for the full object. Run anything that might contain secrets through `unifi.RedactSecrets()`.
-6. Write descriptions for the model: say what the tool does, when to use it, units, side effects (*"clients will briefly disconnect"*), and any version requirement (*"Network 9.0+"*).
+6. Write descriptions for the model, front-loaded and in one to three sentences: what the tool does and returns (its key fields), scope, defaults and ordering, when to use a similar tool instead, units, side effects (*"clients will briefly disconnect"*), and any version requirement (*"Network 9.0+"*). Give every argument a `.D()` description; `TestEveryArgumentIsDescribed` fails otherwise.
 7. Add tests in `internal/tools` using the mock controller.
 8. Run `make docs` and commit the updated `docs/tools.md`. If it's a notable feature, update the README table and [CHANGELOG](../CHANGELOG.md).
 
@@ -171,7 +172,7 @@ c.add(Def{
 
 Extra top-level keys go next to the list: `ojson.New("switch", …).Assign(list.result(…))`. For endpoints that apply a limit themselves (like `stat/event`'s `_limit`), send `listing.fetch(a)`, which asks for more when search or filters will drop items afterwards.
 
-The list arguments have no per-tool descriptions on purpose: they appear on about 40 tools, and descriptions would add kilobytes to every `tools/list`. The server instructions explain them once, and `make docs` fills in their descriptions in `docs/tools.md`.
+The list arguments appear on about 40 tools, so their descriptions are kept to one short clause each.
 
 ## Tool design guidelines
 

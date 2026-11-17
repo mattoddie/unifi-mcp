@@ -6,6 +6,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Changed
+
+- Tool descriptions say what each tool returns, its defaults and ordering, and which similar tool to use instead, and every argument has a description, including the list arguments `search`, `fields` and `limit`. A description only mentions another tool when that tool is registered, so a read-only server no longer points at write tools such as `unifi_run_rf_scan` and `unifi_refresh_firmware`.
+
 ## [0.9.0] - 2026-11-17
 
 This release fixes alarms and DPI statistics on Network 10.6 and later, and renames tools, arguments and output to match the other mattoddie MCP servers ahead of 1.0. unifi-mcp has 148 tools (60 read, 59 write and 29 delete) and 5 prompts. Read the **Breaking** entries before upgrading.

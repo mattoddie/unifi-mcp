@@ -102,7 +102,7 @@ func registerSwitching(c *Context) {
 
 	c.add(Def{
 		Toolset: "switching", Name: "unifi_list_port_profiles", Title: "List switch port profiles",
-		Description: "List switch port profiles (port configurations) with native/tagged networks and PoE settings.",
+		Description: "List switch port profiles (reusable port configurations): forwarding mode, native and tagged networks, PoE, speed, isolation, storm control and port security. unifi_list_switch_ports shows which profile each port uses.",
 		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "portconf")

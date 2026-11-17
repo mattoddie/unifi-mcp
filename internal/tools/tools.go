@@ -46,6 +46,10 @@ type Context struct {
 	audit *auditLog
 	// dpi caches the traffic identification names for unifi_get_dpi_stats.
 	dpi *dpiCatalog
+	// defs are the tools queued by add, registered by registerAll.
+	defs []Def
+	// willRegister names the tools registerAll registers, for Def.Hints.
+	willRegister map[string]bool
 }
 
 // Info describes a registered tool.
@@ -76,12 +80,26 @@ type Def struct {
 	// NeedsBackupDir marks a tool that saves files in UNIFI_BACKUP_DIR; it is
 	// only registered when that is set.
 	NeedsBackupDir bool
-	Input          []Prop
-	Handler        func(ctx context.Context, a Args) (any, error)
+	// Hints are sentences appended to the description only when the tool
+	// they name is registered too, so that a description never sends the
+	// model to a tool the configuration leaves out (a write tool on a
+	// read-only server, or a tool in a disabled toolset).
+	Hints   []Hint
+	Input   []Prop
+	Handler func(ctx context.Context, a Args) (any, error)
 	// Reads, for a tool that changes things, reports whether these arguments
 	// only read (unifi_api_request with GET); such calls aren't audited.
 	Reads func(a Args) bool
 }
+
+// Hint is a sentence of a tool's description that names another tool.
+type Hint struct {
+	Tool string // the tool the sentence names
+	Text string
+}
+
+// seeTool is a description sentence that names tool, kept only when tool is registered.
+func seeTool(tool, text string) Hint { return Hint{tool, text} }
 
 func boolPtr(b bool) *bool { return &b }
 
@@ -127,8 +145,27 @@ func (c *Context) includeSecrets(a Args) bool {
 	return c.AllowSecrets && a.Truthy("include_secrets")
 }
 
-// add registers a tool if its toolset and gate are enabled.
-func (c *Context) add(d Def) {
+// add queues a tool for registerAll.
+func (c *Context) add(d Def) { c.defs = append(c.defs, d) }
+
+// registerAll registers the queued tools whose toolset and gate are enabled,
+// in order. It runs once every tool is known, so that descriptions can
+// mention other tools only when they are registered (Def.Hints).
+func (c *Context) registerAll() {
+	c.willRegister = map[string]bool{}
+	for _, d := range c.defs {
+		if c.enabled(d) {
+			c.willRegister[d.Name] = true
+		}
+	}
+	for _, d := range c.defs {
+		c.register(d)
+	}
+	c.defs = nil
+}
+
+// register registers a tool if its toolset and gate are enabled.
+func (c *Context) register(d Def) {
 	if !c.enabled(d) {
 		return
 	}
@@ -182,7 +219,7 @@ func (c *Context) build(d Def) (*mcp.Tool, runner, *ojson.Obj) {
 	}
 	schema := inputSchema(d.Input)
 	raw, _ := ojson.Stringify(schema)
-	tool := &mcp.Tool{Name: d.Name, Title: d.Title, Description: d.Description, Annotations: ann, InputSchema: json.RawMessage(raw)}
+	tool := &mcp.Tool{Name: d.Name, Title: d.Title, Description: c.describe(d), Annotations: ann, InputSchema: json.RawMessage(raw)}
 	input := Object(d.Input...)
 	run := func(ctx context.Context, raw json.RawMessage) *mcp.CallToolResult {
 		var args any = ojson.New()
@@ -210,6 +247,17 @@ func (c *Context) build(d Def) (*mcp.Tool, runner, *ojson.Obj) {
 		return ok(out)
 	}
 	return tool, run, schema
+}
+
+// describe is the tool's description with the hints whose tools are registered.
+func (c *Context) describe(d Def) string {
+	desc := d.Description
+	for _, h := range d.Hints {
+		if c.willRegister[h.Tool] {
+			desc += " " + h.Text
+		}
+	}
+	return desc
 }
 
 // MaxOutputBytes caps the text a tool returns, so one huge response (a raw API call,

@@ -38,30 +38,23 @@ type listing struct {
 // limit itself but search or filters will narrow the results afterwards.
 const filterFetch = 3000
 
-// The list arguments carry no per-tool description, because they appear on
-// every list tool and tools/list would grow by kilobytes. The server
-// instructions (listHelp) explain them once.
+// The list arguments appear on most tools, so their descriptions are kept to
+// one short clause each.
 
-func searchArg() Prop { return P("search", Str().Opt()) }
+func searchArg() Prop {
+	return P("search", Str().Opt().D("Case-insensitive substring match on names, MACs, IPs and similar"))
+}
 
 func limitArg(def int) Prop {
-	return P("limit", Int().Positive().Max(5000).Opt().D(fmt.Sprintf("Default %d", def)))
+	return P("limit", Int().Positive().Max(5000).Opt().D(fmt.Sprintf("Maximum items to return (default %d)", def)))
 }
 
-func fieldsArg() Prop { return P("fields", Array(Str()).Opt()) }
-
-// ListArgDocs describes the list arguments for docs/tools.md, which has room
-// for the descriptions tools/list leaves out.
-var ListArgDocs = map[string]string{
-	"search": "Case-insensitive substring match on names, MACs, IPs and similar fields.",
-	"fields": "Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields.",
-	"limit":  "Maximum number of items to return.",
+func fieldsArg() Prop {
+	return P("fields", Array(Str()).Opt().D("Only return these fields per item (dot paths, e.g. uplink.name)"))
 }
 
-// listHelp is the server instructions' explanation of the list arguments.
-const listHelp = "List tools return {total, returned, items} and take `search` (case-insensitive substring match on names, MACs, IPs and similar), " +
-	"`fields` (keep only these fields in each item; dot paths like uplink.name) and, on long lists, `limit`. " +
-	"Use them to fetch only what you need. "
+// listHelp is the server instructions' note on list tools.
+const listHelp = "List tools return {total, returned, items}; use their `search`, `fields` and `limit` arguments to fetch only what you need. "
 
 // args are the list arguments to put in the tool's Input: search, limit (when
 // the listing has a default) and fields.

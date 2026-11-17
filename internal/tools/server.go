@@ -34,6 +34,14 @@ func instructions(opts config.Tools) string {
 func NewServer(client *unifi.Client, opts config.Tools, registered *[]Info) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: Name, Version: Version}, &mcp.ServerOptions{Instructions: instructions(opts)})
 	c := &Context{Server: s, Client: client, Tools: opts, Registered: registered, audit: newAuditLog(opts.AuditLog), dpi: &dpiCatalog{}}
+	c.addAll()
+	c.registerAll()
+	registerPrompts(s)
+	return s
+}
+
+// addAll queues every tool of every toolset; registerAll then registers the enabled ones.
+func (c *Context) addAll() {
 	registerOverview(c)
 	registerDevices(c)
 	registerClients(c)
@@ -49,6 +57,4 @@ func NewServer(client *unifi.Client, opts config.Tools, registered *[]Info) *mcp
 	registerMonitoring(c)
 	registerAdmin(c)
 	registerRaw(c)
-	registerPrompts(s)
-	return s
 }

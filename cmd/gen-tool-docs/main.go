@@ -201,12 +201,6 @@ func main() {
 			for _, name := range props.Keys() {
 				p := props.Get(name)
 				desc, _ := ojson.Get(p, "description").(string)
-				if doc, ok := tools.ListArgDocs[name]; ok && (desc == "" || strings.HasPrefix(desc, "Default ")) {
-					if desc != "" {
-						desc += "."
-					}
-					desc = strings.TrimSpace(doc + " " + desc)
-				}
 				if def := ojson.Get(p, "default"); !ojson.IsUndefined(def) {
 					j, _ := ojson.Stringify(def)
 					if desc != "" {

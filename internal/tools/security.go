@@ -193,7 +193,7 @@ func registerSecurity(c *Context) {
 	threatList := listing{Search: []string{"signature", "category", "action", "src.ip", "dst.ip", "host"}, Limit: 100}
 	c.add(Def{
 		Toolset: "security", Name: "unifi_list_threats", Title: "List detected threats",
-		Description: "List IDS/IPS threat events detected by the gateway (newest first): signature, category, source/destination, action taken.",
+		Description: "List IDS/IPS threat events detected by the gateway, newest first (default last 24 hours): signature, category, severity, action taken, protocol, and source and destination IP, port and country.",
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Max(24*90).Opt().D("Look back this many hours (default 24)")),
@@ -255,8 +255,8 @@ func registerSecurity(c *Context) {
 		Input: props(
 			siteArg(),
 			P("id", idSchema("Content filter").Opt()),
-			P("name", Str().Opt()),
-			P("enabled", Bool().Opt()),
+			P("name", Str().Opt().D("Profile name")),
+			P("enabled", Bool().Opt().D("Whether the profile is active")),
 			P("blocked_categories", Array(Str()).Opt().D("Category identifiers as used by the controller (see raw output of unifi_list_content_filters)")),
 			P("safe_search", Array(Str()).Opt().D("Search engines to force safe search on, e.g. ['GOOGLE','BING','YOUTUBE']")),
 			P("network_ids", Array(Str()).Opt().D("Networks the filter applies to")),

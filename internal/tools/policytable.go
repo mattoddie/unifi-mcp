@@ -345,7 +345,7 @@ func registerPolicyTable(c *Context) {
 			P("web_domains", Array(Str()).Opt().D("Match these domains, e.g. ['example.com']")),
 			P("destination_port", Str().Opt().D("Match this destination port or range, e.g. '443'; empty string matches any port")),
 			P("wan_or_vpn_network", Str().Opt().D("WAN or VPN network ID the rule applies to (empty for all)")),
-			P("schedule", LooseObject(P("mode", Str())).Opt().D("e.g. {mode:'ALWAYS'} (default) or {mode:'EVERY_DAY', time_range_start:'22:00', time_range_end:'06:00'}")),
+			P("schedule", LooseObject(P("mode", Str().D("Schedule mode, e.g. ALWAYS or EVERY_DAY"))).Opt().D("e.g. {mode:'ALWAYS'} (default) or {mode:'EVERY_DAY', time_range_start:'22:00', time_range_end:'06:00'}")),
 			extraArg(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -430,7 +430,7 @@ func registerPolicyTable(c *Context) {
 	natList := listing{Search: []string{"description", "type", "ip_address", "source_filter.address", "destination_filter.address"}}
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_nat_rules", Title: "List NAT rules",
-		Description: "List custom NAT rules (DNAT, SNAT and masquerade) from the v2 API, including the predefined ones. Port forwards are separate (unifi_list_port_forwards). Needs Network 9.0+ with a UniFi gateway and the zone-based firewall.",
+		Description: "List NAT rules (DNAT, SNAT and masquerade, the predefined ones included) with type, interfaces, translated IP and port, source and destination. Needs Network 9.0+ with a UniFi gateway and the zone-based firewall. Simple port forwards are separate: unifi_list_port_forwards.",
 		Input:       props(siteArg(), natList.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			return listPolicyObjects(ctx, c, a, natList, "nat", summarizeNatRule)
