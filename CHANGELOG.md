@@ -6,6 +6,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-17
+
+This release fixes alarms and DPI statistics on Network 10.6 and later, and renames tools, arguments and output to match the other mattoddie MCP servers ahead of 1.0. unifi-mcp has 148 tools (60 read, 59 write and 29 delete) and 5 prompts. Read the **Breaking** entries before upgrading.
+
 ### Added
 
 - `unifi_list_alarms` has `hours` (default 168) and `min_severity` (`low`, `medium`, `high` or `very_high`; default `high`) for the v2 system log fallback below.
@@ -205,7 +209,8 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.2...v0.7.0
 [0.6.2]: https://github.com/mattoddie/unifi-mcp/compare/v0.6.1...v0.6.2
