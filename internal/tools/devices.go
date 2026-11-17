@@ -526,7 +526,7 @@ func registerDevices(c *Context) {
 		})
 
 	c.add(Def{
-		Toolset: "devices", Name: "unifi_rolling_upgrade", Title: "Start/cancel rolling upgrade",
+		Toolset: "devices", Name: "unifi_control_rolling_upgrade", Title: "Start/cancel rolling upgrade",
 		Description: "Start a rolling (one-at-a-time) firmware upgrade of all devices of the given types to the latest firmware, or cancel one in progress.",
 		Gate:        Write, Destructive: boolPtr(true),
 		Input: props(

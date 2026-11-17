@@ -25,14 +25,14 @@ var backupPath = regexp.MustCompile(`^/dl/(?:backup|autobackup)/([^/]+)$`)
 // downloadBackup saves a backup in dir. It writes through an os.Root, so
 // nothing outside dir can be created or replaced, whatever the name.
 func downloadBackup(ctx context.Context, client *unifi.Client, dir string, a Args) (any, error) {
-	path, filename := a.Str("path"), a.Str("filename")
+	path, filename := a.Str("source"), a.Str("filename")
 	switch {
 	case path != "" && filename != "":
-		return nil, errorf("Pass either path or filename, not both")
+		return nil, errorf("Pass either source or filename, not both")
 	case filename != "":
 		path = "/dl/autobackup/" + filename
 	case path == "":
-		return nil, errorf("Pass path (download_path from unifi_create_backup) or filename (from unifi_list_backups)")
+		return nil, errorf("Pass source (download_path from unifi_create_backup) or filename (from unifi_list_backups)")
 	}
 	m := backupPath.FindStringSubmatch(path)
 	if m == nil || !backupName.MatchString(m[1]) {

@@ -71,7 +71,7 @@ func registerAdmin(c *Context) {
 	})
 
 	c.add(Def{
-		Toolset: "admin", Name: "unifi_update_site_setting", Title: "Update site setting",
+		Toolset: "admin", Name: "unifi_update_site_settings", Title: "Update site settings",
 		Description: "Change fields of one site setting object (see unifi_get_site_settings for keys and current field names). Only the given fields change. Examples: key=mgmt {led_enabled:false} or {auto_upgrade:true, auto_upgrade_hour:3}; key=rsyslogd {enabled:true, ip:'10.0.0.5', port:514}; key=ntp {ntp_server_1:'pool.ntp.org'}; key=snmp {enabled:true, community:'...'} (SNMPv3: enabledV3, username, x_password); key=mdns {mode:'auto'} (all, auto or custom); key=super_mgmt {autobackup_enabled:true, autobackup_cron_expr:'0 3 * * 1', autobackup_max_files:7}.",
 		Gate:        Write, Destructive: boolPtr(true),
 		Input: props(
@@ -284,12 +284,12 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_download_backup", Title: "Download backup",
-		Description: "Save a controller backup (.unf) in the server's backup directory (UNIFI_BACKUP_DIR; the tool only exists when it is set). Pass path, the download_path from unifi_create_backup, or filename, an automatic backup from unifi_list_backups. " +
+		Description: "Save a controller backup (.unf) in the server's backup directory (UNIFI_BACKUP_DIR; the tool only exists when it is set). Pass source, the download_path from unifi_create_backup, or filename, an automatic backup from unifi_list_backups (both name the backup on the controller). " +
 			"The file is written only inside that directory, with mode 0600, under the backup's own name; an existing file is kept unless overwrite is true. Backups contain the whole configuration, including secrets. Nothing on the controller changes.",
 		Gate:           Write,
 		NeedsBackupDir: true,
 		Input: props(
-			P("path", Str().Opt().D("download_path from unifi_create_backup, e.g. /dl/backup/9.0.0.unf")),
+			P("source", Str().Opt().D("Backup to download: the download_path from unifi_create_backup, e.g. /dl/backup/9.0.0.unf. The saved file keeps the backup's own name.")),
 			P("filename", Str().Opt().D("Automatic backup filename from unifi_list_backups, e.g. autobackup_9.0.0_20260101_0300_1767236400000.unf")),
 			P("overwrite", Bool().Opt().D("Replace a file of the same name in the backup directory (default false)")),
 		),

@@ -255,7 +255,7 @@
     },
     {
       "name": "unifi_list_traffic_flows",
-      "description": "List recent traffic flows seen by the gateway (Insights > Flows): source and destination client, IP, domain and network, app/service, allowed or blocked, risk, bytes and the policies that matched. This is an expensive query on the gateway, so it looks back 15 minutes and returns 50 flows by default; narrow it with client_mac, action, risk or search (applied by the controller to app, domain, client name and more) before widening the window. Recent Network 9.x/10.x with a UniFi gateway."
+      "description": "List recent traffic flows seen by the gateway (Insights > Flows): source and destination client, IP, domain and network, app/service, allowed or blocked, risk, bytes and the policies that matched. This is an expensive query on the gateway, so it looks back 15 minutes (hours: 0.25) and returns 50 flows per page by default; narrow it with client_mac, action, risk or search (applied by the controller to app, domain, client name and more) before widening the window. Recent Network 9.x/10.x with a UniFi gateway."
     },
     {
       "name": "unifi_list_traffic_routes",

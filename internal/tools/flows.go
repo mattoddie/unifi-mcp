@@ -62,35 +62,35 @@ func registerTrafficFlows(c *Context) {
 	client := c.Client
 
 	// The controller pages, searches and filters flows itself, so the listing
-	// only selects fields and redacts raw flows. limit is the page size, which
-	// the controller caps lower than other lists.
-	flowList := listing{Limit: 50}
+	// only selects fields and redacts raw flows. Paging is page + page_size,
+	// which the controller caps lower than other lists' limit.
+	flowList := listing{}
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_traffic_flows", Title: "List traffic flows",
 		Description: "List recent traffic flows seen by the gateway (Insights > Flows): source and destination client, IP, domain and network, app/service, allowed or blocked, risk, bytes and the policies that matched. " +
-			"This is an expensive query on the gateway, so it looks back 15 minutes and returns 50 flows by default; narrow it with client_mac, action, risk or search (applied by the controller to app, domain, client name and more) before widening the window. Recent Network 9.x/10.x with a UniFi gateway.",
+			"This is an expensive query on the gateway, so it looks back 15 minutes (hours: 0.25) and returns 50 flows per page by default; narrow it with client_mac, action, risk or search (applied by the controller to app, domain, client name and more) before widening the window. Recent Network 9.x/10.x with a UniFi gateway.",
 		Input: props(
 			siteArg(),
-			P("minutes", Int().Positive().Max(7*24*60).Opt().D("Look back this many minutes (default 15)")),
+			P("hours", Number().Positive().Max(7*24).Opt().D("Look back this many hours (default 0.25, i.e. 15 minutes)")),
 			P("client_mac", Str().Opt().D("Only flows from this client MAC address")),
 			P("client_ip", Str().Opt().D("Only flows from this source IP")),
 			P("action", Enum("allowed", "blocked").Opt().D("Only allowed or only blocked flows")),
 			P("risk", Enum("low", "medium", "high").Opt().D("Only flows with this risk level")),
 			P("destination_domain", Str().Opt().D("Only flows to this domain")),
 			P("page", Int().Min(0).Opt().D("Page number, from 0")),
+			P("page_size", Int().Positive().Max(500).Opt().D("Flows per page (default 50)")),
 			searchArg(),
-			P("limit", Int().Positive().Max(500).Opt().D("Flows per page (default 50)")),
 			fieldsArg(),
 			rawArg(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := nowMs()
-			start := end - a.NumOr("minutes", 15)*60000
+			start := end - ojson.Round(a.NumOr("hours", 0.25)*3600000)
 			body := ojson.New(
 				"timestampFrom", start,
 				"timestampTo", end,
 				"pageNumber", a.NumOr("page", 0),
-				"pageSize", float64(flowList.limit(a)),
+				"pageSize", a.NumOr("page_size", 50),
 				"search_text", a.Str("search"),
 				"skip_count", false,
 			)
@@ -126,6 +126,7 @@ func registerTrafficFlows(c *Context) {
 				"to", unifi.IsoTime(end),
 				"total", ojson.Coalesce(ojson.Get(page, "total_element_count"), list.Get("total")),
 				"returned", list.Get("returned"),
+				"page", a.NumOr("page", 0),
 				"has_more", ojson.OrUndefined(ojson.Get(page, "has_next")),
 				"items", list.Get("items"),
 				"hint", ojson.OrUndefined(list.Get("hint")),

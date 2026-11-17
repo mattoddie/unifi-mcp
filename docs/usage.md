@@ -61,7 +61,7 @@ Once the server is connected, just talk to your assistant about your network. Th
 
 **Site settings**
 
-`unifi_get_site_settings` and `unifi_update_site_setting` cover every site setting object, including SNMP, mDNS and auto-backup:
+`unifi_get_site_settings` and `unifi_update_site_settings` cover every site setting object, including SNMP, mDNS and auto-backup:
 
 - *"Turn on SNMP with community 'monitoring'."* → `key: snmp`, `changes: {enabled: true, community: "monitoring"}` (writes)
 - *"Set mDNS to automatic."* → `key: mdns`, `changes: {mode: "auto"}` (writes)
@@ -173,7 +173,7 @@ Some tools also have exact-match filters where the controller data supports them
 | `unifi_list_firewall_policies` | `include_predefined` |
 | `unifi_list_rogue_aps` | `rogue_only` |
 | `unifi_list_acl_rules` | `network_id` |
-| `unifi_list_traffic_flows` | `client_mac`, `client_ip`, `action`, `risk`, `destination_domain` and `page`. The controller applies these and `search` itself, and `limit` is its page size (at most 500). |
+| `unifi_list_traffic_flows` | `client_mac`, `client_ip`, `action`, `risk`, `destination_domain`, and `page` with `page_size` (at most 500) instead of `limit`. The controller applies these and `search` itself. |
 
 Search and filters are applied first, then `limit`, then `fields`. For example:
 
