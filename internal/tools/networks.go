@@ -140,8 +140,11 @@ func registerNetworks(c *Context) {
 	netList := listing{Search: []string{"name", "purpose", "subnet", "vlan", "domain_name"}}
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_networks", Title: "List networks",
-		Description: "List configured networks (LANs/VLANs, WANs, VPNs) with subnet, VLAN ID and DHCP settings.",
-		Input:       props(siteArg(), netList.args(), rawArg(), secretsArg(secretsPassphrases)),
+		Description: "List every configured network (LANs/VLANs, WANs and VPNs) with purpose, subnet, VLAN, DHCP range, domain and firewall zone. For WAN connection settings and health use unifi_list_wans.",
+		Hints: []Hint{
+			seeTool("unifi_list_vpns", "For VPN settings use unifi_list_vpns."),
+		},
+		Input: props(siteArg(), netList.args(), rawArg(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "rest/networkconf", nil)
 			if err != nil {
@@ -154,9 +157,10 @@ func registerNetworks(c *Context) {
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_save_network", Title: "Create/update LAN or VLAN",
 		Description: "Create a LAN/VLAN network (no id) or update one (id; only the fields passed change). Handles purposes corporate (regular LAN), guest and vlan-only. " +
-			"On create, DHCP is enabled with a range derived from the subnet unless given. Use unifi_update_wan for WANs and unifi_save_vpn for VPNs. " +
+			"On create, DHCP is enabled with a range derived from the subnet unless given. Use unifi_update_wan for WANs. " +
 			"Changing subnet/VLAN/DHCP disrupts connected clients.",
-		Gate: Write, Destructive: boolPtr(true),
+		Hints: []Hint{seeTool("unifi_save_vpn", "Use unifi_save_vpn for VPNs.")},
+		Gate:  Write, Destructive: boolPtr(true),
 		Input: props(
 			siteArg(),
 			P("id", idSchema("Network").Opt().D("Network ID to update; omit to create")),
@@ -171,11 +175,11 @@ func registerNetworks(c *Context) {
 			P("dhcp_dns", Array(Str()).Max(4).Opt().D("DNS servers handed out by DHCP (up to 4); empty array reverts to the gateway")),
 			P("dhcp_gateway", Str().Null().Opt().D("Override the gateway handed out by DHCP; null reverts to automatic")),
 			P("domain_name", Str().Opt().D("Domain name handed out by DHCP")),
-			P("igmp_snooping", Bool().Opt()),
+			P("igmp_snooping", Bool().Opt().D("IGMP snooping: forward multicast only to ports that joined the group")),
 			P("isolated", Bool().Opt().D("Network isolation: block traffic to other local networks")),
 			P("internet_access", Bool().Opt().D("Allow internet access (false blocks it)")),
 			P("mdns", Bool().Opt().D("Enable multicast DNS forwarding for this network")),
-			P("enabled", Bool().Opt()),
+			P("enabled", Bool().Opt().D("Whether the network is enabled")),
 			P("extra", extraSchema().D("Additional raw networkconf fields, e.g. DHCP options (dhcpd_ntp_1, dhcpd_boot_enabled/dhcpd_boot_server/dhcpd_boot_filename, dhcpd_tftp_server, dhcpd_wins_1) or IPv6 (ipv6_interface_type, ipv6_ra_enabled). Merged last.")),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -287,7 +291,8 @@ func registerNetworks(c *Context) {
 
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_delete_network", Title: "Delete LAN or VLAN",
-		Description: "Delete a LAN/VLAN network (purpose corporate, guest or vlan-only). WAN networks cannot be deleted here; VPNs use unifi_delete_vpn. Clients on the network lose connectivity.",
+		Description: "Delete a LAN/VLAN network (purpose corporate, guest or vlan-only). WAN networks cannot be deleted here. Clients on the network lose connectivity.",
+		Hints:       []Hint{seeTool("unifi_delete_vpn", "Delete VPNs with unifi_delete_vpn.")},
 		Gate:        Delete,
 		Input:       props(siteArg(), idArg("Network")),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -313,7 +318,7 @@ func registerNetworks(c *Context) {
 
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_wans", Title: "List WAN connections",
-		Description: "List WAN interfaces with connection type, VLAN, static/PPPoE settings, failover/load-balancing and Smart Queues, plus live WAN health.",
+		Description: "List WAN connections with connection type, VLAN, static IP or PPPoE user, DNS, failover and load balancing, Smart Queues and ISP speeds, plus live WAN health (status, WAN IP, ISP, uptime).",
 		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
@@ -355,8 +360,8 @@ func registerNetworks(c *Context) {
 			P("netmask", Str().Opt().D("Static WAN netmask, e.g. 255.255.255.0")),
 			P("gateway", Str().Opt().D("Static WAN gateway")),
 			P("dns", Array(Str()).Max(4).Opt().D("Manual DNS servers; empty array reverts to ISP-provided DNS")),
-			P("pppoe_username", Str().Opt()),
-			P("pppoe_password", Str().Opt()),
+			P("pppoe_username", Str().Opt().D("PPPoE username (type pppoe)")),
+			P("pppoe_password", Str().Opt().D("PPPoE password (type pppoe)")),
 			P("vlan", Int().Min(1).Max(4095).Null().Opt().D("WAN VLAN ID (some ISPs require one); null disables")),
 			P("load_balance_type", Enum("failover-only", "weighted").Opt().D("failover-only uses this WAN only when higher-priority WANs fail; weighted load-balances")),
 			P("load_balance_weight", Int().Min(1).Max(99).Opt().D("Weight for weighted load balancing")),
@@ -440,7 +445,7 @@ func registerNetworks(c *Context) {
 
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_dns_records", Title: "List local DNS records",
-		Description: "List local DNS records served by the gateway (v2 static-dns; UniFi Network 8.2+).",
+		Description: "List the gateway's local DNS records (A, AAAA, CNAME, MX, TXT, SRV, NS) with name, value, TTL and enabled state. Network 8.2+ (v2 static-dns). For a public hostname that follows the WAN IP use unifi_list_dynamic_dns.",
 		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := v2List(ctx, client, c.site(a), "static-dns")
@@ -467,7 +472,7 @@ func registerNetworks(c *Context) {
 			P("priority", Int().Min(0).Opt().D("MX/SRV priority")),
 			P("weight", Int().Min(0).Opt().D("SRV weight")),
 			P("port", Int().Min(0).Max(65535).Opt().D("SRV port")),
-			P("enabled", Bool().Opt()),
+			P("enabled", Bool().Opt().D("Whether the record is served")),
 			extraArg(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -516,7 +521,7 @@ func registerNetworks(c *Context) {
 
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_bandwidth_profiles", Title: "List bandwidth profiles",
-		Description: "List bandwidth profiles (user groups) that cap client download/upload rates; assign them to WLANs or clients.",
+		Description: "List bandwidth profiles (user groups): per-client download and upload caps in kbps (\"unlimited\" when uncapped) that WiFi networks and clients can be assigned.",
 		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "usergroup")
@@ -582,7 +587,7 @@ func registerNetworks(c *Context) {
 	ddnsList := listing{Search: []string{"service", "hostname", "server", "interface"}}
 	c.add(Def{
 		Toolset: "networks", Name: "unifi_list_dynamic_dns", Title: "List dynamic DNS",
-		Description: "List dynamic DNS configurations (" + c.redacted("passwords") + ").",
+		Description: "List the gateway's dynamic DNS entries, which keep a public hostname pointed at the WAN IP: provider service, hostname, login, server and WAN interface (" + c.redacted("passwords") + ").",
 		Input:       props(siteArg(), ddnsList.args(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			entries, err := restList(ctx, client, c.site(a), "dynamicdns")

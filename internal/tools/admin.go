@@ -167,7 +167,7 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_list_admins", Title: "List administrators",
-		Description: "List administrator accounts for a site, or for all sites (all_sites: true).",
+		Description: "List a site's administrator accounts, or every site's with all_sites: true: name, email, role, super admin and owner flags, permissions, sites and last login.",
 		Input:       props(siteArg(), P("all_sites", Bool().Opt().D("List admins across all sites")), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			var admins any
@@ -237,8 +237,11 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_list_backups", Title: "List backups",
-		Description: "List the controller's stored (auto) backups.",
-		Input:       props(siteArg(), listing{}.args()),
+		Description: "List the backups stored on the controller, newest first: filename, time, Network version, size in MB and type.",
+		Hints: []Hint{
+			seeTool("unifi_download_backup", "Save one to the backup directory with unifi_download_backup."),
+		},
+		Input: props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.CmdRead(ctx, c.site(a), "backup", "list-backups", nil)
 			if err != nil {
@@ -313,8 +316,12 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_check_updates", Title: "Check for updates",
-		Description: "Report whether a newer Network application version is available, and which devices have firmware upgrades. To make the controller re-check Ubiquiti's servers for device firmware first, use unifi_refresh_firmware (needs writes enabled).",
-		Input:       props(siteArg()),
+		Description: "Check for updates in one call: the latest Network application version the controller knows of (controller), the devices with a firmware upgrade (current and available version) and how many are up to date.",
+		Hints: []Hint{
+			seeTool("unifi_refresh_firmware", "To make the controller re-check Ubiquiti's servers for device firmware first, run unifi_refresh_firmware."),
+			seeTool("unifi_get_firmware_status", "For every device's firmware use unifi_get_firmware_status."),
+		},
+		Input: props(siteArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			s := c.site(a)
 			latest, err := client.SiteGet(ctx, s, "stat/fwupdate/latest-version", nil)

@@ -150,7 +150,7 @@ func registerMonitoring(c *Context) {
 	eventList := recent("key", "subsystem", "message", "title", "category", "device", "client")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_events", Title: "List recent events",
-		Description: "List recent controller events (client connects/roams, device restarts, upgrades...). Uses the classic event log and falls back to the v2 system log (device and client alerts) on Network versions where the classic log is gone or empty. For other log classes use unifi_get_system_log.",
+		Description: "List recent controller events, newest first (default last 24 hours): client connects and roams, device restarts, upgrades and the like, with time, key, subsystem and message. Falls back to the v2 system log's device and client alerts where the classic event log is gone or empty. For other log classes (admin activity, threats, VPN...) use unifi_get_system_log; for unresolved problems use unifi_list_alarms.",
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Max(24*30).Opt().D("Look back this many hours (default 24; the classic event log rounds fractions up to whole hours)")),
@@ -193,7 +193,7 @@ func registerMonitoring(c *Context) {
 	alarmList := recent("key", "subsystem", "message")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_alarms", Title: "List alarms",
-		Description: "List controller alarms (alerts). Uses the classic alarm list, where only active (unarchived) alarms are returned by default, and falls back to the v2 system log's high-severity entries on Network versions where the classic list is gone (10.6 and later); hours and min_severity apply to the system log.",
+		Description: "List controller alarms (alerts), newest first, with time, key, subsystem and message; archived alarms are left out unless include_archived. On Network 10.6+, where the classic alarm list is gone, returns the v2 system log's entries of min_severity (default high) from the last hours (default 168) instead. For the full event history use unifi_list_events.",
 		Input: props(
 			siteArg(),
 			P("include_archived", Bool().Opt().D("Include archived alarms (classic alarm list)")),
@@ -250,7 +250,7 @@ func registerMonitoring(c *Context) {
 
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_get_traffic_report", Title: "Get traffic/usage report",
-		Description: "Get historical time-series statistics. scope=site for whole-site traffic and client counts, gw for gateway CPU/memory/WAN traffic, ap for per-AP traffic, user for per-client traffic (pass macs).",
+		Description: "Get historical time-series statistics in buckets of 5 minutes to a month. scope=site for whole-site traffic and client counts, gw for gateway CPU/memory/WAN traffic, ap for per-AP traffic, user for per-client traffic (pass macs). For traffic by application use unifi_get_dpi_stats.",
 		Input: props(
 			siteArg(),
 			P("scope", Enum("site", "gw", "ap", "user").D("What to report on")),
@@ -339,7 +339,10 @@ func registerMonitoring(c *Context) {
 	speedtestList := recent("server")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_get_speedtest_results", Title: "Get speed test history",
-		Description: "Get historical WAN speed test results run by the gateway.",
+		Description: "List the gateway's WAN speed test results, newest first (default last 168 hours): time, download and upload in Mbps, latency in ms and test server.",
+		Hints: []Hint{
+			seeTool("unifi_run_speedtest", "Start a new test with unifi_run_speedtest."),
+		},
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Opt().D("Look back this many hours (default 168)")),
@@ -385,7 +388,10 @@ func registerMonitoring(c *Context) {
 	rogueList := recent("ssid", "bssid", "vendor", "seen_by_ap")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_rogue_aps", Title: "List neighbouring/rogue APs",
-		Description: "List nearby access points seen by your APs (neighbours and potential rogue APs).",
+		Description: "List access points your APs can hear (neighbours and ones flagged as rogue), strongest first (default seen in the last 24 hours): SSID, BSSID, channel, band, signal, security, vendor, which of your APs saw it and when.",
+		Hints: []Hint{
+			seeTool("unifi_get_rf_scan", "For per-channel interference use unifi_get_rf_scan."),
+		},
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Opt().D("Seen within this many hours (default 24; fractions are rounded up to whole hours)")),
@@ -422,7 +428,7 @@ func registerMonitoring(c *Context) {
 
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_get_system_log", Title: "Get system log",
-		Description: "Read the v2 system log (Network 8+), one class at a time, paged: device-alert, client-alert, admin-activity (logins and config changes), update-alert, threat-alert (IPS/honeypot), vpn-alert, triggers (traffic/firewall rule hits), next-ai-alert.",
+		Description: "Read one class of the v2 system log (Network 8+), paged (default 50 entries from the last 168 hours): device-alert (default), client-alert, admin-activity (logins and config changes), update-alert, threat-alert (IPS/honeypot), vpn-alert, triggers (traffic/firewall rule hits) or next-ai-alert. Entries have time, key, category, severity, title, message, device and client. unifi_list_events reads the classic event log.",
 		Input: props(
 			siteArg(),
 			P("class", Enum("device-alert", "client-alert", "admin-activity", "update-alert", "threat-alert", "vpn-alert", "triggers", "next-ai-alert").Opt().D("Log class (default device-alert)")),
@@ -456,7 +462,10 @@ func registerMonitoring(c *Context) {
 	sessionList := recent("name", "hostname", "mac", "ip", "ssid", "network", "ap_mac")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_client_sessions", Title: "List client sessions",
-		Description: "List client connection sessions (association history): when each client connected, for how long, to which AP/network, and traffic used.",
+		Description: "List client connection sessions, newest first (default last 168 hours): client, IP, connect and disconnect times, duration, AP, SSID, network and bytes; filter by client MAC or guest/user.",
+		Hints: []Hint{
+			seeTool("unifi_list_clients", "For who is connected now use unifi_list_clients."),
+		},
 		Input: props(
 			siteArg(),
 			P("mac", Str().Opt().D("Only sessions for this client")),
@@ -502,7 +511,7 @@ func registerMonitoring(c *Context) {
 	authList := recent("mac", "ip", "method", "voucher")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_guest_authorizations", Title: "List guest authorizations",
-		Description: "List hotspot/guest portal authorizations (who was authorized, how, when and until when).",
+		Description: "List guest portal/hotspot authorizations, newest first (default last 168 hours): client MAC and IP, method, voucher code, start and end, bytes and expired flag.",
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Max(24*365).Opt().D("Look back this many hours (default 168)")),
@@ -536,7 +545,7 @@ func registerMonitoring(c *Context) {
 	anomalyList := recent()
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_anomalies", Title: "List anomalies",
-		Description: "List anomalies the controller detected (e.g. high latency, DNS timeouts, poor WiFi experience) per client/device. Not available on every Network version.",
+		Description: "List anomalies the controller detected per client or device (e.g. high latency, DNS timeouts, poor WiFi experience), default last 24 hours. Rows are returned as the controller reports them; not available on every Network version.",
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Max(24*30).Opt().D("Look back this many hours (default 24)")),

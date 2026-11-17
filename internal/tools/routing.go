@@ -69,7 +69,7 @@ func registerRouting(c *Context) {
 
 	c.add(Def{
 		Toolset: "routing", Name: "unifi_list_routes", Title: "List static routes",
-		Description: "List user-defined static routes. With active=true, return the gateway's live routing table instead (stat/routing; not available on every version).",
+		Description: "List user-defined static routes: destination CIDR, type (nexthop, interface or blackhole), next hop or interface, distance and enabled. With active: true, return the gateway's live routing table instead, system routes included (stat/routing; not on every version). To send chosen clients or destinations out a particular WAN or VPN use unifi_list_traffic_routes.",
 		Input:       props(siteArg(), P("active", Bool().Opt().D("Return the active routing table (including system routes)")), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			if a.Truthy("active") {
@@ -94,8 +94,8 @@ func registerRouting(c *Context) {
 		Input: props(
 			siteArg(),
 			P("id", Str().Opt().D("Route ID to update (only the fields passed are changed). Omit to create.")),
-			P("name", Str().Opt()),
-			P("enabled", Bool().Opt()),
+			P("name", Str().Opt().D("Route name (required on create)")),
+			P("enabled", Bool().Opt().D("Whether the route is active (default true on create)")),
 			P("type", Enum("nexthop", "interface", "blackhole").Opt().D("nexthop: via a gateway IP; interface: out of an interface (WAN1/WAN2 or a network ID); blackhole: drop")),
 			P("destination", Str().Opt().D("Destination network in CIDR form, e.g. 10.20.0.0/16")),
 			P("next_hop", Str().Opt().D("Next-hop IP address (type=nexthop)")),
@@ -160,7 +160,7 @@ func registerRouting(c *Context) {
 
 	c.add(Def{
 		Toolset: "routing", Name: "unifi_list_traffic_routes", Title: "List traffic routes",
-		Description: "List traffic routes (policy-based routing): which clients/networks and destinations are sent out a specific WAN or VPN client.",
+		Description: "List traffic routes (policy-based routing): which clients or networks, and which destinations (domains, IPs, regions or all internet), are sent out a given WAN or VPN client network, with kill switch and next hop. Plain destination-based static routes are in unifi_list_routes.",
 		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			routes, err := v2List(ctx, client, c.site(a), "trafficroutes")
@@ -173,15 +173,16 @@ func registerRouting(c *Context) {
 
 	c.add(Def{
 		Toolset: "routing", Name: "unifi_save_traffic_route", Title: "Create or update traffic route",
-		Description: "Create a traffic route (description, matching_target and network_id required) or update one by id. Routes matching traffic from the target clients/networks via network_id (a WAN or VPN client network; see unifi_list_networks). " +
+		Description: "Create a traffic route (description, matching_target and network_id required) or update one by id. Routes matching traffic from the target clients/networks via network_id (a WAN or VPN client network). " +
 			"matching_target: DOMAIN (domains), IP (ip_addresses), REGION (regions) or INTERNET (all traffic; requires explicit client_macs/network_ids). Targets default to all clients for DOMAIN/IP/REGION.",
-		Gate: Write, Destructive: boolPtr(true),
+		Hints: []Hint{seeTool("unifi_list_networks", "Find network IDs with unifi_list_networks.")},
+		Gate:  Write, Destructive: boolPtr(true),
 		Input: props(
 			siteArg(),
 			P("id", Str().Opt().D("Traffic route ID to update (only the fields passed are changed). Omit to create.")),
 			P("description", Str().Opt().D("Route name")),
-			P("enabled", Bool().Opt()),
-			P("matching_target", Enum("DOMAIN", "IP", "REGION", "INTERNET").Opt()),
+			P("enabled", Bool().Opt().D("Whether the route is active")),
+			P("matching_target", Enum("DOMAIN", "IP", "REGION", "INTERNET").Opt().D("What the route matches (required on create)")),
 			P("network_id", Str().Opt().D("Network ID to route through (WAN or VPN client)")),
 			targetArgs(),
 			P("domains", Array(Str()).Opt().D("Domains (matching_target=DOMAIN)")),

@@ -21,8 +21,11 @@ func registerHotspot(c *Context) {
 	voucherList := listing{Search: []string{"code", "note", "status"}, Limit: 200}
 	c.add(Def{
 		Toolset: "hotspot", Name: "unifi_list_vouchers", Title: "List hotspot vouchers",
-		Description: "List guest hotspot vouchers with code, duration, usage and status.",
-		Input:       props(siteArg(), voucherList.args()),
+		Description: "List hotspot vouchers with code, note, duration, quota and times used, status, rate and data limits, and creation time.",
+		Hints: []Hint{
+			seeTool("unifi_list_guest_authorizations", "For who redeemed them use unifi_list_guest_authorizations."),
+		},
+		Input: props(siteArg(), voucherList.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "stat/voucher", nil)
 			if err != nil {
@@ -184,9 +187,9 @@ func registerHotspot(c *Context) {
 		Input: props(
 			siteArg(),
 			P("id", idSchema("Hotspot operator").Opt()),
-			P("name", Str().MinLen(1).Opt()),
+			P("name", Str().MinLen(1).Opt().D("Operator login name (required on create)")),
 			P("password", Str().MinLen(1).Opt().D("Operator password")),
-			P("note", Str().Opt()),
+			P("note", Str().Opt().D("Free-text note")),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			id := a.Str("id")
@@ -244,8 +247,8 @@ func registerHotspot(c *Context) {
 			P("auth", Enum("none", "hotspot", "password", "facebook", "custom", "radius").Opt().D("Authentication: none (click-through), hotspot (vouchers/payment/etc.), password, ...")),
 			P("session_minutes", Int().Positive().Opt().D("How long a guest stays authorized, in minutes")),
 			P("password", Str().Opt().D("Portal password (auth=password, or password option under hotspot)")),
-			P("voucher_enabled", Bool().Opt()),
-			P("password_enabled", Bool().Opt()),
+			P("voucher_enabled", Bool().Opt().D("Offer voucher login (auth=hotspot)")),
+			P("password_enabled", Bool().Opt().D("Offer password login (auth=hotspot)")),
 			P("redirect_url", Str().Opt().D("Redirect guests here after authorizing; empty string disables")),
 			extraArg(),
 		),

@@ -32,7 +32,10 @@ func registerClients(c *Context) {
 
 	c.add(Def{
 		Toolset: "clients", Name: "unifi_list_clients", Title: "List connected clients",
-		Description: "List clients that are currently connected, with IP, network, AP/switch port, signal, rates, usage and uptime.",
+		Description: "List the clients connected now, with IP, network, AP or switch port, signal, rates, usage and uptime; filter by connection type, guests, network or AP. For offline clients and stored settings (alias, fixed IP, blocked) use unifi_list_known_clients.",
+		Hints: []Hint{
+			seeTool("unifi_list_client_sessions", "For connection history use unifi_list_client_sessions."),
+		},
 		Input: props(
 			siteArg(),
 			P("connection", Enum("all", "wired", "wireless").Opt().D("Filter by connection type (default all)")),
@@ -64,7 +67,7 @@ func registerClients(c *Context) {
 	knownList := listing{Search: clientSearch, Limit: 200}
 	c.add(Def{
 		Toolset: "clients", Name: "unifi_list_known_clients", Title: "List known clients",
-		Description: "List all clients the controller has ever seen (including offline ones), with alias, note, fixed IP and block status.",
+		Description: "List every client the controller has stored, online or offline, most recently seen first, with alias, note, fixed IP and block status. For live connection details use unifi_list_clients or unifi_get_client.",
 		Input: props(
 			siteArg(),
 			P("filter", Enum("all", "blocked", "fixed_ip", "noted", "named").Opt().D("Only blocked clients, clients with a fixed IP, clients with a note, or clients with an alias")),
@@ -99,7 +102,7 @@ func registerClients(c *Context) {
 
 	c.add(Def{
 		Toolset: "clients", Name: "unifi_get_client", Title: "Get client details",
-		Description: "Get everything known about a client by MAC: stored settings plus live connection details if it is online.",
+		Description: "Get one client by MAC: its stored settings (alias, note, fixed IP, blocked) merged with live connection details when it is connected, and an online flag. Errors if the controller has never seen the MAC.",
 		Input:       props(siteArg(), macArg(), raw),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			m, err := mac(a.Get("mac"))

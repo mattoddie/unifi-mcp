@@ -96,7 +96,7 @@ func registerDevices(c *Context) {
 	}
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_list_devices", Title: "List devices",
-		Description: "List UniFi network devices (gateways, switches, access points...) with state, model, firmware, uptime, load and client counts.",
+		Description: "List the site's UniFi devices (gateways, switches, access points...) with state, model, firmware, IP, uptime, CPU and memory load and client counts; filter by type or state. For one device's ports, radios and uplink use unifi_get_device.",
 		Input: props(
 			siteArg(),
 			P("type", Enum("access_point", "switch", "gateway", "other").Opt().D("Only devices of this type")),
@@ -129,8 +129,11 @@ func registerDevices(c *Context) {
 
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_get_device", Title: "Get device details",
-		Description: "Get detailed information about one device by MAC: summary, switch ports, radio config and stats, uplink, LED and system stats.",
-		Input:       props(siteArg(), macArg(), rawArg()),
+		Description: "Get one device by MAC: its list summary plus serial, ports, radio settings and stats, outlets, WAN links, system stats, load average, PoE use and LED settings. Errors if no device has that MAC.",
+		Hints: []Hint{
+			seeTool("unifi_list_switch_ports", "For a switch's ports with LLDP neighbours and profile names use unifi_list_switch_ports."),
+		},
+		Input: props(siteArg(), macArg(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			device, err := getDevice(ctx, client, c.site(a), a.Str("mac"))
 			if err != nil {
@@ -190,7 +193,8 @@ func registerDevices(c *Context) {
 
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_refresh_firmware", Title: "Refresh firmware availability",
-		Description: "Ask the controller to re-check Ubiquiti's servers for new device firmware (cmd/productinfo check-firmware-update). Nothing is upgraded. The check runs in the background: read the result a minute later with unifi_get_firmware_status or unifi_check_updates.",
+		Description: "Ask the controller to re-check Ubiquiti's servers for new device firmware (cmd/productinfo check-firmware-update). Nothing is upgraded. The check runs in the background: read the result a minute later with unifi_get_firmware_status.",
+		Hints:       []Hint{seeTool("unifi_check_updates", "unifi_check_updates shows it too.")},
 		Gate:        Write,
 		Input:       props(siteArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -203,7 +207,11 @@ func registerDevices(c *Context) {
 
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_get_firmware_status", Title: "Get firmware status",
-		Description: "Show each device's current firmware and whether an upgrade is available, and optionally list the firmware images the controller knows about. To make the controller re-check Ubiquiti's servers first, use unifi_refresh_firmware (needs writes enabled).",
+		Description: "List each device's model and firmware version, whether an upgrade is available (and to which version) or running, with the number of upgradable devices; include_available adds the firmware images the controller can install. Availability is as of the controller's last check with Ubiquiti.",
+		Hints: []Hint{
+			seeTool("unifi_refresh_firmware", "To make it check again first, run unifi_refresh_firmware."),
+			seeTool("unifi_check_updates", "unifi_check_updates also covers Network application updates."),
+		},
 		Input: props(
 			siteArg(),
 			P("include_available", Bool().Opt().D("Also list firmware images available to the controller (cmd/firmware list-available)")),
@@ -249,8 +257,11 @@ func registerDevices(c *Context) {
 
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_get_rf_scan", Title: "Get RF scan results",
-		Description: "Get the state and results of an access point's RF/spectrum scan (channel utilization and interference per channel). Start one with unifi_run_rf_scan.",
-		Input:       props(siteArg(), apMac),
+		Description: "Get an access point's last RF/spectrum scan: whether a scan is running, when it last ran, and utilization and interference per channel. Returns scanning: false and no results if the AP has no scan.",
+		Hints: []Hint{
+			seeTool("unifi_run_rf_scan", "Start a scan with unifi_run_rf_scan."),
+		},
+		Input: props(siteArg(), apMac),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			m, err := mac(a.Get("mac"))
 			if err != nil {
@@ -282,7 +293,7 @@ func registerDevices(c *Context) {
 	apGroupList := listing{Search: []string{"name", "device_macs"}}
 	c.add(Def{
 		Toolset: "devices", Name: "unifi_list_ap_groups", Title: "List AP groups",
-		Description: "List access point groups (used to choose which APs broadcast each WiFi network). Network 7.x+ (v2 API).",
+		Description: "List access point groups (id, name, member AP MACs, device count, default flag), which choose the APs that broadcast each WiFi network. Network 7.x+ (v2 API).",
 		Input:       props(siteArg(), apGroupList.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			groups, err := v2List(ctx, client, c.site(a), "apgroups")
@@ -308,13 +319,13 @@ func registerDevices(c *Context) {
 			P("led_brightness", Int().Min(0).Max(100).Opt().D("LED brightness 0-100 (LED-ring devices only)")),
 			P("disabled", Bool().Opt().D("true disables the device, false re-enables it")),
 			P("ip_config", Object(
-				P("type", Enum("dhcp", "static")),
-				P("ip", Str().Opt()),
-				P("netmask", Str().Opt()),
-				P("gateway", Str().Opt()),
-				P("dns1", Str().Opt()),
-				P("dns2", Str().Opt()),
-				P("dns_suffix", Str().Opt()),
+				P("type", Enum("dhcp", "static").D("dhcp, or static with the fields below")),
+				P("ip", Str().Opt().D("Static management IP")),
+				P("netmask", Str().Opt().D("Netmask, e.g. 255.255.255.0")),
+				P("gateway", Str().Opt().D("Default gateway")),
+				P("dns1", Str().Opt().D("Primary DNS server")),
+				P("dns2", Str().Opt().D("Secondary DNS server")),
+				P("dns_suffix", Str().Opt().D("DNS search domain")),
 			).Opt().D("Management IP configuration; static requires ip, netmask and gateway. A wrong static IP can make the device unreachable.")),
 			extraArg(),
 		),
@@ -531,7 +542,7 @@ func registerDevices(c *Context) {
 		Gate:        Write, Destructive: boolPtr(true),
 		Input: props(
 			siteArg(),
-			P("action", Enum("start", "cancel")),
+			P("action", Enum("start", "cancel").D("start a rolling upgrade, or cancel the one in progress")),
 			P("types", Array(Enum("uap", "usw", "ugw", "uxg")).Opt().D("Device types to upgrade when starting (default all: uap, usw, ugw, uxg)")),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {

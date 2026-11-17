@@ -402,7 +402,7 @@ func registerFirewall(c *Context) {
 
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_port_forwards", Title: "List port forwards",
-		Description: "List port forwarding rules.",
+		Description: "List port forwards (WAN port to internal IP and port) with protocol, WAN interface, allowed source and logging. Custom DNAT/SNAT rules are in unifi_list_nat_rules, and the rules that filter traffic in unifi_list_firewall_policies (unifi_list_firewall_rules on classic firewalls).",
 		Input:       props(siteArg(), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "portforward")
@@ -420,10 +420,10 @@ func registerFirewall(c *Context) {
 		Input: props(
 			siteArg(),
 			saveIDArg("Port forward"),
-			P("name", Str().Opt()),
-			P("enabled", Bool().Opt()),
+			P("name", Str().Opt().D("Rule name (required on create)")),
+			P("enabled", Bool().Opt().D("Whether the rule is active (default true on create)")),
 			P("wan_interface", Enum("wan", "wan2", "both").Opt().D("WAN interface to listen on")),
-			P("protocol", Enum("tcp_udp", "tcp", "udp").Opt()),
+			P("protocol", Enum("tcp_udp", "tcp", "udp").Opt().D("Protocol to forward (default tcp_udp on create)")),
 			P("source", Str().Opt().D("Allowed source: 'any' or an IP/CIDR")),
 			P("destination_ip", Str().Opt().D("WAN IP to match ('any' for all WAN IPs; newer Network versions)")),
 			P("external_port", Str().Opt().D("External port or range, e.g. '443' or '8000-8100'")),
@@ -472,7 +472,7 @@ func registerFirewall(c *Context) {
 
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_firewall_rules", Title: "List firewall rules (legacy)",
-		Description: "List classic firewall rules (WAN_IN, LAN_IN, ...). Not available on Network 11+ or on sites migrated to zone-based firewall (Network 9+); use unifi_list_firewall_policies there.",
+		Description: "List classic firewall rules, sorted by ruleset (WAN_IN, LAN_IN, ...) and rule_index, with action, protocol, source and destination. Not available on Network 11+ or on sites migrated to the zone-based firewall (Network 9+): use unifi_list_firewall_policies there.",
 		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			rules, err := restList(ctx, client, c.site(a), "firewallrule")
@@ -497,11 +497,11 @@ func registerFirewall(c *Context) {
 		Input: props(
 			siteArg(),
 			saveIDArg("Firewall rule"),
-			P("name", Str().Opt()),
-			P("enabled", Bool().Opt()),
-			P("ruleset", Enum(rulesets...).Opt()),
+			P("name", Str().Opt().D("Rule name (required on create)")),
+			P("enabled", Bool().Opt().D("Whether the rule is active")),
+			P("ruleset", Enum(rulesets...).Opt().D("Ruleset: traffic direction and interface, e.g. WAN_IN for inbound from the internet (required on create)")),
 			P("rule_index", Int().Opt().D("Order within the ruleset (2000-2999 run before predefined rules, 4000+ after)")),
-			P("action", Enum("accept", "drop", "reject").Opt()),
+			P("action", Enum("accept", "drop", "reject").Opt().D("What to do with matching traffic (required on create)")),
 			P("protocol", Str().Opt().D("all (default), tcp, udp, tcp_udp, icmp, or another protocol name/number")),
 			P("protocol_match_excepted", Bool().Opt().D("Match every protocol except the one given")),
 			P("src_network_id", Str().Opt().D("Source network ID")),
@@ -510,13 +510,13 @@ func registerFirewall(c *Context) {
 			P("src_mac", Str().Opt().D("Source MAC address")),
 			P("src_group_ids", Array(Str()).Opt().D("Source firewall group IDs (address and/or port group)")),
 			P("src_port", Str().Opt().D("Source port(s) (tcp/udp only)")),
-			P("dst_network_id", Str().Opt()),
-			P("dst_network_type", Enum("NETv4", "ADDRv4").Opt()),
+			P("dst_network_id", Str().Opt().D("Destination network ID")),
+			P("dst_network_type", Enum("NETv4", "ADDRv4").Opt().D("NETv4 = whole subnet, ADDRv4 = gateway IP of the network")),
 			P("dst_address", Str().Opt().D("Destination IP/CIDR")),
 			P("dst_group_ids", Array(Str()).Opt().D("Destination firewall group IDs")),
 			P("dst_port", Str().Opt().D("Destination port(s) (tcp/udp only)")),
 			P("states", Array(Enum("new", "established", "related", "invalid")).Opt().D("Connection states to match (none = all states)")),
-			P("logging", Bool().Opt()),
+			P("logging", Bool().Opt().D("Log matching packets")),
 			extraArg(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -647,8 +647,8 @@ func registerFirewall(c *Context) {
 		Input: props(
 			siteArg(),
 			saveIDArg("Firewall group"),
-			P("name", Str().Opt()),
-			P("type", Enum("address-group", "ipv6-address-group", "port-group").Opt()),
+			P("name", Str().Opt().D("Group name (required on create)")),
+			P("type", Enum("address-group", "ipv6-address-group", "port-group").Opt().D("Group type (required on create; can't be changed)")),
 			P("members", Array(Str()).Opt().D("IPs/CIDRs (address groups) or ports/ranges like '80' or '8000-8100' (port groups)")),
 			extraArg(),
 		),
@@ -692,7 +692,7 @@ func registerFirewall(c *Context) {
 
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_firewall_policies", Title: "List firewall policies (zone-based)",
-		Description: "List zone-based firewall policies (UniFi Network 9.0+). Predefined (system) policies are hidden unless include_predefined is set.",
+		Description: "List zone-based firewall policies (Network 9.0+) sorted by index: action, source and destination (zone and match), protocol, connection states, schedule and logging. Predefined (system) policies are left out unless include_predefined. On classic firewalls use unifi_list_firewall_rules; to find the policy that applies to a connection use unifi_check_firewall_path.",
 		Input: props(
 			siteArg(),
 			P("include_predefined", Bool().Opt().D("Also return predefined/system policies")),
@@ -723,19 +723,19 @@ func registerFirewall(c *Context) {
 		Input: props(
 			siteArg(),
 			saveIDArg("Firewall policy"),
-			P("name", Str().Opt()),
-			P("description", Str().Opt()),
-			P("enabled", Bool().Opt()),
-			P("action", Enum("ALLOW", "BLOCK", "REJECT").Opt()),
+			P("name", Str().Opt().D("Policy name (required on create)")),
+			P("description", Str().Opt().D("Free-text description")),
+			P("enabled", Bool().Opt().D("Whether the policy is active")),
+			P("action", Enum("ALLOW", "BLOCK", "REJECT").Opt().D("What to do with matching traffic (required on create)")),
 			P("source", policyEndpoint().Opt()),
 			P("destination", policyEndpoint().Opt()),
 			P("protocol", Str().Opt().D("all (default), tcp, udp, tcp_udp, icmp, icmpv6, ...")),
-			P("ip_version", Enum("BOTH", "IPV4", "IPV6").Opt()),
-			P("connection_state_type", Enum("ALL", "RESPOND_ONLY", "CUSTOM").Opt()),
+			P("ip_version", Enum("BOTH", "IPV4", "IPV6").Opt().D("IP versions the policy matches")),
+			P("connection_state_type", Enum("ALL", "RESPOND_ONLY", "CUSTOM").Opt().D("Connection states matched: all, return traffic only, or connection_states")),
 			P("connection_states", Array(Enum("NEW", "ESTABLISHED", "RELATED", "INVALID")).Opt().D("With connection_state_type=CUSTOM")),
 			P("create_allow_respond", Bool().Opt().D("For ALLOW policies: also create the return-traffic policy")),
-			P("logging", Bool().Opt()),
-			P("schedule", LooseObject(P("mode", Str())).Opt().D("e.g. {mode: 'ALWAYS'} (default) or a custom schedule object")),
+			P("logging", Bool().Opt().D("Log matching traffic")),
+			P("schedule", LooseObject(P("mode", Str().D("Schedule mode, e.g. ALWAYS or EVERY_DAY"))).Opt().D("e.g. {mode: 'ALWAYS'} (default) or a custom schedule object")),
 			extraArg(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -945,7 +945,7 @@ func registerFirewall(c *Context) {
 
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_firewall_zones", Title: "List firewall zones",
-		Description: "List zone-based firewall zones and the networks in each (UniFi Network 9.0+).",
+		Description: "List zone-based firewall zones (Network 9.0+) with zone_key, system-defined flag, network IDs and integration_id. Firewall policies and unifi_check_firewall_path refer to zones by these IDs.",
 		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := v2List(ctx, client, c.site(a), "firewall/zone")
@@ -972,7 +972,7 @@ func registerFirewall(c *Context) {
 		Input: props(
 			siteArg(),
 			saveIDArg("Firewall zone"),
-			P("name", Str().MinLen(1).Opt()),
+			P("name", Str().MinLen(1).Opt().D("Zone name (required on create)")),
 			P("network_ids", Array(Str()).Opt().D("Network IDs in the zone (see unifi_list_networks)")),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -1032,7 +1032,7 @@ func registerFirewall(c *Context) {
 
 	c.add(Def{
 		Toolset: "firewall", Name: "unifi_list_traffic_rules", Title: "List traffic rules",
-		Description: "List traffic management rules (block/allow/limit by app, domain, IP, region or internet) from the v2 API.",
+		Description: "List traffic rules (v2 API) that block, allow or rate-limit traffic from clients or networks by app, app category, domain, IP, region or all internet, with schedule and bandwidth limit. Zone-based firewall policies are separate (unifi_list_firewall_policies).",
 		Input:       props(siteArg(), listing{}.args(), rawArg()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			rules, err := v2List(ctx, client, c.site(a), "trafficrules")
@@ -1053,9 +1053,9 @@ func registerFirewall(c *Context) {
 			siteArg(),
 			saveIDArg("Traffic rule"),
 			P("description", Str().Opt().D("Rule name/description")),
-			P("enabled", Bool().Opt()),
-			P("action", Enum("BLOCK", "ALLOW").Opt()),
-			P("matching_target", Enum("INTERNET", "DOMAIN", "APP", "APP_CATEGORY", "IP", "REGION").Opt()),
+			P("enabled", Bool().Opt().D("Whether the rule is active")),
+			P("action", Enum("BLOCK", "ALLOW").Opt().D("What to do with matching traffic (required on create)")),
+			P("matching_target", Enum("INTERNET", "DOMAIN", "APP", "APP_CATEGORY", "IP", "REGION").Opt().D("What the rule matches (required on create)")),
 			targetArgs(),
 			P("domains", Array(Str()).Opt().D("Domains, e.g. ['example.com'] (matching_target=DOMAIN)")),
 			P("ip_addresses", Array(Str()).Opt().D("IPs or CIDRs (matching_target=IP)")),
@@ -1065,7 +1065,7 @@ func registerFirewall(c *Context) {
 			P("download_limit_kbps", Int().Positive().Opt().D("Download limit (enables the bandwidth limit)")),
 			P("upload_limit_kbps", Int().Positive().Opt().D("Upload limit (enables the bandwidth limit)")),
 			P("remove_bandwidth_limit", Bool().Opt().D("Disable the bandwidth limit")),
-			P("schedule", LooseObject(P("mode", Str())).Opt().D("e.g. {mode:'ALWAYS'} (default) or {mode:'EVERY_DAY', time_range_start:'22:00', time_range_end:'06:00', ...}")),
+			P("schedule", LooseObject(P("mode", Str().D("Schedule mode, e.g. ALWAYS or EVERY_DAY"))).Opt().D("e.g. {mode:'ALWAYS'} (default) or {mode:'EVERY_DAY', time_range_start:'22:00', time_range_end:'06:00', ...}")),
 			extraArg(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {

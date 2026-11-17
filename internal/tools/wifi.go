@@ -109,7 +109,7 @@ func registerWifi(c *Context) {
 
 	c.add(Def{
 		Toolset: "wifi", Name: "unifi_list_wlans", Title: "List WiFi networks",
-		Description: "List wireless networks (SSIDs) with security, bands, linked network and enabled state.",
+		Description: "List WiFi networks (SSIDs) with security and WPA mode, bands, linked network, AP groups, bandwidth and RADIUS profiles, guest and hidden flags, client isolation, MAC filter and enabled state (" + c.redacted("passphrases") + ").",
 		Input:       props(siteArg(), listing{}.args(), rawArg(), secretsArg(secretsPassphrases)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			res, err := client.SiteGet(ctx, c.site(a), "rest/wlanconf", nil)
@@ -146,13 +146,13 @@ func registerWifi(c *Context) {
 			P("radius_profile_id", Str().Opt().D("RADIUS profile for security wpaeap, see unifi_list_radius_profiles")),
 			P("mac_filter", Object(
 				P("policy", Enum("allow", "deny").D("allow = only listed MACs may join; deny = listed MACs are blocked")),
-				P("macs", Array(Str())),
+				P("macs", Array(Str()).D("Client MAC addresses")),
 			).Null().Opt().D("MAC address filter; null disables it")),
 			P("fast_roaming", Bool().Opt().D("802.11r fast roaming")),
 			P("bss_transition", Bool().Opt().D("802.11v BSS transition (helps steer clients between APs)")),
 			P("min_rate_2g_kbps", Int().Positive().Null().Opt().D("Minimum 2.4 GHz data rate in kbps (e.g. 6000, 12000); null disables")),
 			P("min_rate_5g_kbps", Int().Positive().Null().Opt().D("Minimum 5 GHz data rate in kbps; null disables")),
-			P("enabled", Bool().Opt()),
+			P("enabled", Bool().Opt().D("Whether the SSID is broadcast")),
 			P("extra", extraSchema().D("Additional raw wlanconf fields, e.g. schedule_enabled + schedule_with_duration, uapsd_enabled, group_rekey, dtim_ng/dtim_na, pmf_mode, iapp_enabled. Merged last.")),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {

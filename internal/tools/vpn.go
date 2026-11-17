@@ -129,7 +129,7 @@ func registerVPN(c *Context) {
 
 	c.add(Def{
 		Toolset: "vpn", Name: "unifi_list_vpns", Title: "List VPNs",
-		Description: "List VPN servers (WireGuard, OpenVPN, L2TP), VPN clients and site-to-site VPNs configured on the gateway. Use raw: true to see every field.",
+		Description: "List the gateway's VPN servers (WireGuard, OpenVPN, L2TP), VPN clients and site-to-site VPNs with kind, enabled state, subnet, port, WAN interface, peer and remote subnets and DNS. raw: true shows every field.",
 		Input:       props(siteArg(), vpnList.args(), rawArg(), secretsArg(secretsVPN)),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			list, err := restList(ctx, client, c.site(a), "networkconf")
@@ -146,14 +146,15 @@ func registerVPN(c *Context) {
 		Description: "Create (no id; kind required) or update (id; only fields passed change) a VPN server, VPN client or site-to-site VPN. " +
 			"Typed fields cover the common settings; anything else (IPsec proposals, OpenVPN/WireGuard client configuration, peer keys) goes in `extra` using the controller's field names — " +
 			"inspect an existing VPN with unifi_list_vpns raw: true to see them, since they vary between Network versions. " +
-			"WireGuard server peers (users) and imported client config files are not covered by this tool; use unifi_api_request.",
-		Gate: Write, Destructive: boolPtr(true),
+			"WireGuard server peers (users) and imported client config files are not covered by this tool.",
+		Hints: []Hint{seeTool("unifi_api_request", "Use unifi_api_request for those.")},
+		Gate:  Write, Destructive: boolPtr(true),
 		Input: props(
 			siteArg(),
 			P("id", idSchema("VPN").Opt().D("VPN ID to update; omit to create")),
 			P("kind", Enum(vpnKinds()...).Opt().D("VPN type (required on create)")),
 			P("name", Str().MinLen(1).Opt().D("Name (required on create)")),
-			P("enabled", Bool().Opt()),
+			P("enabled", Bool().Opt().D("Whether the VPN is enabled")),
 			P("subnet", Str().Opt().D("Tunnel/client address pool as gateway/prefix, e.g. 192.168.3.1/24 (VPN servers)")),
 			P("port", Int().Min(1).Max(65535).Opt().D("Listen port (WireGuard default 51820, OpenVPN 1194)")),
 			P("wan_interface", Str().Opt().D("WAN to listen on: wan (default) or wan2 (L2TP/OpenVPN/WireGuard servers)")),
@@ -316,7 +317,7 @@ func registerVPN(c *Context) {
 			P("id", idSchema("RADIUS profile").Opt().D("Profile ID to update; omit to create")),
 			P("name", Str().MinLen(1).Opt().D("Name (required on create)")),
 			P("auth_servers", Array(serverArg()).Opt().D("Authentication servers")),
-			P("accounting_enabled", Bool().Opt()),
+			P("accounting_enabled", Bool().Opt().D("Send RADIUS accounting to acct_servers")),
 			P("acct_servers", Array(serverArg()).Opt().D("Accounting servers")),
 			P("vlan_enabled", Bool().Opt().D("Assign VLANs from RADIUS attributes")),
 			extraArg(),
