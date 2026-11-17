@@ -95,7 +95,7 @@ UniFi devices (gateways, switches, access points, PDUs): status, firmware, radio
 | [`unifi_restart_device`](#unifi_restart_device) | 🟠 write | Restart device |
 | [`unifi_locate_device`](#unifi_locate_device) | 🟠 write | Locate device (flash LED) |
 | [`unifi_upgrade_device`](#unifi_upgrade_device) | 🟠 write | Upgrade device firmware |
-| [`unifi_rolling_upgrade`](#unifi_rolling_upgrade) | 🟠 write | Start/cancel rolling upgrade |
+| [`unifi_control_rolling_upgrade`](#unifi_control_rolling_upgrade) | 🟠 write | Start/cancel rolling upgrade |
 | [`unifi_provision_device`](#unifi_provision_device) | 🟠 write | Force provision device |
 | [`unifi_adopt_device`](#unifi_adopt_device) | 🟠 write | Adopt device |
 | [`unifi_move_device`](#unifi_move_device) | 🟠 write | Move device to another site |
@@ -263,7 +263,7 @@ Upgrade a device to the latest firmware known to the controller, or to a specifi
 | `mac` | string | yes | MAC address, e.g. aa:bb:cc:dd:ee:ff |
 | `firmware_url` | string |  | Upgrade to this firmware image instead of the latest (advanced) |
 
-### unifi_rolling_upgrade
+### unifi_control_rolling_upgrade
 
 🟠 write · destructive
 
@@ -1999,7 +1999,7 @@ List recent controller events (client connects/roams, device restarts, upgrades.
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `hours` | integer |  | Look back this many hours (default 24) |
+| `hours` | number |  | Look back this many hours (default 24; the classic event log rounds fractions up to whole hours) |
 | `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
 | `limit` | integer |  | Maximum number of items to return. Default 100. |
 | `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
@@ -2093,7 +2093,7 @@ List nearby access points seen by your APs (neighbours and potential rogue APs).
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `hours` | integer |  | Seen within this many hours (default 24) |
+| `hours` | number |  | Seen within this many hours (default 24; fractions are rounded up to whole hours) |
 | `rogue_only` | boolean |  | Only APs flagged as rogue |
 | `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
 | `limit` | integer |  | Maximum number of items to return. Default 100. |
@@ -2173,20 +2173,20 @@ Get the aggregated dashboard the UniFi UI shows: WAN/ISP quality history (latenc
 
 🟢 read
 
-List recent traffic flows seen by the gateway (Insights > Flows): source and destination client, IP, domain and network, app/service, allowed or blocked, risk, bytes and the policies that matched. This is an expensive query on the gateway, so it looks back 15 minutes and returns 50 flows by default; narrow it with client_mac, action, risk or search (applied by the controller to app, domain, client name and more) before widening the window. Recent Network 9.x/10.x with a UniFi gateway.
+List recent traffic flows seen by the gateway (Insights > Flows): source and destination client, IP, domain and network, app/service, allowed or blocked, risk, bytes and the policies that matched. This is an expensive query on the gateway, so it looks back 15 minutes (hours: 0.25) and returns 50 flows per page by default; narrow it with client_mac, action, risk or search (applied by the controller to app, domain, client name and more) before widening the window. Recent Network 9.x/10.x with a UniFi gateway.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `minutes` | integer |  | Look back this many minutes (default 15) |
+| `hours` | number |  | Look back this many hours (default 0.25, i.e. 15 minutes) |
 | `client_mac` | string |  | Only flows from this client MAC address |
 | `client_ip` | string |  | Only flows from this source IP |
 | `action` | `"allowed"` \| `"blocked"` |  | Only allowed or only blocked flows |
 | `risk` | `"low"` \| `"medium"` \| `"high"` |  | Only flows with this risk level |
 | `destination_domain` | string |  | Only flows to this domain |
 | `page` | integer |  | Page number, from 0 |
+| `page_size` | integer |  | Flows per page (default 50) |
 | `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
-| `limit` | integer |  | Flows per page (default 50) |
 | `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
 | `raw` | boolean |  | Return the full controller objects (large) |
 
@@ -2197,7 +2197,7 @@ Site settings, administrators, backups, controller updates and site management.
 | Tool | Access | Summary |
 |---|---|---|
 | [`unifi_get_site_settings`](#unifi_get_site_settings) | 🟢 read | Get site settings |
-| [`unifi_update_site_setting`](#unifi_update_site_setting) | 🟠 write | Update site setting |
+| [`unifi_update_site_settings`](#unifi_update_site_settings) | 🟠 write | Update site settings |
 | [`unifi_create_site`](#unifi_create_site) | 🟠 write | Create site |
 | [`unifi_rename_site`](#unifi_rename_site) | 🟠 write | Rename site |
 | [`unifi_delete_site`](#unifi_delete_site) | 🔴 delete | Delete site |
@@ -2222,7 +2222,7 @@ Get site-wide settings. Each setting is an object identified by `key`, e.g. mgmt
 | `key` | string |  | Setting key to return in full; omit to list available keys |
 | `include_secrets` | boolean |  | Include secret fields such as passwords and shared keys (redacted by default) |
 
-### unifi_update_site_setting
+### unifi_update_site_settings
 
 🟠 write · destructive
 
@@ -2332,11 +2332,11 @@ Generate a controller backup and return the controller-relative download path. G
 
 🟠 write
 
-Save a controller backup (.unf) in the server's backup directory (UNIFI_BACKUP_DIR; the tool only exists when it is set). Pass path, the download_path from unifi_create_backup, or filename, an automatic backup from unifi_list_backups. The file is written only inside that directory, with mode 0600, under the backup's own name; an existing file is kept unless overwrite is true. Backups contain the whole configuration, including secrets. Nothing on the controller changes.
+Save a controller backup (.unf) in the server's backup directory (UNIFI_BACKUP_DIR; the tool only exists when it is set). Pass source, the download_path from unifi_create_backup, or filename, an automatic backup from unifi_list_backups (both name the backup on the controller). The file is written only inside that directory, with mode 0600, under the backup's own name; an existing file is kept unless overwrite is true. Backups contain the whole configuration, including secrets. Nothing on the controller changes.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
-| `path` | string |  | download_path from unifi_create_backup, e.g. /dl/backup/9.0.0.unf |
+| `source` | string |  | Backup to download: the download_path from unifi_create_backup, e.g. /dl/backup/9.0.0.unf. The saved file keeps the backup's own name. |
 | `filename` | string |  | Automatic backup filename from unifi_list_backups, e.g. autobackup_9.0.0_20260101_0300_1767236400000.unf |
 | `overwrite` | boolean |  | Replace a file of the same name in the backup directory (default false) |
 

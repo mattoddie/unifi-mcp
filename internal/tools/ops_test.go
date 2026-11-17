@@ -135,15 +135,15 @@ func TestSiteSettings(t *testing.T) {
 	eq(t, "secret", get(env.call("unifi_get_site_settings", `{"key":"mgmt","include_secrets":true}`), "x_ssh_password"), "sshpw")
 	contains(t, "missing", env.callErr("unifi_get_site_settings", `{"key":"nope"}`), `Setting "nope" not found; available: ips, dpi, usg, mgmt, guest_access`)
 
-	res := env.call("unifi_update_site_setting", `{"key":"mgmt","changes":{"led_enabled":false}}`)
+	res := env.call("unifi_update_site_settings", `{"key":"mgmt","changes":{"led_enabled":false}}`)
 	eq(t, "led", get(res, "led_enabled"), false)
 	eq(t, "redacted", get(res, "x_ssh_password"), "[redacted]")
 	put := lastTo(env.mock, "/api/s/default/rest/setting/mgmt/s_mgmt")
 	if put.Method != "PUT" || get(put.Body, "x_ssh_password") != "sshpw" {
 		t.Errorf("secrets are preserved on write: %s %v", put.Method, put.Body)
 	}
-	contains(t, "_id", env.callErr("unifi_update_site_setting", `{"key":"mgmt","changes":{"_id":"x"}}`), `"_id" cannot be changed`)
-	contains(t, "empty", env.callErr("unifi_update_site_setting", `{"key":"mgmt","changes":{}}`), "changes is empty")
+	contains(t, "_id", env.callErr("unifi_update_site_settings", `{"key":"mgmt","changes":{"_id":"x"}}`), `"_id" cannot be changed`)
+	contains(t, "empty", env.callErr("unifi_update_site_settings", `{"key":"mgmt","changes":{}}`), "changes is empty")
 }
 
 func TestSites(t *testing.T) {
@@ -213,6 +213,10 @@ func TestSystemLog(t *testing.T) {
 	env := opsEnv(t)
 	res := env.call("unifi_get_system_log", `{"class":"threat-alert","page_size":10}`)
 	eq(t, "total", get(res, "total"), 1.0)
+	eq(t, "returned", get(res, "returned"), 1.0)
+	if items, ok := ojson.Arr(get(res, "items")); !ok || len(items) != 1 {
+		t.Errorf("items: %v", get(res, "items"))
+	}
 	body := lastTo(env.mock, "/v2/api/site/default/system-log/threat-alert").Body
 	eq(t, "filters", get(body, "threatTypes"), js(`["HONEYPOT","THREAT"]`))
 	eq(t, "page size", get(body, "pageSize"), 10.0)
@@ -280,8 +284,8 @@ func TestHotspot(t *testing.T) {
 func TestOpsGating(t *testing.T) {
 	env := opsEnv(t)
 	w := toolMap(t, connect(t, env.client, toolOptions(true, false)))
-	if w["unifi_update_site_setting"] == nil {
-		t.Error("unifi_update_site_setting missing")
+	if w["unifi_update_site_settings"] == nil {
+		t.Error("unifi_update_site_settings missing")
 	}
 	for _, n := range []string{"unifi_delete_site", "unifi_delete_backup", "unifi_revoke_admin", "unifi_delete_content_filter", "unifi_delete_hotspot_operator"} {
 		if w[n] != nil {

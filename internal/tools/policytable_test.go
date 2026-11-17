@@ -185,7 +185,7 @@ func TestTrafficFlows(t *testing.T) {
 		 "destination":{"ip":"198.51.100.7","domains":["youtube.com"],"zone_name":"External"},
 		 "traffic_data":{"bytes_rx":100,"bytes_tx":50,"bytes_total":150},"policies":[{"name":"No YouTube","type":"TRAFFIC_RULE","id":"t1"}]}],
 		"total_element_count":7,"has_next":true}`)))
-	res := env.call("unifi_list_traffic_flows", `{"client_mac":"AA:BB:CC:00:00:40","action":"blocked","limit":1}`)
+	res := env.call("unifi_list_traffic_flows", `{"client_mac":"AA:BB:CC:00:00:40","action":"blocked","page_size":1}`)
 	body := firstTo(env.mock, "/v2/api/site/default/traffic-flows", "POST").Body
 	eq(t, "window", get(body, "timestampFrom"), 1700000000000.0-15*60000)
 	eq(t, "to", get(body, "timestampTo"), 1700000000000.0)
@@ -229,7 +229,7 @@ func TestSuperSettingsUseSetPath(t *testing.T) {
 	env.mock.
 		Seed("rest", "setting", `[{"_id":"s_super","key":"super_mgmt","autobackup_enabled":false,"autobackup_max_files":10}]`).
 		On("PUT", `^/api/s/default/set/setting/super_mgmt/s_super$`, func(body any, _ []string, _ url.Values) (int, any) { return unifitest.OK([]any{body}) })
-	res := env.call("unifi_update_site_setting", `{"key":"super_mgmt","changes":{"autobackup_enabled":true}}`)
+	res := env.call("unifi_update_site_settings", `{"key":"super_mgmt","changes":{"autobackup_enabled":true}}`)
 	put := lastTo(env.mock, "/api/s/default/set/setting/super_mgmt/s_super")
 	eq(t, "method", put.Method, "PUT")
 	eq(t, "merged", put.Body, js(`{"_id":"s_super","key":"super_mgmt","autobackup_enabled":true,"autobackup_max_files":10}`))

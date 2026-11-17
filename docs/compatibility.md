@@ -76,7 +76,7 @@ The following field names come from community sources but couldn't be checked ag
 - LLDP table entries (`local_port_idx`, `chassis_id`, `chassis_descr`, `port_id`, `port_descr`) and the port table's `aggregated_by` (`unifi_list_switch_ports`)
 - Link aggregation override fields: `aggregate_members` and `lag_idx` (newer versions) and `aggregate_num_ports` (older versions) are both sent, and the other members' overrides are removed (`unifi_set_switch_port`)
 - Locking a client to an AP with a partial `rest/user` update (`fixed_ap_enabled`, `fixed_ap_mac`) instead of the full user record (`unifi_update_client`)
-- Writing `super_*` settings (such as `super_mgmt` auto-backup) through `set/setting/<key>/<id>` (`unifi_update_site_setting`)
+- Writing `super_*` settings (such as `super_mgmt` auto-backup) through `set/setting/<key>/<id>` (`unifi_update_site_settings`)
 
 ## Not covered yet
 

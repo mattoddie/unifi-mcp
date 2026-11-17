@@ -117,6 +117,7 @@ The `Def` fields that control registration:
 | `Gate: Write` | The tool changes state. Only registered when writes are enabled. Marked `readOnlyHint: false`. |
 | `Gate: Delete` | The tool deletes configuration. Only registered when deletes are enabled too. Marked destructive. |
 | `Destructive` | Marks a write tool as destructive (`destructiveHint`), so clients confirm before running it. Use it for anything that disconnects clients, reboots devices, changes configuration or grants access (admins, sites, guest authorization, vouchers, RADIUS accounts, unblocking). |
+| `Idempotent` | Overrides the idempotent hint (`idempotentHint`: repeating the call changes nothing more). It defaults to true for `unifi_set_*` and `unifi_update_*` write tools, which set fields to the given values, and false otherwise; set it for other tools that behave the same way, such as `unifi_reset_switch_port`. |
 | `ReadOnly` | Overrides the read-only hint. This is rarely needed. |
 
 Checklist for a new tool:

@@ -220,8 +220,8 @@ func TestDeviceCommands(t *testing.T) {
 	env.begin()
 	for _, c := range [][2]string{
 		{"unifi_upgrade_device", `{"mac":"aa:bb:cc:00:00:01","firmware_url":"https://fw.example/us8.bin"}`},
-		{"unifi_rolling_upgrade", `{"action":"start","types":["uap"]}`},
-		{"unifi_rolling_upgrade", `{"action":"cancel"}`},
+		{"unifi_control_rolling_upgrade", `{"action":"start","types":["uap"]}`},
+		{"unifi_control_rolling_upgrade", `{"action":"cancel"}`},
 		{"unifi_move_device", `{"mac":"AA:BB:CC:00:00:02","target_site":"branch"}`},
 		{"unifi_forget_device", `{"mac":"aa:bb:cc:00:00:02"}`},
 		{"unifi_run_rf_scan", `{"mac":"aa:bb:cc:00:00:02"}`},

@@ -13,6 +13,13 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ### Changed
 
+- **Breaking:** `unifi_update_site_setting` is renamed `unifi_update_site_settings`, to match `unifi_get_site_settings`.
+- **Breaking:** `unifi_rolling_upgrade` is renamed `unifi_control_rolling_upgrade`: it takes a `start` or `cancel` action, like the family's other `control` tools.
+- **Breaking:** `unifi_download_backup`'s `path` argument is renamed `source`, so it isn't mistaken for a destination. It is the backup's path on the controller (`download_path` from `unifi_create_backup`); `filename` still names an automatic backup.
+- **Breaking:** `unifi_list_traffic_flows` pages with `page` and `page_size` (default 50) instead of `page` and `limit`, and looks back with `hours` (a number; default 0.25, i.e. 15 minutes) instead of `minutes`. Its output also has `page`.
+- **Breaking:** `unifi_get_system_log` returns `{class, page, total, returned, items}`; the entries were under `entries`.
+- `hours` on `unifi_list_events` and `unifi_list_rogue_aps` is a number, as on the other tools, so fractions work. The classic event log and rogue AP list round it up to whole hours.
+- Tools that set fields to given values (`unifi_set_*`, `unifi_update_*` and `unifi_reset_switch_port`) have the `idempotentHint` annotation.
 - **Breaking:** `unifi_get_dpi_stats` returns `{source, by, from, to, total_bytes, count, returned, items}` (or `clients` when `macs` is given) from the v2 traffic endpoint. On controllers without it, the classic response is returned under `data`, with `source` and `v2_error`.
 - v2 system log entries in `unifi_list_events`, `unifi_get_system_log` and `unifi_list_alarms` show their message and title with the `{PLACEHOLDER}`s filled in from the entry's parameters, as the UI does.
 

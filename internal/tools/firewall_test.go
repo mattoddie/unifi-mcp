@@ -53,6 +53,9 @@ func TestFirewallGating(t *testing.T) {
 	if !*all["unifi_delete_traffic_rule"].Annotations.DestructiveHint || !*all["unifi_save_port_forward"].Annotations.DestructiveHint {
 		t.Error("destructive hints")
 	}
+	if !all["unifi_set_firewall_policy_ordering"].Annotations.IdempotentHint || all["unifi_save_port_forward"].Annotations.IdempotentHint || all["unifi_delete_traffic_rule"].Annotations.IdempotentHint {
+		t.Error("idempotent hints")
+	}
 }
 
 func TestCreateFirewallRule(t *testing.T) {

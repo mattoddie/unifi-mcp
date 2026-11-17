@@ -150,7 +150,7 @@ func TestDryRunEveryWriteTool(t *testing.T) {
 		"unifi_update_guest_portal_settings": `{"enabled":true}`,
 		"unifi_update_country_blocking":      `{"enabled":true}`,
 		"unifi_update_threat_management":     `{"ips_mode":"ids"}`,
-		"unifi_update_site_setting":          `{"key":"mgmt","changes":{"led_enabled":false}}`,
+		"unifi_update_site_settings":         `{"key":"mgmt","changes":{"led_enabled":false}}`,
 		"unifi_set_switch_port":              `{"name":"x"}`,
 		"unifi_set_radio":                    `{"mac":"aa:bb:cc:00:00:02","radio":"ng","channel":1}`,
 		"unifi_set_outlet":                   `{"mac":"aa:bb:cc:00:00:03","index":1,"relay_on":true}`,

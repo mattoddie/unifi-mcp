@@ -349,7 +349,7 @@ func registerSwitching(c *Context) {
 	c.add(Def{
 		Toolset: "switching", Name: "unifi_reset_switch_port", Title: "Reset switch port override",
 		Description: "Remove the per-port override from one or more switch ports so they follow the default port profile again.",
-		Gate:        Write, Destructive: boolPtr(true),
+		Gate:        Write, Destructive: boolPtr(true), Idempotent: boolPtr(true),
 		Input: props(
 			siteArg(),
 			switchMac,

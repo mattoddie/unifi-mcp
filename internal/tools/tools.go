@@ -68,6 +68,8 @@ type Def struct {
 	ReadOnly *bool
 	// Destructive overrides the destructiveHint annotation (defaults to Gate == Delete).
 	Destructive *bool
+	// Idempotent overrides the idempotentHint annotation (see idempotent).
+	Idempotent *bool
 	// RevealsSecrets marks a tool whose purpose is to return a secret (such as
 	// unifi_get_wifi_qr); it is only registered with UNIFI_ALLOW_SECRETS.
 	RevealsSecrets bool
@@ -89,6 +91,17 @@ func (d Def) readOnly() bool {
 		return *d.ReadOnly
 	}
 	return d.Gate == Read
+}
+
+// idempotent is the tool's idempotentHint: repeating a call with the same
+// arguments has no further effect. unifi_set_* and unifi_update_* tools set
+// fields to the given values, so they are; save_* (creates without an id),
+// actions and deletes aren't, unless Idempotent says otherwise.
+func (d Def) idempotent() bool {
+	if d.Idempotent != nil {
+		return *d.Idempotent
+	}
+	return strings.HasPrefix(d.Name, "unifi_set_") || strings.HasPrefix(d.Name, "unifi_update_")
 }
 
 // site returns the site argument or the configured default.
@@ -161,6 +174,7 @@ func (c *Context) build(d Def) (*mcp.Tool, runner, *ojson.Obj) {
 	readOnly := d.readOnly()
 	ann := &mcp.ToolAnnotations{Title: d.Title, ReadOnlyHint: readOnly, OpenWorldHint: boolPtr(false)}
 	if !readOnly {
+		ann.IdempotentHint = d.idempotent()
 		ann.DestructiveHint = boolPtr(d.Gate == Delete)
 		if d.Destructive != nil {
 			ann.DestructiveHint = d.Destructive

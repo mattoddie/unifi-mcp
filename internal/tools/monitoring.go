@@ -153,7 +153,7 @@ func registerMonitoring(c *Context) {
 		Description: "List recent controller events (client connects/roams, device restarts, upgrades...). Uses the classic event log and falls back to the v2 system log (device and client alerts) on Network versions where the classic log is gone or empty. For other log classes use unifi_get_system_log.",
 		Input: props(
 			siteArg(),
-			P("hours", Int().Positive().Max(24*30).Opt().D("Look back this many hours (default 24)")),
+			P("hours", Number().Positive().Max(24*30).Opt().D("Look back this many hours (default 24; the classic event log rounds fractions up to whole hours)")),
 			eventList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
@@ -161,7 +161,7 @@ func registerMonitoring(c *Context) {
 			hours := a.NumOr("hours", 24)
 			limit := eventList.fetch(a)
 			var legacyError any = U
-			res, err := client.SitePostRead(ctx, s, "stat/event", ojson.New("within", hours, "_limit", limit, "_sort", "-time"))
+			res, err := client.SitePostRead(ctx, s, "stat/event", ojson.New("within", math.Ceil(hours), "_limit", limit, "_sort", "-time"))
 			if err != nil {
 				legacyError = err.Error()
 			} else if events := arr(res); len(events) > 0 {
@@ -388,12 +388,12 @@ func registerMonitoring(c *Context) {
 		Description: "List nearby access points seen by your APs (neighbours and potential rogue APs).",
 		Input: props(
 			siteArg(),
-			P("hours", Int().Positive().Opt().D("Seen within this many hours (default 24)")),
+			P("hours", Number().Positive().Opt().D("Seen within this many hours (default 24; fractions are rounded up to whole hours)")),
 			P("rogue_only", Bool().Opt().D("Only APs flagged as rogue")),
 			rogueList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
-			res, err := client.SitePostRead(ctx, c.site(a), "stat/rogueap", ojson.New("within", a.NumOr("hours", 24)))
+			res, err := client.SitePostRead(ctx, c.site(a), "stat/rogueap", ojson.New("within", math.Ceil(a.NumOr("hours", 24))))
 			if err != nil {
 				return nil, err
 			}
@@ -449,7 +449,7 @@ func registerMonitoring(c *Context) {
 			if !a.Truthy("raw") {
 				shown = mapObjs(entries, func(e *Obj) any { return summarizeLogEntry(e) })
 			}
-			return unifi.Compact("class", cls, "page", page, "total", total, "entries", shown), nil
+			return unifi.Compact("class", cls, "page", page, "total", total, "returned", len(entries), "items", shown), nil
 		},
 	})
 

@@ -34,7 +34,7 @@ func backupEnv(t *testing.T) (*testEnv, string) {
 
 func TestDownloadBackup(t *testing.T) {
 	env, dir := backupEnv(t)
-	res := env.call("unifi_download_backup", `{"path":"/dl/backup/9.0.unf"}`)
+	res := env.call("unifi_download_backup", `{"source":"/dl/backup/9.0.unf"}`)
 	eq(t, "result", res, ojson.New("saved", filepath.Join(dir, "9.0.unf"), "bytes", 21.0, "source", "/dl/backup/9.0.unf"))
 	data, err := os.ReadFile(filepath.Join(dir, "9.0.unf"))
 	if err != nil || string(data) != "manual backup 9.0.unf" {
@@ -51,8 +51,8 @@ func TestDownloadBackup(t *testing.T) {
 	eq(t, "auto", env.mock.Last().Path, "/proxy/network/dl/autobackup/autobackup_9.0_1.unf")
 
 	// An existing file is kept unless overwrite is true.
-	contains(t, "exists", env.callErr("unifi_download_backup", `{"path":"/dl/backup/9.0.unf"}`), "already exists; pass overwrite: true")
-	env.call("unifi_download_backup", `{"path":"/dl/backup/9.0.unf","overwrite":true}`)
+	contains(t, "exists", env.callErr("unifi_download_backup", `{"source":"/dl/backup/9.0.unf"}`), "already exists; pass overwrite: true")
+	env.call("unifi_download_backup", `{"source":"/dl/backup/9.0.unf","overwrite":true}`)
 
 	// Failed and empty downloads leave nothing behind.
 	contains(t, "404", env.callErr("unifi_download_backup", `{"filename":"missing.unf"}`), "HTTP 404")
@@ -66,7 +66,7 @@ func TestDownloadBackup(t *testing.T) {
 
 	// A dry run downloads and writes nothing.
 	before := len(env.mock.Requests())
-	dry := env.call("unifi_download_backup", `{"path":"/dl/backup/other.unf","dry_run":true}`)
+	dry := env.call("unifi_download_backup", `{"source":"/dl/backup/other.unf","dry_run":true}`)
 	eq(t, "dry", get(dry, "result", "would_save"), filepath.Join(dir, "other.unf"))
 	if len(env.mock.Requests()) != before {
 		t.Error("dry run sent a request")
@@ -86,15 +86,15 @@ func TestDownloadBackupRefusesOtherPaths(t *testing.T) {
 		`{"filename":"a/b.unf"}`,
 		`{"filename":".hidden.unf"}`,
 		`{"filename":"backup.txt"}`,
-		`{"path":"/dl/backup/../../etc/passwd"}`,
-		`{"path":"/api/s/default/stat/device"}`,
-		`{"path":"/dl/backup/x.unf/extra"}`,
-		`{"path":"/dl/other/x.unf"}`,
+		`{"source":"/dl/backup/../../etc/passwd"}`,
+		`{"source":"/api/s/default/stat/device"}`,
+		`{"source":"/dl/backup/x.unf/extra"}`,
+		`{"source":"/dl/other/x.unf"}`,
 	} {
 		contains(t, args, env.callErr("unifi_download_backup", args), "Not a backup download")
 	}
-	contains(t, "both", env.callErr("unifi_download_backup", `{"path":"/dl/backup/a.unf","filename":"a.unf"}`), "not both")
-	contains(t, "neither", env.callErr("unifi_download_backup", `{}`), "Pass path")
+	contains(t, "both", env.callErr("unifi_download_backup", `{"source":"/dl/backup/a.unf","filename":"a.unf"}`), "not both")
+	contains(t, "neither", env.callErr("unifi_download_backup", `{}`), "Pass source")
 	if len(env.mock.Requests()) != before {
 		t.Error("refused calls sent requests")
 	}
@@ -103,7 +103,7 @@ func TestDownloadBackupRefusesOtherPaths(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(dir, "link.unf")); err != nil {
 		t.Skip(err)
 	}
-	env.call("unifi_download_backup", `{"path":"/dl/backup/link.unf","overwrite":true}`)
+	env.call("unifi_download_backup", `{"source":"/dl/backup/link.unf","overwrite":true}`)
 	if _, err := os.Stat(outside); err == nil {
 		t.Error("wrote through a symlink outside the backup directory")
 	}
