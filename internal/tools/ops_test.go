@@ -221,7 +221,9 @@ func TestSystemLog(t *testing.T) {
 func TestDPIAndSessions(t *testing.T) {
 	env := opsEnv(t)
 	dpi := env.call("unifi_get_dpi_stats", `{"by":"app","macs":["11-22-33-44-55-66"]}`)
-	eq(t, "mac", get(dpi, 0, "mac"), "11:22:33:44:55:66")
+	eq(t, "mac", get(dpi, "data", 0, "mac"), "11:22:33:44:55:66")
+	eq(t, "source", get(dpi, "source"), "classic stat/stadpi")
+	contains(t, "v2 error", ojson.String(get(dpi, "v2_error")), "traffic")
 	eq(t, "body", lastTo(env.mock, "/api/s/default/stat/stadpi").Body, js(`{"type":"by_app","macs":["11:22:33:44:55:66"]}`))
 	sessions := env.list("unifi_list_client_sessions", `{"mac":"11:22:33:44:55:66","hours":1}`)
 	eq(t, "duration", get(sessions, 0, "duration"), "1h 0m")
@@ -304,4 +306,88 @@ func TestAlarmsAndRogues(t *testing.T) {
 	eq(t, "rogue only", env.list("unifi_list_rogue_aps", `{"rogue_only":true}`), js(`[{"ssid":"strong","rssi":40,"rogue":true}]`))
 	env.call("unifi_archive_alarms", nil)
 	eq(t, "archive all", env.mock.Last().Body, js(`{"cmd":"archive-all-alarms"}`))
+}
+
+func dpiEnv(t *testing.T, names bool) *testEnv {
+	env := startMock(t, toolOptions(false, false))
+	env.mock.On("GET", `^/v2/api/site/default/traffic$`, func(_ any, _ []string, q url.Values) (int, any) {
+		if q.Get("includeTrafficUsage") != "true" || q.Get("start") == "" || q.Get("end") == "" {
+			return 400, js(`{"error":"bad query"}`)
+		}
+		return 200, js(`{
+			"total_usage_by_app": [
+				{"application":185,"category":20,"bytes_received":900,"bytes_transmitted":100,"total_bytes":1000,"client_count":4},
+				{"application":7,"category":20,"bytes_received":40,"bytes_transmitted":10,"total_bytes":50,"client_count":1},
+				{"application":3,"category":5,"bytes_received":200,"bytes_transmitted":100,"total_bytes":300,"client_count":2}],
+			"client_usage_by_app": [
+				{"client":{"mac":"11:22:33:44:55:66","name":"Laptop"},"usage_by_app":[
+					{"application":185,"category":20,"bytes_received":90,"bytes_transmitted":10,"total_bytes":100,"activity_seconds":3700}]},
+				{"client":{"mac":"aa:bb:cc:dd:ee:ff","name":"Phone"},"usage_by_app":[]}]}`)
+	})
+	if names {
+		env.mock.
+			On("GET", `^/integration/v1/dpi/categories$`, fixed(200, js(`{"offset":0,"limit":200,"count":2,"totalCount":2,"data":[{"id":20,"name":"Network protocols"},{"id":5,"name":"Mail"}]}`))).
+			On("GET", `^/integration/v1/dpi/applications$`, fixed(200, js(`{"offset":0,"limit":200,"count":1,"totalCount":1,"data":[{"id":1310905,"name":"SSL/TLS"}]}`)))
+	}
+	return env
+}
+
+func TestDPIStatsV2ByCategory(t *testing.T) {
+	env := dpiEnv(t, true)
+	res := env.call("unifi_get_dpi_stats", nil)
+	eq(t, "source", get(res, "source"), "v2 traffic")
+	eq(t, "total", get(res, "total_bytes"), 1350.0)
+	eq(t, "items", get(res, "items"), js(`[
+		{"category":"Network protocols","category_id":20,"rx_bytes":940,"tx_bytes":110,"total_bytes":1050,"applications":2},
+		{"category":"Mail","category_id":5,"rx_bytes":200,"tx_bytes":100,"total_bytes":300,"applications":1}]`))
+	if len(env.mock.RequestsTo("/integration/v1/dpi/applications")) != 0 {
+		t.Error("by category shouldn't load the application catalogue")
+	}
+}
+
+func TestDPIStatsV2ByAppAndClient(t *testing.T) {
+	env := dpiEnv(t, true)
+	res := env.call("unifi_get_dpi_stats", `{"by":"app","limit":1}`)
+	eq(t, "top app", get(res, "items"), js(`[{"application":"SSL/TLS","application_id":185,"category":"Network protocols","category_id":20,"rx_bytes":900,"tx_bytes":100,"total_bytes":1000,"clients":4}]`))
+	eq(t, "count", get(res, "count"), 3.0)
+
+	cl := env.call("unifi_get_dpi_stats", `{"by":"app","macs":["11-22-33-44-55-66"]}`)
+	eq(t, "clients", get(cl, "clients"), js(`[{"mac":"11:22:33:44:55:66","name":"Laptop","total_bytes":100,"count":1,"returned":1,"items":[
+		{"application":"SSL/TLS","application_id":185,"category":"Network protocols","category_id":20,"rx_bytes":90,"tx_bytes":10,"total_bytes":100,"active":"1h 1m"}]}]`))
+	if n := len(env.mock.RequestsTo("/integration/v1/dpi/categories")); n != 1 {
+		t.Errorf("category catalogue should be cached, fetched %d times", n)
+	}
+}
+
+func TestDPIStatsV2WithoutNames(t *testing.T) {
+	env := dpiEnv(t, false)
+	res := env.call("unifi_get_dpi_stats", `{"by":"app","limit":1}`)
+	eq(t, "ids only", get(res, "items", 0), js(`{"application_id":185,"category_id":20,"rx_bytes":900,"tx_bytes":100,"total_bytes":1000,"clients":4}`))
+	contains(t, "names error", ojson.String(get(res, "names_error")), "names unavailable")
+}
+
+func TestAlarmsFallBackToSystemLog(t *testing.T) {
+	env := startMock(t, toolOptions(false, false))
+	env.mock.
+		On("GET", `^/api/s/default/list/alarm$`, fixed(400, js(`{"meta":{"rc":"error","msg":"api.err.InvalidObject"},"data":[]}`))).
+		On("POST", `^/v2/api/site/default/system-log/all$`, fixed(200, js(`{"data":[
+			{"id":"e1","timestamp":1700000000000,"key":"THREAT_DETECTED_V3","category":"SECURITY","severity":"HIGH","status":"NEW",
+			 "title_raw":"Threat Detected","message_raw":"An intrusion attempt from {SRC_IP} to {DST_IP} was detected.",
+			 "parameters":{"SRC_IP":{"id":"198.51.100.7","name":"198.51.100.7"},"DST_IP":{"id":"192.0.2.10"}}},
+			{"id":"e2","timestamp":1700000100000,"key":"NETWORK_WAN_FAILED","category":"INTERNET_AND_WAN","severity":"VERY_HIGH","message_raw":"{WAN} went down"}],
+			"page_number":0,"total_element_count":7,"total_page_count":4}`)))
+	res := env.call("unifi_list_alarms", `{"min_severity":"very_high","hours":24,"limit":2}`)
+	eq(t, "source", get(res, "source"), "v2 system-log (all)")
+	contains(t, "legacy error", ojson.String(get(res, "legacy_error")), "HTTP 400")
+	eq(t, "total from server", get(res, "total"), 7.0)
+	eq(t, "newest first", get(res, "items", 0, "id"), "e2")
+	eq(t, "unfilled placeholder kept", get(res, "items", 0, "message"), "{WAN} went down")
+	eq(t, "filled", get(res, "items", 1, "message"), "An intrusion attempt from 198.51.100.7 to 192.0.2.10 was detected.")
+	eq(t, "title", get(res, "items", 1, "title"), "Threat Detected")
+	body := lastTo(env.mock, "/v2/api/site/default/system-log/all").Body
+	eq(t, "severities", get(body, "severities"), js(`["VERY_HIGH"]`))
+	eq(t, "page size", get(body, "pageSize"), 2.0)
+	if d := ojson.ToNumber(get(body, "timestampTo")) - ojson.ToNumber(get(body, "timestampFrom")); d != 24*3600000 {
+		t.Errorf("window: %v", d)
+	}
 }

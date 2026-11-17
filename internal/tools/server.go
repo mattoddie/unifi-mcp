@@ -33,7 +33,7 @@ func instructions(opts config.Tools) string {
 // registered, when non-nil, receives each registered tool in order.
 func NewServer(client *unifi.Client, opts config.Tools, registered *[]Info) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: Name, Version: Version}, &mcp.ServerOptions{Instructions: instructions(opts)})
-	c := &Context{Server: s, Client: client, Tools: opts, Registered: registered, audit: newAuditLog(opts.AuditLog)}
+	c := &Context{Server: s, Client: client, Tools: opts, Registered: registered, audit: newAuditLog(opts.AuditLog), dpi: &dpiCatalog{}}
 	registerOverview(c)
 	registerDevices(c)
 	registerClients(c)
