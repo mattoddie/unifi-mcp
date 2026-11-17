@@ -2,7 +2,10 @@ package tools
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"regexp"
+	"strings"
 
 	"github.com/mattoddie/unifi-mcp/internal/ojson"
 	"github.com/mattoddie/unifi-mcp/internal/unifi"
@@ -55,11 +58,77 @@ func summarizeLogEntry(e *Obj) *Obj {
 		"key", ojson.Coalesce(g("key"), g("type")),
 		"category", g("category"),
 		"severity", g("severity"),
-		"title", ojson.Coalesce(ojson.Get(g("title"), "text"), g("title")),
-		"message", ojson.Coalesce(ojson.Get(g("message"), "text"), g("message"), g("msg"), g("message_raw")),
+		"title", ojson.Coalesce(ojson.Get(g("title"), "text"), g("title"), fillLogText(g("title_raw"), params)),
+		"message", ojson.Coalesce(ojson.Get(g("message"), "text"), g("message"), g("msg"), fillLogText(g("message_raw"), params)),
 		"device", ojson.Coalesce(ojson.Get(params, "DEVICE", "name"), ojson.Get(params, "DEVICE", "id")),
 		"client", ojson.Coalesce(ojson.Get(params, "CLIENT", "name"), ojson.Get(params, "CLIENT", "hostname"), ojson.Get(params, "CLIENT", "id")),
 	)
+}
+
+var logPlaceholder = regexp.MustCompile(`\{([A-Z0-9_]+)\}`)
+
+// fillLogText replaces {NAME} placeholders in a v2 system log message_raw or
+// title_raw with the entry's parameters (their name, or id), as the UI does.
+func fillLogText(raw any, params any) any {
+	s, ok := raw.(string)
+	if !ok {
+		return raw
+	}
+	return logPlaceholder.ReplaceAllStringFunc(s, func(m string) string {
+		p := ojson.Get(params, m[1:len(m)-1])
+		if v := ojson.Coalesce(ojson.Get(p, "name"), ojson.Get(p, "id")); !ojson.IsNullish(v) {
+			return ojson.String(v)
+		}
+		return m
+	})
+}
+
+// alarmSeverities are the v2 system log severities, lowest first.
+var alarmSeverities = []string{"LOW", "MEDIUM", "HIGH", "VERY_HIGH"}
+
+// v2Alarms reads alarms from the v2 system log (Network 10.6 and later, where
+// the classic list/alarm is gone): entries at or above min_severity.
+func v2Alarms(ctx context.Context, client *unifi.Client, a Args, site string, l listing) (*Obj, error) {
+	minSev := strings.ToUpper(a.Str("min_severity"))
+	if minSev == "" {
+		minSev = "HIGH"
+	}
+	var sevs []string
+	for i, s := range alarmSeverities {
+		if s == minSev {
+			sevs = alarmSeverities[i:]
+		}
+	}
+	end := nowMs()
+	start := end - a.NumOr("hours", 168)*3600000
+	want := l.fetch(a)
+	const pageSize = 500
+	var entries []any
+	var serverTotal any = U
+	for page := 0.0; float64(len(entries)) < want; page++ {
+		body := ojson.New("severities", ojson.Strings(sevs), "timestampFrom", start, "timestampTo", end, "type", "GENERAL", "pageNumber", page, "pageSize", math.Min(pageSize, want))
+		res, err := client.V2PostRead(ctx, site, "system-log/all", body)
+		if err != nil {
+			return nil, err
+		}
+		got := logEntries(res)
+		entries = append(entries, got...)
+		serverTotal = ojson.Coalesce(ojson.Get(res, "total_element_count"), ojson.Get(res, "totalElementCount"))
+		if len(got) == 0 || float64(len(got)) < math.Min(pageSize, want) || (ojson.Truthy(serverTotal) && float64(len(entries)) >= ojson.ToNumber(serverTotal)) {
+			break
+		}
+	}
+	if entries == nil {
+		entries = []any{}
+	}
+	sortDesc(entries, 0, "timestamp")
+	res := l.result(a, entries, func(e *Obj) any {
+		return ojson.New("id", e.Get("id")).Assign(summarizeLogEntry(e), unifi.Compact("status", e.Get("status")))
+	}, nil)
+	if !l.narrows(a) && ojson.Truthy(serverTotal) && ojson.ToNumber(serverTotal) > ojson.ToNumber(res.Get("total")) {
+		res.Set("total", serverTotal)
+	}
+	return res, nil
 }
 
 // sortDesc sorts by a numeric field, newest (largest) first; missing values count as fallback.
@@ -124,16 +193,23 @@ func registerMonitoring(c *Context) {
 	alarmList := recent("key", "subsystem", "message")
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_list_alarms", Title: "List alarms",
-		Description: "List controller alarms (alerts). By default only active (unarchived) alarms are returned.",
+		Description: "List controller alarms (alerts). Uses the classic alarm list, where only active (unarchived) alarms are returned by default, and falls back to the v2 system log's high-severity entries on Network versions where the classic list is gone (10.6 and later); hours and min_severity apply to the system log.",
 		Input: props(
 			siteArg(),
-			P("include_archived", Bool().Opt().D("Include archived alarms")),
+			P("include_archived", Bool().Opt().D("Include archived alarms (classic alarm list)")),
+			P("hours", Number().Positive().Max(24*90).Opt().D("Look back this many hours (system log; default 168)")),
+			P("min_severity", Enum("low", "medium", "high", "very_high").Opt().D("Lowest severity to include (system log; default high)")),
 			alarmList.args(),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
-			res, err := client.SiteGet(ctx, c.site(a), "list/alarm", nil)
+			s := c.site(a)
+			res, err := client.SiteGet(ctx, s, "list/alarm", nil)
 			if err != nil {
-				return nil, err
+				v2, v2err := v2Alarms(ctx, client, a, s, alarmList)
+				if v2err != nil {
+					return nil, fmt.Errorf("%v; the v2 system log also failed: %v", err, v2err)
+				}
+				return ojson.New("source", "v2 system-log (all)", "legacy_error", err.Error()).Assign(v2), nil
 			}
 			alarms := arr(res)
 			if !a.Truthy("include_archived") {
@@ -221,25 +297,42 @@ func registerMonitoring(c *Context) {
 
 	c.add(Def{
 		Toolset: "monitoring", Name: "unifi_get_dpi_stats", Title: "Get DPI statistics",
-		Description: "Get deep packet inspection (traffic identification) statistics, by application or by category: site-wide, or per client when macs are given. Requires traffic identification to be enabled.",
+		Description: "Get deep packet inspection (traffic identification) statistics, by application or by category, biggest first: site-wide, or per client when macs are given. Uses the v2 traffic endpoint (Network 9+), with names from the official API when an API key is configured, and falls back to the classic stat/sitedpi on older versions. Requires traffic identification to be enabled.",
 		Input: props(
 			siteArg(),
 			P("by", Enum("app", "category").Opt().D("Group by application or category (default category)")),
 			P("macs", Array(Str()).Opt().D("Client MACs to report on instead of the whole site")),
+			P("hours", Number().Positive().Max(24*90).Opt().D("Look back this many hours (default 24; not supported by the classic endpoint)")),
+			P("limit", Int().Positive().Max(1000).Opt().D("Top rows to return per list (default 25)")),
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
+			s := c.site(a)
+			var norm []any
+			if list := a.Arr("macs"); len(list) > 0 {
+				var err error
+				if norm, err = macs(list); err != nil {
+					return nil, err
+				}
+			}
+			v2, v2err := v2DPIStats(ctx, c, a, s, norm)
+			if v2err == nil {
+				return v2, nil
+			}
 			typ := "by_cat"
 			if a.Str("by") == "app" {
 				typ = "by_app"
 			}
-			if list := a.Arr("macs"); len(list) > 0 {
-				norm, err := macs(list)
-				if err != nil {
-					return nil, err
-				}
-				return client.SitePostRead(ctx, c.site(a), "stat/stadpi", ojson.New("type", typ, "macs", norm))
+			var res any
+			var err error
+			if len(norm) > 0 {
+				res, err = client.SitePostRead(ctx, s, "stat/stadpi", ojson.New("type", typ, "macs", norm))
+			} else {
+				res, err = client.SitePostRead(ctx, s, "stat/sitedpi", ojson.New("type", typ))
 			}
-			return client.SitePostRead(ctx, c.site(a), "stat/sitedpi", ojson.New("type", typ))
+			if err != nil {
+				return nil, fmt.Errorf("%v; the v2 traffic endpoint also failed: %v", err, v2err)
+			}
+			return ojson.New("source", "classic stat/"+ojson.String(ojson.If(len(norm) > 0, "stadpi", "sitedpi")), "v2_error", v2err.Error(), "data", res), nil
 		},
 	})
 

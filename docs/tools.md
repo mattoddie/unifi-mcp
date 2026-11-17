@@ -2008,12 +2008,14 @@ List recent controller events (client connects/roams, device restarts, upgrades.
 
 🟢 read
 
-List controller alarms (alerts). By default only active (unarchived) alarms are returned.
+List controller alarms (alerts). Uses the classic alarm list, where only active (unarchived) alarms are returned by default, and falls back to the v2 system log's high-severity entries on Network versions where the classic list is gone (10.6 and later); hours and min_severity apply to the system log.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
-| `include_archived` | boolean |  | Include archived alarms |
+| `include_archived` | boolean |  | Include archived alarms (classic alarm list) |
+| `hours` | number |  | Look back this many hours (system log; default 168) |
+| `min_severity` | `"low"` \| `"medium"` \| `"high"` \| `"very_high"` |  | Lowest severity to include (system log; default high) |
 | `search` | string |  | Case-insensitive substring match on names, MACs, IPs and similar fields. |
 | `limit` | integer |  | Maximum number of items to return. Default 100. |
 | `fields` | string[] |  | Keep only these fields in each item. Dot paths such as `uplink.name` reach nested fields. |
@@ -2048,13 +2050,15 @@ Get historical time-series statistics. scope=site for whole-site traffic and cli
 
 🟢 read
 
-Get deep packet inspection (traffic identification) statistics, by application or by category: site-wide, or per client when macs are given. Requires traffic identification to be enabled.
+Get deep packet inspection (traffic identification) statistics, by application or by category, biggest first: site-wide, or per client when macs are given. Uses the v2 traffic endpoint (Network 9+), with names from the official API when an API key is configured, and falls back to the classic stat/sitedpi on older versions. Requires traffic identification to be enabled.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
 | `site` | string |  | Site name/ID as used in the API (e.g. 'default'). Defaults to the configured site. See unifi_list_sites. |
 | `by` | `"app"` \| `"category"` |  | Group by application or category (default category) |
 | `macs` | string[] |  | Client MACs to report on instead of the whole site |
+| `hours` | number |  | Look back this many hours (default 24; not supported by the classic endpoint) |
+| `limit` | integer |  | Top rows to return per list (default 25) |
 
 ### unifi_get_speedtest_results
 

@@ -44,6 +44,8 @@ type Context struct {
 	Registered *[]Info
 	// audit is the UNIFI_AUDIT_LOG writer, or nil.
 	audit *auditLog
+	// dpi caches the traffic identification names for unifi_get_dpi_stats.
+	dpi *dpiCatalog
 }
 
 // Info describes a registered tool.

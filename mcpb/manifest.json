@@ -71,7 +71,7 @@
     },
     {
       "name": "unifi_get_dpi_stats",
-      "description": "Get deep packet inspection (traffic identification) statistics, by application or by category: site-wide, or per client when macs are given. Requires traffic identification to be enabled."
+      "description": "Get deep packet inspection (traffic identification) statistics, by application or by category, biggest first: site-wide, or per client when macs are given. Uses the v2 traffic endpoint (Network 9+), with names from the official API when an API key is configured, and falls back to the classic stat/sitedpi on older versions. Requires traffic identification to be enabled."
     },
     {
       "name": "unifi_get_firewall_policy_ordering",
@@ -127,7 +127,7 @@
     },
     {
       "name": "unifi_list_alarms",
-      "description": "List controller alarms (alerts). By default only active (unarchived) alarms are returned."
+      "description": "List controller alarms (alerts). Uses the classic alarm list, where only active (unarchived) alarms are returned by default, and falls back to the v2 system log's high-severity entries on Network versions where the classic list is gone (10.6 and later); hours and min_severity apply to the system log."
     },
     {
       "name": "unifi_list_anomalies",

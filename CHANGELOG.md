@@ -6,6 +6,21 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Added
+
+- `unifi_list_alarms` has `hours` (default 168) and `min_severity` (`low`, `medium`, `high` or `very_high`; default `high`) for the v2 system log fallback below.
+- `unifi_get_dpi_stats` has `hours` (default 24) and `limit` (default 25) arguments, sorts biggest first, and names applications and categories from the official API's traffic identification catalogue when `UNIFI_API_KEY` is set. Without a key it returns the numeric IDs and says why.
+
+### Changed
+
+- **Breaking:** `unifi_get_dpi_stats` returns `{source, by, from, to, total_bytes, count, returned, items}` (or `clients` when `macs` is given) from the v2 traffic endpoint. On controllers without it, the classic response is returned under `data`, with `source` and `v2_error`.
+- v2 system log entries in `unifi_list_events`, `unifi_get_system_log` and `unifi_list_alarms` show their message and title with the `{PLACEHOLDER}`s filled in from the entry's parameters, as the UI does.
+
+### Fixed
+
+- `unifi_list_alarms` failed with HTTP 400 `api.err.InvalidObject` on Network 10.6 and later, where the classic `list/alarm` endpoint is gone. It now falls back to the v2 system log (`system-log/all`), filtered by severity, and reports the classic error as `legacy_error` (#63).
+- `unifi_get_dpi_stats` returned empty results on Network 10.6 and later, where the classic `stat/sitedpi` and `stat/stadpi` endpoints no longer have data. It now reads the v2 traffic endpoint and falls back to the classic ones (#64).
+
 ## [0.8.0] - 2026-11-15
 
 ### Added
