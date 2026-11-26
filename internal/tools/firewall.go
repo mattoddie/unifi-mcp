@@ -718,7 +718,8 @@ func registerFirewall(c *Context) {
 		Toolset: "firewall", Name: "unifi_save_firewall_policy", Title: "Create or update firewall policy (zone-based)",
 		Description: "Create a zone-based firewall policy (name, action, source and destination required) or update one by id (Network 9.0+). " +
 			"source/destination: {zone_id, matching_target: ANY|IP|NETWORK|CLIENT|REGION|..., ips | network_ids | client_macs, port_matching_type, port | port_group_id}; on update they are merged into the current endpoint. " +
-			"Use unifi_list_firewall_zones for zone IDs. Predefined policies cannot be changed.",
+			"Use unifi_list_firewall_zones for zone IDs. Predefined policies cannot be changed. " +
+			"A new policy is evaluated after the existing ones between the same zones, and the controller ignores index (in extra too): to move it, for example an allow above a block, use unifi_set_firewall_policy_ordering.",
 		Gate: Write, Destructive: boolPtr(true),
 		Input: props(
 			siteArg(),
@@ -733,7 +734,7 @@ func registerFirewall(c *Context) {
 			P("ip_version", Enum("BOTH", "IPV4", "IPV6").Opt().D("IP versions the policy matches")),
 			P("connection_state_type", Enum("ALL", "RESPOND_ONLY", "CUSTOM").Opt().D("Connection states matched: all, return traffic only, or connection_states")),
 			P("connection_states", Array(Enum("NEW", "ESTABLISHED", "RELATED", "INVALID")).Opt().D("With connection_state_type=CUSTOM")),
-			P("create_allow_respond", Bool().Opt().D("For ALLOW policies: also create the return-traffic policy")),
+			P("create_allow_respond", Bool().Opt().D("For ALLOW policies: also create the return-traffic policy (the controller's default). Turned off for policies to the Gateway zone, where the controller refuses it")),
 			P("logging", Bool().Opt().D("Log matching traffic")),
 			P("schedule", LooseObject(P("mode", Str().D("Schedule mode, e.g. ALWAYS or EVERY_DAY"))).Opt().D("e.g. {mode: 'ALWAYS'} (default) or a custom schedule object")),
 			extraArg(),
@@ -819,6 +820,20 @@ func registerFirewall(c *Context) {
 			for _, side := range []string{"source", "destination"} {
 				if !ojson.Truthy(ojson.Get(body.Get(side), "zone_id")) {
 					return nil, fmt.Errorf("%s.zone_id is required (see unifi_list_firewall_zones)", side)
+				}
+			}
+			// The controller refuses to create a return-traffic policy for
+			// traffic to the gateway itself, and creates one by default.
+			if ojson.StrictEq(body.Get("action"), "ALLOW") && !ojson.StrictEq(body.Get("create_allow_respond"), false) {
+				toGateway, err := isGatewayZone(ctx, client, s, ojson.String(ojson.Get(body.Get("destination"), "zone_id")))
+				if err != nil {
+					return nil, err
+				}
+				if toGateway {
+					if ojson.Truthy(body.Get("create_allow_respond")) {
+						return nil, errorf("create_allow_respond can't be used for policies to the Gateway zone: the controller doesn't create return-traffic policies for traffic to the gateway itself")
+					}
+					body.Set("create_allow_respond", false)
 				}
 			}
 			created, err := client.V2(ctx, "POST", s, "firewall-policies", body)
@@ -1191,4 +1206,14 @@ func trafficRuleError(err error) error {
 		return err
 	}
 	return fmt.Errorf("%v. This Network version no longer creates or changes traffic rules: use unifi_save_firewall_policy instead, with destination matching_target WEB (web_domains), IP, APP, APP_CATEGORY or REGION", err)
+}
+
+// isGatewayZone reports whether the v2 zone with this _id is the system Gateway zone.
+func isGatewayZone(ctx context.Context, client *unifi.Client, site, zoneID string) (bool, error) {
+	zones, err := v2List(ctx, client, site, "firewall/zone")
+	if err != nil {
+		return false, err
+	}
+	zone := ojson.Find(zones, func(z any) bool { return ojson.StrictEq(ojson.Get(z, "_id"), zoneID) })
+	return ojson.StrictEq(ojson.Get(zone, "zone_key"), "gateway"), nil
 }

@@ -1098,7 +1098,7 @@ List zone-based firewall policies (Network 9.0+) sorted by index: action, source
 
 🟠 write · destructive
 
-Create a zone-based firewall policy (name, action, source and destination required) or update one by id (Network 9.0+). source/destination: {zone_id, matching_target: ANY|IP|NETWORK|CLIENT|REGION|..., ips | network_ids | client_macs, port_matching_type, port | port_group_id}; on update they are merged into the current endpoint. Use unifi_list_firewall_zones for zone IDs. Predefined policies cannot be changed.
+Create a zone-based firewall policy (name, action, source and destination required) or update one by id (Network 9.0+). source/destination: {zone_id, matching_target: ANY|IP|NETWORK|CLIENT|REGION|..., ips | network_ids | client_macs, port_matching_type, port | port_group_id}; on update they are merged into the current endpoint. Use unifi_list_firewall_zones for zone IDs. Predefined policies cannot be changed. A new policy is evaluated after the existing ones between the same zones, and the controller ignores index (in extra too): to move it, for example an allow above a block, use unifi_set_firewall_policy_ordering.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
@@ -1114,7 +1114,7 @@ Create a zone-based firewall policy (name, action, source and destination requir
 | `ip_version` | `"BOTH"` \| `"IPV4"` \| `"IPV6"` |  | IP versions the policy matches |
 | `connection_state_type` | `"ALL"` \| `"RESPOND_ONLY"` \| `"CUSTOM"` |  | Connection states matched: all, return traffic only, or connection_states |
 | `connection_states` | (`"NEW"` \| `"ESTABLISHED"` \| `"RELATED"` \| `"INVALID"`)[] |  | With connection_state_type=CUSTOM |
-| `create_allow_respond` | boolean |  | For ALLOW policies: also create the return-traffic policy |
+| `create_allow_respond` | boolean |  | For ALLOW policies: also create the return-traffic policy (the controller's default). Turned off for policies to the Gateway zone, where the controller refuses it |
 | `logging` | boolean |  | Log matching traffic |
 | `schedule` | object |  | e.g. {mode: 'ALWAYS'} (default) or a custom schedule object |
 | `extra` | object |  | Additional raw controller fields to set (advanced; field names as in the raw objects). Merged last. |

@@ -6,6 +6,11 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Fixed
+
+- `unifi_save_firewall_policy` failed with HTTP 400 "Firewall policy create respond traffic not allowed" when creating an `ALLOW` policy to the Gateway zone without `create_allow_respond: false`. It now turns `create_allow_respond` off for policies to the Gateway zone, and refuses `create_allow_respond: true` there with an explanation.
+- `unifi_save_firewall_policy`'s description says that a new policy goes after the existing ones between the same zones and that the controller ignores `index`, so policies are moved with `unifi_set_firewall_policy_ordering`.
+
 ## [0.9.2] - 2026-11-26
 
 This release fixes `unifi_list_threats` on Network 11 and explains what to do when Network 11 refuses traffic rule changes or the admin list. No tool or argument names change. unifi-mcp has 148 tools (60 read, 59 write and 29 delete) and 5 prompts.

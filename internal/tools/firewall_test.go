@@ -374,3 +374,21 @@ func TestTrafficRuleCreateNotImplemented(t *testing.T) {
 	contains(t, "keeps controller error", msg, "HTTP 501")
 	contains(t, "points to policies", msg, "unifi_save_firewall_policy")
 }
+
+func TestFirewallPolicyAllowToGateway(t *testing.T) {
+	env := firewallEnv(t)
+	env.mock.Seed("v2", "firewall/zone", `[
+		{"_id":"z1","name":"Internal","zone_key":"internal","default_zone":true,"network_ids":["n1"]},
+		{"_id":"z2","name":"IoT","default_zone":false,"network_ids":["n2"]},
+		{"_id":"zg","name":"Gateway","zone_key":"gateway","default_zone":true,"network_ids":[]}]`)
+	env.call("unifi_save_firewall_policy", `{"name":"Allow IoT DNS","action":"ALLOW","protocol":"tcp_udp","source":{"zone_id":"z2"},"destination":{"zone_id":"zg","port":"53"}}`)
+	eq(t, "no return policy to the gateway", get(firstTo(env.mock, "/v2/api/site/default/firewall-policies", "POST").Body, "create_allow_respond"), false)
+
+	contains(t, "explicit true refused", env.callErr("unifi_save_firewall_policy", `{"name":"x","action":"ALLOW","create_allow_respond":true,"source":{"zone_id":"z2"},"destination":{"zone_id":"zg"}}`), "Gateway zone")
+
+	env.call("unifi_save_firewall_policy", `{"name":"Allow IoT to LAN","action":"ALLOW","source":{"zone_id":"z2"},"destination":{"zone_id":"z1"}}`)
+	posts := env.mock.RequestsTo("/v2/api/site/default/firewall-policies")
+	if last := posts[len(posts)-1].Body; !ojson.IsUndefined(ojson.Get(last, "create_allow_respond")) {
+		t.Errorf("other zones keep the controller's default, got %v", ojson.Get(last, "create_allow_respond"))
+	}
+}
