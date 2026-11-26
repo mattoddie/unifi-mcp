@@ -328,6 +328,15 @@ func (a Args) Obj(k string) *Obj {
 // errorf builds a plain error.
 func errorf(msg string) error { return errors.New(msg) }
 
+// httpStatus is the HTTP status of a controller error, or 0 when there was no response.
+func httpStatus(err error) int {
+	var e *unifi.Error
+	if errors.As(err, &e) {
+		return e.Status
+	}
+	return 0
+}
+
 // mac normalises a MAC address argument.
 func mac(v any) (string, error) {
 	s, _ := v.(string)

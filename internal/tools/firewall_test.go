@@ -366,3 +366,11 @@ func TestPolicyOrderingRefusesWithoutCurrentIDs(t *testing.T) {
 		}
 	}
 }
+
+func TestTrafficRuleCreateNotImplemented(t *testing.T) {
+	env := firewallEnv(t)
+	env.mock.On("POST", `^/v2/api/site/default/trafficrules$`, fixed(501, "Not implemented"))
+	msg := env.callErr("unifi_save_traffic_rule", `{"action":"BLOCK","matching_target":"DOMAIN","domains":["example.com"]}`)
+	contains(t, "keeps controller error", msg, "HTTP 501")
+	contains(t, "points to policies", msg, "unifi_save_firewall_policy")
+}
