@@ -167,7 +167,7 @@ func registerAdmin(c *Context) {
 
 	c.add(Def{
 		Toolset: "admin", Name: "unifi_list_admins", Title: "List administrators",
-		Description: "List a site's administrator accounts, or every site's with all_sites: true: name, email, role, super admin and owner flags, permissions, sites and last login.",
+		Description: "List a site's administrator accounts, or every site's with all_sites: true: name, email, role, super admin and owner flags, permissions, sites and last login. Network 11 and later on UniFi OS consoles manage admins in UniFi OS and refuse this.",
 		Input:       props(siteArg(), P("all_sites", Bool().Opt().D("List admins across all sites")), listing{}.args()),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			var admins any
@@ -176,6 +176,9 @@ func registerAdmin(c *Context) {
 				admins, err = client.Request(ctx, "GET", "/api/stat/admin", nil)
 			} else {
 				admins, err = client.CmdRead(ctx, c.site(a), "sitemgr", "get-admins", nil)
+				if err != nil && httpStatus(err) == 400 {
+					return nil, fmt.Errorf("%v. Network 11 and later on UniFi OS consoles no longer list admins through the Network application: they are managed in UniFi OS (Settings > Admins & Users)", err)
+				}
 			}
 			if err != nil {
 				return nil, err

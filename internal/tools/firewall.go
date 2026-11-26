@@ -1047,7 +1047,7 @@ func registerFirewall(c *Context) {
 		Toolset: "firewall", Name: "unifi_save_traffic_rule", Title: "Create or update traffic rule",
 		Description: "Create a traffic rule (action and matching_target required) or update one by id. Targets default to all clients on create. " +
 			"matching_target picks what is matched: INTERNET (all traffic), DOMAIN (domains), APP (app_ids), APP_CATEGORY (app_category_ids), IP (ip_addresses), REGION (regions). " +
-			"Setting a bandwidth limit makes it a rate-limiting rule.",
+			"Setting a bandwidth limit makes it a rate-limiting rule. Network 11 and later refuse to create or change traffic rules (zone-based firewall policies replace them): use unifi_save_firewall_policy there.",
 		Gate: Write, Destructive: boolPtr(true),
 		Input: props(
 			siteArg(),
@@ -1114,7 +1114,7 @@ func registerFirewall(c *Context) {
 				}
 				saved, err := client.V2(ctx, "PUT", s, "trafficrules/"+e, merged)
 				if err != nil {
-					return nil, err
+					return nil, trafficRuleError(err)
 				}
 				return summarizeTrafficRule(savedOr(saved, merged)), nil
 			}
@@ -1137,7 +1137,7 @@ func registerFirewall(c *Context) {
 			), patch, a.Get("extra"))
 			saved, err := v2Save(ctx, client, s, "trafficrules", "", body)
 			if err != nil {
-				return nil, err
+				return nil, trafficRuleError(err)
 			}
 			return summarizeTrafficRule(asObj(saved)), nil
 		},
@@ -1181,4 +1181,14 @@ func sortStrings(list []any) {
 		}
 		return ojson.String(list[i]) < ojson.String(list[j])
 	})
+}
+
+// trafficRuleError explains a traffic rule save the controller refuses as not
+// implemented: Network 11 replaced traffic rules with zone-based firewall
+// policies, and only still lists the old ones.
+func trafficRuleError(err error) error {
+	if httpStatus(err) != 501 {
+		return err
+	}
+	return fmt.Errorf("%v. This Network version no longer creates or changes traffic rules: use unifi_save_firewall_policy instead, with destination matching_target WEB (web_domains), IP, APP, APP_CATEGORY or REGION", err)
 }

@@ -123,7 +123,7 @@
     },
     {
       "name": "unifi_list_admins",
-      "description": "List a site's administrator accounts, or every site's with all_sites: true: name, email, role, super admin and owner flags, permissions, sites and last login."
+      "description": "List a site's administrator accounts, or every site's with all_sites: true: name, email, role, super admin and owner flags, permissions, sites and last login. Network 11 and later on UniFi OS consoles manage admins in UniFi OS and refuse this."
     },
     {
       "name": "unifi_list_alarms",
@@ -251,7 +251,7 @@
     },
     {
       "name": "unifi_list_threats",
-      "description": "List IDS/IPS threat events detected by the gateway, newest first (default last 24 hours): signature, category, severity, action taken, protocol, and source and destination IP, port and country."
+      "description": "List IDS/IPS threat events detected by the gateway, newest first (default last 24 hours): signature, category, severity, action taken, protocol, and source and destination IP, port and country. On Network 11 and later, where the classic IPS event list is gone, reads the v2 system log's threat-alert entries instead (title, message, severity, status and source and destination IP; no signature details)."
     },
     {
       "name": "unifi_list_traffic_flows",

@@ -17,6 +17,52 @@ var geoFields = []string{
 	"geo_ip_filtering_traffic_direction",
 }
 
+// v2Threats reads IPS and honeypot detections from the v2 system log
+// (threat-alert), for Network 11 and later, where the classic stat/ips/event
+// is gone. The entries carry no signature, so signature is the entry's title.
+func v2Threats(ctx context.Context, client *unifi.Client, a Args, site string, start, end float64, l listing) (*Obj, error) {
+	want := l.fetch(a)
+	const pageSize = 500
+	var entries []any
+	var serverTotal any = U
+	for page := 0.0; float64(len(entries)) < want; page++ {
+		size := min(pageSize, want)
+		res, err := client.V2PostRead(ctx, site, "system-log/threat-alert", systemLogPayload("threat-alert", start, end, page, size))
+		if err != nil {
+			return nil, err
+		}
+		got := logEntries(res)
+		entries = append(entries, got...)
+		serverTotal = ojson.Coalesce(ojson.Get(res, "total_element_count"), ojson.Get(res, "totalElementCount"))
+		if len(got) == 0 || float64(len(got)) < size || (ojson.Truthy(serverTotal) && float64(len(entries)) >= ojson.ToNumber(serverTotal)) {
+			break
+		}
+	}
+	if entries == nil {
+		entries = []any{}
+	}
+	sortDesc(entries, 0, "timestamp")
+	res := l.result(a, entries, func(e *Obj) any {
+		s := summarizeLogEntry(e)
+		params := e.Get("parameters")
+		return unifi.Compact(
+			"id", e.Get("id"),
+			"time", s.Get("time"),
+			"signature", s.Get("title"),
+			"message", s.Get("message"),
+			"category", ojson.Coalesce(e.Get("subcategory"), e.Get("category")),
+			"severity", e.Get("severity"),
+			"status", e.Get("status"),
+			"src", unifi.Compact("ip", ojson.Get(params, "SRC_IP", "id")),
+			"dst", unifi.Compact("ip", ojson.Get(params, "DST_IP", "id")),
+		)
+	}, nil)
+	if !l.narrows(a) && ojson.Truthy(serverTotal) && ojson.ToNumber(serverTotal) > ojson.ToNumber(res.Get("total")) {
+		res.Set("total", serverTotal)
+	}
+	return res, nil
+}
+
 func geoSummary(usg any) *Obj {
 	out := ojson.New()
 	for _, f := range geoFields {
@@ -193,7 +239,7 @@ func registerSecurity(c *Context) {
 	threatList := listing{Search: []string{"signature", "category", "action", "src.ip", "dst.ip", "host"}, Limit: 100}
 	c.add(Def{
 		Toolset: "security", Name: "unifi_list_threats", Title: "List detected threats",
-		Description: "List IDS/IPS threat events detected by the gateway, newest first (default last 24 hours): signature, category, severity, action taken, protocol, and source and destination IP, port and country.",
+		Description: "List IDS/IPS threat events detected by the gateway, newest first (default last 24 hours): signature, category, severity, action taken, protocol, and source and destination IP, port and country. On Network 11 and later, where the classic IPS event list is gone, reads the v2 system log's threat-alert entries instead (title, message, severity, status and source and destination IP; no signature details).",
 		Input: props(
 			siteArg(),
 			P("hours", Number().Positive().Max(24*90).Opt().D("Look back this many hours (default 24)")),
@@ -201,13 +247,18 @@ func registerSecurity(c *Context) {
 		),
 		Handler: func(ctx context.Context, a Args) (any, error) {
 			end := nowMs()
+			start := end - a.NumOr("hours", 24)*3600000
 			res, err := client.SitePostRead(ctx, c.site(a), "stat/ips/event", ojson.New(
-				"start", end-a.NumOr("hours", 24)*3600000,
+				"start", start,
 				"end", end,
 				"_limit", threatList.fetch(a),
 			))
 			if err != nil {
-				return nil, err
+				v2, v2err := v2Threats(ctx, client, a, c.site(a), start, end, threatList)
+				if v2err != nil {
+					return nil, fmt.Errorf("%v; the v2 system log also failed: %v", err, v2err)
+				}
+				return ojson.New("source", "v2 system-log (threat-alert)", "legacy_error", err.Error()).Assign(v2), nil
 			}
 			events := arr(res)
 			ts := func(e any) float64 {

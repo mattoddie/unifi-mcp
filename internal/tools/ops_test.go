@@ -395,3 +395,37 @@ func TestAlarmsFallBackToSystemLog(t *testing.T) {
 		t.Errorf("window: %v", d)
 	}
 }
+
+func TestThreatsFallBackToSystemLog(t *testing.T) {
+	env := startMock(t, toolOptions(false, false))
+	env.mock.
+		On("POST", `^/api/s/default/stat/ips/event$`, fixed(404, js(`{"meta":{"rc":"error","msg":"api.err.NotFound"},"data":[]}`))).
+		On("POST", `^/v2/api/site/default/system-log/threat-alert$`, fixed(200, js(`{"data":[
+			{"id":"t1","timestamp":1700000000000,"key":"THREAT_DETECTED_V3","severity":"HIGH","status":"NEW","subcategory":"SECURITY_INTRUSION_PREVENTION",
+			 "title_raw":"Threat Detected","message_raw":"A network intrusion attempt from {SRC_IP} to {DST_IP} has been detected.",
+			 "parameters":{"SRC_IP":{"id":"198.51.100.7","name":"198.51.100.7"},"DST_IP":{"id":"192.0.2.10","name":"192.0.2.10"}}},
+			{"id":"t2","timestamp":1700000100000,"key":"HONEYPOT_TRIGGERED","severity":"MEDIUM","subcategory":"SECURITY_HONEYPOT",
+			 "title_raw":"Honeypot Triggered","parameters":{"SRC_IP":{"id":"192.0.2.20"}}}],
+			"total_element_count":2}`)))
+	res := env.call("unifi_list_threats", `{"hours":2}`)
+	eq(t, "source", get(res, "source"), "v2 system-log (threat-alert)")
+	contains(t, "legacy error", ojson.String(get(res, "legacy_error")), "HTTP 404")
+	eq(t, "newest first", get(res, "items", 0, "id"), "t2")
+	eq(t, "threat", get(res, "items", 1), js(`{"id":"t1","time":"2023-11-14T22:13:20.000Z","signature":"Threat Detected",
+		"message":"A network intrusion attempt from 198.51.100.7 to 192.0.2.10 has been detected.",
+		"category":"SECURITY_INTRUSION_PREVENTION","severity":"HIGH","status":"NEW","src":{"ip":"198.51.100.7"},"dst":{"ip":"192.0.2.10"}}`))
+	body := lastTo(env.mock, "/v2/api/site/default/system-log/threat-alert").Body
+	eq(t, "threat types", get(body, "threatTypes"), js(`["HONEYPOT","THREAT"]`))
+	if d := ojson.ToNumber(get(body, "timestampTo")) - ojson.ToNumber(get(body, "timestampFrom")); d != 2*3600000 {
+		t.Errorf("window: %v", d)
+	}
+	eq(t, "search on fallback", get(env.call("unifi_list_threats", `{"search":"192.0.2.20"}`), "items", 0, "id"), "t2")
+}
+
+func TestListAdminsRefusedOnUniFiOS(t *testing.T) {
+	env := startMock(t, toolOptions(false, false))
+	env.mock.On("POST", `^/api/s/default/cmd/sitemgr$`, fixed(400, js(`{"meta":{"rc":"error","msg":"api.err.Invalid"},"data":[]}`)))
+	msg := env.callErr("unifi_list_admins", nil)
+	contains(t, "keeps controller error", msg, "api.err.Invalid")
+	contains(t, "explains", msg, "UniFi OS")
+}

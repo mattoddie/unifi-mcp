@@ -1210,7 +1210,7 @@ List traffic rules (v2 API) that block, allow or rate-limit traffic from clients
 
 🟠 write · destructive
 
-Create a traffic rule (action and matching_target required) or update one by id. Targets default to all clients on create. matching_target picks what is matched: INTERNET (all traffic), DOMAIN (domains), APP (app_ids), APP_CATEGORY (app_category_ids), IP (ip_addresses), REGION (regions). Setting a bandwidth limit makes it a rate-limiting rule.
+Create a traffic rule (action and matching_target required) or update one by id. Targets default to all clients on create. matching_target picks what is matched: INTERNET (all traffic), DOMAIN (domains), APP (app_ids), APP_CATEGORY (app_category_ids), IP (ip_addresses), REGION (regions). Setting a bandwidth limit makes it a rate-limiting rule. Network 11 and later refuse to create or change traffic rules (zone-based firewall policies replace them): use unifi_save_firewall_policy there.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
@@ -1618,7 +1618,7 @@ Configure geo-IP (country/region) blocking on the gateway (stored in the 'usg' s
 
 🟢 read
 
-List IDS/IPS threat events detected by the gateway, newest first (default last 24 hours): signature, category, severity, action taken, protocol, and source and destination IP, port and country.
+List IDS/IPS threat events detected by the gateway, newest first (default last 24 hours): signature, category, severity, action taken, protocol, and source and destination IP, port and country. On Network 11 and later, where the classic IPS event list is gone, reads the v2 system log's threat-alert entries instead (title, message, severity, status and source and destination IP; no signature details).
 
 | Argument | Type | Required | Description |
 |---|---|---|---|
@@ -2269,7 +2269,7 @@ Delete a site and all of its configuration. Devices on it must be removed or mov
 
 🟢 read
 
-List a site's administrator accounts, or every site's with all_sites: true: name, email, role, super admin and owner flags, permissions, sites and last login.
+List a site's administrator accounts, or every site's with all_sites: true: name, email, role, super admin and owner flags, permissions, sites and last login. Network 11 and later on UniFi OS consoles manage admins in UniFi OS and refuse this.
 
 | Argument | Type | Required | Description |
 |---|---|---|---|

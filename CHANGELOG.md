@@ -6,6 +6,12 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Fixed
+
+- `unifi_list_threats` failed with HTTP 404 on Network 11, where the classic `stat/ips/event` endpoint is gone. It now falls back to the v2 system log's `threat-alert` entries and reports the classic error as `legacy_error`. These entries have no IPS signature, so `signature` is the entry's title and the new `message` field describes the detection.
+- `unifi_save_traffic_rule` failed with a bare HTTP 501 on Network 11, which no longer creates or changes traffic rules. The error now says to use `unifi_save_firewall_policy` instead.
+- `unifi_list_admins` failed with a bare HTTP 400 `api.err.Invalid` on Network 11 on UniFi OS consoles. The error now says that admins are managed in UniFi OS.
+
 ## [0.9.1] - 2026-11-17
 
 This release describes what each tool returns and when to use it, gives every argument a description, and stops descriptions from naming tools the current settings turn off. No tool or argument names change. unifi-mcp has 148 tools (60 read, 59 write and 29 delete) and 5 prompts.
