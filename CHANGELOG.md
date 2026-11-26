@@ -6,6 +6,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-26
+
+This release lets `unifi_save_firewall_policy` create allow rules to the Gateway zone, and explains how to order policies. No tool or argument names change. unifi-mcp has 148 tools (60 read, 59 write and 29 delete) and 5 prompts.
+
 ### Fixed
 
 - `unifi_save_firewall_policy` failed with HTTP 400 "Firewall policy create respond traffic not allowed" when creating an `ALLOW` policy to the Gateway zone without `create_allow_respond: false`. It now turns `create_allow_respond` off for policies to the Gateway zone, and refuses `create_allow_respond: true` there with an explanation.
@@ -232,7 +236,8 @@ This release fixes alarms and DPI statistics on Network 10.6 and later, and rena
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.8.0...v0.9.0
