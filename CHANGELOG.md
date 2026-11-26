@@ -6,6 +6,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-26
+
+This release fixes `unifi_list_threats` on Network 11 and explains what to do when Network 11 refuses traffic rule changes or the admin list. No tool or argument names change. unifi-mcp has 148 tools (60 read, 59 write and 29 delete) and 5 prompts.
+
 ### Fixed
 
 - `unifi_list_threats` failed with HTTP 404 on Network 11, where the classic `stat/ips/event` endpoint is gone. It now falls back to the v2 system log's `threat-alert` entries and reports the classic error as `legacy_error`. These entries have no IPS signature, so `signature` is the entry's title and the new `message` field describes the detection.
@@ -223,7 +227,8 @@ This release fixes alarms and DPI statistics on Network 10.6 and later, and rena
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/mattoddie/unifi-mcp/compare/v0.7.0...v0.8.0
