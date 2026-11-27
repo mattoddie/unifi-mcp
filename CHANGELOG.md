@@ -6,6 +6,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-11-27
+
+This release fixes setting a fixed IP for a client that connected recently. No tool or argument names change. unifi-mcp has 148 tools (60 read, 59 write and 29 delete) and 5 prompts.
+
 ### Fixed
 
 - `unifi_update_client` with `fixed_ip` no longer fails with "network_id is required" for a client that is online. When the controller's record has no live `network_id`, which happens for clients that connected recently, it now uses the client's last connection network or its entry in the connected-clients list.
@@ -240,7 +244,8 @@ This release fixes alarms and DPI statistics on Network 10.6 and later, and rena
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) published to GHCR on each release, with SBOM and provenance attestation.
 - Documentation, including a tool reference generated from the code.
 
-[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/mattoddie/unifi-mcp/compare/v0.9.0...v0.9.1
