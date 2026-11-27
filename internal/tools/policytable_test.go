@@ -235,3 +235,23 @@ func TestSuperSettingsUseSetPath(t *testing.T) {
 	eq(t, "merged", put.Body, js(`{"_id":"s_super","key":"super_mgmt","autobackup_enabled":true,"autobackup_max_files":10}`))
 	eq(t, "result", get(res, "autobackup_enabled"), true)
 }
+
+func TestFixedIPFindsClientNetwork(t *testing.T) {
+	env := startMock(t, toolOptions(true, false))
+	env.mock.
+		// No live network_id, but the stored last connection network.
+		On("GET", `^/api/s/default/stat/user/aa:bb:cc:00:00:60$`, fixed(unifitest.OK(js(`[{"_id":"u1","mac":"aa:bb:cc:00:00:60","last_connection_network_id":"n_last"}]`)))).
+		// Neither: only the stat/sta entry has it.
+		On("GET", `^/api/s/default/stat/user/aa:bb:cc:00:00:61$`, fixed(unifitest.OK(js(`[{"_id":"u2","mac":"aa:bb:cc:00:00:61"}]`)))).
+		// Not online either.
+		On("GET", `^/api/s/default/stat/user/aa:bb:cc:00:00:62$`, fixed(unifitest.OK(js(`[{"_id":"u3","mac":"aa:bb:cc:00:00:62"}]`)))).
+		On("GET", `^/api/s/default/stat/sta$`, fixed(unifitest.OK(js(`[{"mac":"aa:bb:cc:00:00:61","network_id":"n_live"}]`)))).
+		On("PUT", `^/api/s/default/rest/user/([^/]+)$`, func(body any, m []string, _ url.Values) (int, any) {
+			return unifitest.OK([]any{ojson.New("_id", m[1]).Assign(body)})
+		})
+	env.call("unifi_update_client", `{"mac":"aa:bb:cc:00:00:60","fixed_ip":"192.0.2.60"}`)
+	eq(t, "stored network", get(lastTo(env.mock, "/api/s/default/rest/user/u1").Body, "network_id"), "n_last")
+	env.call("unifi_update_client", `{"mac":"aa:bb:cc:00:00:61","fixed_ip":"192.0.2.61"}`)
+	eq(t, "live network", get(lastTo(env.mock, "/api/s/default/rest/user/u2").Body, "network_id"), "n_live")
+	contains(t, "unknown", env.callErr("unifi_update_client", `{"mac":"aa:bb:cc:00:00:62","fixed_ip":"192.0.2.62"}`), "network_id is required")
+}

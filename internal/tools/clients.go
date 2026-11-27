@@ -20,6 +20,24 @@ func findClientRecord(ctx context.Context, client *unifi.Client, site, m string)
 	return asObj(record), nil
 }
 
+// clientNetworkID finds the network a client is on. stat/user only carries the
+// live network_id some of the time (it can be missing for an online client,
+// e.g. one that connected minutes ago), so it falls back to the stored
+// last_connection_network_id and then to the client's entry in stat/sta.
+func clientNetworkID(ctx context.Context, client *unifi.Client, site, m string, record *Obj) any {
+	for _, key := range []string{"network_id", "last_connection_network_id"} {
+		if v := record.Get(key); ojson.Truthy(v) {
+			return v
+		}
+	}
+	all, err := client.SiteGet(ctx, site, "stat/sta", nil)
+	if err != nil {
+		return nil
+	}
+	active := ojson.Find(arr(all), func(x any) bool { return ojson.StrictEq(ojson.Get(x, "mac"), m) })
+	return ojson.Get(active, "network_id")
+}
+
 func registerClients(c *Context) {
 	client := c.Client
 	raw := rawArg()
@@ -205,7 +223,10 @@ func registerClients(c *Context) {
 				return nil, errorf("Pass either fixed_ip or clear_fixed_ip, not both")
 			}
 			if a.Truthy("fixed_ip") {
-				networkID := ojson.Coalesce(a.Get("network_id"), record.Get("network_id"))
+				networkID := a.Get("network_id")
+				if !ojson.Truthy(networkID) {
+					networkID = clientNetworkID(ctx, client, s, m, record)
+				}
 				if !ojson.Truthy(networkID) {
 					return nil, errorf("network_id is required because the client's current network is unknown")
 				}
