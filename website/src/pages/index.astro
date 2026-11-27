@@ -442,7 +442,7 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
           <p class="kicker">Works with your assistant</p>
           <h3>Streamable HTTP or stdio</h3>
           <ul class="chips">{clients.map((c) => <li>{c}</li>)}</ul>
-          <p class="muted">Run it once and share it, or start it per session with <code>docker run -i</code>. On Claude Desktop, install the one-click bundle from the <a href={`${GITHUB}/releases/latest`}>latest release</a>. <a href="/docs/clients/">Client setup →</a></p>
+          <p class="muted">Run it once and share it, or start it per session with <code>docker run -i</code>. On Claude Desktop, install the one-click bundle from the <a href={`${GITHUB}/releases/latest`}>latest release</a>. No Docker? Install it with <a href="/docs/deployment/#with-homebrew">Homebrew</a>. <a href="/docs/clients/">Client setup →</a></p>
         </div>
       </section>
 
@@ -468,6 +468,7 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
               <button class="copy" data-copy={composeSnippet} aria-label="Copy commands">Copy</button>
               <pre><code>{composeSnippet}</code></pre>
             </div>
+            <p class="muted">No Docker? On macOS or Linux, run <code>brew install mattoddie/tap/unifi-mcp</code>. <a href="/docs/deployment/#running-without-docker">Running without Docker →</a></p>
           </li>
           <li>
             <span class="num">3</span>
