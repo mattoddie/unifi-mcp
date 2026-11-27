@@ -6,6 +6,10 @@ For unifi-mcp, the "public API" is the set of tool names, their arguments and th
 
 ## [Unreleased]
 
+### Fixed
+
+- `unifi_update_client` with `fixed_ip` no longer fails with "network_id is required" for a client that is online. When the controller's record has no live `network_id`, which happens for clients that connected recently, it now uses the client's last connection network or its entry in the connected-clients list.
+
 ## [0.9.3] - 2026-11-26
 
 This release lets `unifi_save_firewall_policy` create allow rules to the Gateway zone, and explains how to order policies. No tool or argument names change. unifi-mcp has 148 tools (60 read, 59 write and 29 delete) and 5 prompts.
