@@ -42,6 +42,12 @@ docker compose up -d`;
 const connectSnippet = `claude mcp add --transport http unifi \\
   http://<docker-host>:8080/mcp \\
   --header "Authorization: Bearer <token>"`;
+const brewSnippet = "brew install mattoddie/tap/unifi-mcp";
+const brewConnectSnippet = `claude mcp add unifi \\
+  --env UNIFI_URL=https://<controller> \\
+  --env UNIFI_API_KEY=<api-key> \\
+  --env UNIFI_TLS_FINGERPRINT=<fingerprint> \\
+  -- unifi-mcp`;
 
 // Wi-Fi arcs for the hero scene: an arc of radius r below (cx, cy), spread degrees either side of straight down.
 const arc = (cx: number, cy: number, r: number, spread: number) => {
@@ -297,9 +303,17 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
               <a class="btn primary" href="/docs/getting-started/">Get started <span aria-hidden="true">→</span></a>
               <a class="btn ghost" href={GITHUB}>Star on GitHub</a>
             </div>
-            <div class="pull">
-              <code>docker pull ghcr.io/mattoddie/unifi-mcp</code>
-              <button class="copy" data-copy="docker pull ghcr.io/mattoddie/unifi-mcp" aria-label="Copy command">Copy</button>
+            <div class="pulls" aria-label="Install">
+              <div class="pull">
+                <span class="pull-tag">Docker</span>
+                <code>docker pull ghcr.io/mattoddie/unifi-mcp</code>
+                <button class="copy" data-copy="docker pull ghcr.io/mattoddie/unifi-mcp" aria-label="Copy Docker command">Copy</button>
+              </div>
+              <div class="pull">
+                <span class="pull-tag">Homebrew</span>
+                <code>{brewSnippet}</code>
+                <button class="copy" data-copy={brewSnippet} aria-label="Copy Homebrew command">Copy</button>
+              </div>
             </div>
           </div>
 
@@ -332,7 +346,7 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
         <div><strong>{totals.tools}</strong><span>tools</span></div>
         <div><strong>{totals.toolsets}</strong><span>toolsets</span></div>
         <div><strong>{totals.prompts}</strong><span>guided prompts</span></div>
-        <div><strong>1</strong><span>Docker container</span></div>
+        <div><strong>1</strong><span>binary, via Docker or Homebrew</span></div>
       </section>
 
       <!-- Examples -->
@@ -442,7 +456,7 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
           <p class="kicker">Works with your assistant</p>
           <h3>Streamable HTTP or stdio</h3>
           <ul class="chips">{clients.map((c) => <li>{c}</li>)}</ul>
-          <p class="muted">Run it once and share it, or start it per session with <code>docker run -i</code>. On Claude Desktop, install the one-click bundle from the <a href={`${GITHUB}/releases/latest`}>latest release</a>. No Docker? Install it with <a href="/docs/deployment/#with-homebrew">Homebrew</a>. <a href="/docs/clients/">Client setup →</a></p>
+          <p class="muted">Run it once and share it, or let your client start it for each session, from <a href="/docs/deployment/#with-homebrew">Homebrew</a> or with <code>docker run -i</code>. On Claude Desktop, install the one-click bundle from the <a href={`${GITHUB}/releases/latest`}>latest release</a>. <a href="/docs/clients/">Client setup →</a></p>
         </div>
       </section>
 
@@ -451,8 +465,12 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
         <div class="section-head">
           <p class="kicker">Quick start</p>
           <h2>Up and running in three steps.</h2>
+          <div class="install-tabs" role="tablist" aria-label="Install with">
+            <button type="button" role="tab" id="tab-docker" aria-selected="true" aria-controls="quick-steps" data-install="docker">Docker</button>
+            <button type="button" role="tab" id="tab-brew" aria-selected="false" aria-controls="quick-steps" data-install="brew">Homebrew</button>
+          </div>
         </div>
-        <ol class="steps">
+        <ol class="steps" id="quick-steps" data-install="docker">
           <li>
             <span class="num">1</span>
             <h3>Create an API key</h3>
@@ -463,19 +481,38 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
           </li>
           <li>
             <span class="num">2</span>
-            <h3>Start the container</h3>
-            <div class="code">
-              <button class="copy" data-copy={composeSnippet} aria-label="Copy commands">Copy</button>
-              <pre><code>{composeSnippet}</code></pre>
+            <div class="only-docker">
+              <h3>Start the container</h3>
+              <div class="code">
+                <button class="copy" data-copy={composeSnippet} aria-label="Copy commands">Copy</button>
+                <pre><code>{composeSnippet}</code></pre>
+              </div>
+              <p class="muted">Runs as a shared HTTP service. <a href="/docs/deployment/">Deployment →</a></p>
             </div>
-            <p class="muted">No Docker? On macOS or Linux, run <code>brew install mattoddie/tap/unifi-mcp</code>. <a href="/docs/deployment/#running-without-docker">Running without Docker →</a></p>
+            <div class="only-brew">
+              <h3>Install with Homebrew</h3>
+              <div class="code">
+                <button class="copy" data-copy={brewSnippet} aria-label="Copy command">Copy</button>
+                <pre><code>{brewSnippet}</code></pre>
+              </div>
+              <p class="muted">On macOS or Linux. A single binary with no dependencies, and <code>brew upgrade</code> picks up new releases. <a href="/docs/deployment/#with-homebrew">Homebrew →</a></p>
+            </div>
           </li>
           <li>
             <span class="num">3</span>
             <h3>Connect your assistant</h3>
-            <div class="code">
-              <button class="copy" data-copy={connectSnippet} aria-label="Copy command">Copy</button>
-              <pre><code>{connectSnippet}</code></pre>
+            <div class="only-docker">
+              <div class="code">
+                <button class="copy" data-copy={connectSnippet} aria-label="Copy command">Copy</button>
+                <pre><code>{connectSnippet}</code></pre>
+              </div>
+            </div>
+            <div class="only-brew">
+              <div class="code">
+                <button class="copy" data-copy={brewConnectSnippet} aria-label="Copy command">Copy</button>
+                <pre><code>{brewConnectSnippet}</code></pre>
+              </div>
+              <p class="muted">Your client starts it when needed. In Claude Desktop and other apps, use the full path from <code>which unifi-mcp</code>. <a href="/docs/clients/#without-docker">Client setup →</a></p>
             </div>
             <p class="muted">Then ask: <em>“How's my network doing?”</em></p>
           </li>
@@ -537,6 +574,34 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
           setTimeout(() => (btn.textContent = "Copy"), 1600);
         });
       }
+
+      // Quick start: switch steps 2 and 3 between Docker and Homebrew, and remember the choice.
+      const quickSteps = document.getElementById("quick-steps");
+      const installTabs = [...document.querySelectorAll<HTMLButtonElement>(".install-tabs [role=tab]")];
+      const showInstall = (method: string) => {
+        if (!quickSteps) return;
+        quickSteps.dataset.install = method;
+        for (const tab of installTabs) tab.setAttribute("aria-selected", String(tab.dataset.install === method));
+      };
+      for (const tab of installTabs) {
+        tab.addEventListener("click", () => {
+          const method = tab.dataset.install ?? "docker";
+          showInstall(method);
+          try {
+            localStorage.setItem("install-method", method);
+          } catch {}
+        });
+        tab.addEventListener("keydown", (e) => {
+          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+          const next = installTabs[(installTabs.indexOf(tab) + 1) % installTabs.length];
+          next.focus();
+          next.click();
+        });
+      }
+      try {
+        const saved = localStorage.getItem("install-method");
+        if (saved === "docker" || saved === "brew") showInstall(saved);
+      } catch {}
 
       // Play the example conversation when the hero is on screen, and loop it. Steps also switch the
       // scene: the diagnosis shows the weak, congested link; the channel change fixes it.
@@ -765,6 +830,12 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
         display: inline-flex; align-items: center; gap: 12px; margin-top: 26px; max-width: 100%;
         padding: 8px 8px 8px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.35);
       }
+      .pulls { display: inline-flex; flex-direction: column; gap: 10px; margin-top: 26px; max-width: 100%; }
+      .pulls .pull { display: flex; margin-top: 0; }
+      .pulls .pull code { flex: 1; }
+      .pull-tag {
+        flex: none; min-width: 6.5em; font: 600 11px var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      }
       .pull code { min-width: 0; color: #c7d2fe; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .pull code::before { content: "$ "; color: var(--muted); }
       .copy {
@@ -897,7 +968,13 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
       .code .copy { position: absolute; top: 8px; right: 8px; }
       .code pre { margin: 0; padding: 16px; padding-top: 40px; overflow-x: auto; font-size: 12.5px; line-height: 1.7; color: #c7d2fe; }
       .steps li .muted { margin-top: 12px; }
-
+      .install-tabs { display: inline-flex; gap: 4px; margin-top: 24px; padding: 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
+      .install-tabs button {
+        cursor: pointer; font: 500 14px var(--sans); color: var(--muted); padding: 8px 18px; border: 0; border-radius: 9px; background: none;
+      }
+      .install-tabs button:hover { color: var(--text); }
+      .install-tabs button[aria-selected="true"] { color: var(--text); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); }
+      .steps[data-install="docker"] .only-brew, .steps[data-install="brew"] .only-docker { display: none; }
       /* Final */
       .final { text-align: center; padding: 130px 0 110px; }
       .final-logo svg { width: 72px; height: 72px; filter: drop-shadow(0 12px 30px rgba(99, 102, 241, 0.55)); }
@@ -947,6 +1024,8 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
         .section { padding-top: 80px; }
         .compat > div { padding: 24px; }
         .pull { display: flex; }
+        .pulls { align-items: stretch; }
+        .pull-tag { min-width: 0; }
       }
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation: none !important; transition: none !important; }
