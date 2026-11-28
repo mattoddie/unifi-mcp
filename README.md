@@ -17,6 +17,10 @@ An open-source [Model Context Protocol](https://modelcontextprotocol.io) server 
 
 [Quick start](#quick-start) · [Documentation](https://unifi-mcp.mattoddie.dev/docs/) · [Tool reference](docs/tools.md) · [Contributing](CONTRIBUTING.md)
 
+<a href="https://www.youtube.com/watch?v=yEQu6RcNSlM"><img src="docs/assets/trailer.jpg" alt="Watch the unifi-mcp trailer on YouTube (1:35)" width="640"></a>
+
+▶️ **[Watch the 95-second trailer](https://www.youtube.com/watch?v=yEQu6RcNSlM)**
+
 </div>
 
 ---

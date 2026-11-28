@@ -4,6 +4,7 @@ import { toolsets, totals } from "../lib/tools";
 import { DESCRIPTION as description } from "../lib/llms";
 
 const GITHUB = "https://github.com/mattoddie/unifi-mcp";
+const VIDEO = { id: "yEQu6RcNSlM", title: "Talk to your UniFi network with AI: the unifi-mcp trailer", seconds: 95 };
 const title = "unifi-mcp: talk to your UniFi network";
 
 const toolsetIcons: Record<string, string> = {
@@ -94,6 +95,20 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
         runtimePlatform: "Docker",
         author: { "@type": "Person", name: "Matt Oddie", url: "https://mattoddie.dev/" },
         isPartOf: { "@type": "WebSite", name: "MCP servers by Matt Oddie", url: "https://mcp.mattoddie.dev/" },
+      })}
+    />
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "VideoObject",
+        name: VIDEO.title,
+        description: "Ask your UniFi network questions in plain English, and let your AI assistant fix what it finds.",
+        thumbnailUrl: new URL("/trailer-poster.jpg", Astro.site).href,
+        uploadDate: "2026-11-28",
+        duration: `PT1M${VIDEO.seconds - 60}S`,
+        embedUrl: `https://www.youtube-nocookie.com/embed/${VIDEO.id}`,
+        contentUrl: `https://www.youtube.com/watch?v=${VIDEO.id}`,
       })}
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -349,6 +364,21 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
         <div><strong>1</strong><span>binary, via Docker or Homebrew</span></div>
       </section>
 
+      <!-- Trailer: a poster that links to YouTube, swapped for the player on click so nothing loads from YouTube until then -->
+      <section class="section wrap" aria-labelledby="trailer-h">
+        <div class="section-head">
+          <p class="kicker">See it in action</p>
+          <h2 id="trailer-h">95 seconds with a very chatty network.</h2>
+        </div>
+        <div class="trailer">
+          <a class="trailer-play" href={`https://www.youtube.com/watch?v=${VIDEO.id}`} data-video={VIDEO.id} data-title={VIDEO.title}>
+            <img src="/trailer-poster.jpg" width="1280" height="720" alt="" loading="lazy" decoding="async" />
+            <span class="trailer-btn" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30"><path fill="currentColor" d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" /></svg></span>
+            <span class="trailer-label">Play the trailer <span>1:35</span></span>
+          </a>
+        </div>
+      </section>
+
       <!-- Examples -->
       <section class="section wrap">
         <div class="section-head">
@@ -562,6 +592,21 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
     </footer>
 
     <script>
+      // Trailer: swap the poster for the YouTube player (privacy-enhanced mode) when it's clicked.
+      for (const link of document.querySelectorAll<HTMLAnchorElement>("a.trailer-play")) {
+        link.addEventListener("click", (e) => {
+          e.preventDefault();
+          const frame = document.createElement("iframe");
+          frame.src = `https://www.youtube-nocookie.com/embed/${link.dataset.video}?autoplay=1&rel=0`;
+          frame.title = link.dataset.title ?? "Video";
+          frame.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+          frame.allowFullscreen = true;
+          frame.referrerPolicy = "strict-origin-when-cross-origin";
+          link.replaceWith(frame);
+          frame.focus();
+        });
+      }
+
       // Copy buttons
       for (const btn of document.querySelectorAll<HTMLButtonElement>("button.copy")) {
         btn.addEventListener("click", async () => {
@@ -889,6 +934,35 @@ const neighbourArcs = [28, 52, 76, 100, 124].map((r) => arc(1285, 724, r, 72));
       .kicker { margin: 0 0 12px; font: 600 13px var(--mono); text-transform: uppercase; letter-spacing: 0.12em; color: var(--cyan); }
       h2 { font-size: clamp(32px, 4.2vw, 48px); font-weight: 700; }
       .section-head p:not(.kicker) { color: var(--muted); font-size: 18px; margin: 18px 0 0; }
+
+      .trailer {
+        position: relative; max-width: 960px; margin: 0 auto; aspect-ratio: 16 / 9; overflow: hidden;
+        border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-2);
+        box-shadow: 0 30px 90px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(99, 102, 241, 0.15), 0 0 80px rgba(99, 102, 241, 0.18);
+      }
+      .trailer iframe, .trailer-play, .trailer-play img { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+      .trailer-play { display: block; color: #fff; text-decoration: none; }
+      .trailer-play img { object-fit: cover; transition: transform 0.6s ease, filter 0.3s ease; }
+      .trailer-play:hover img, .trailer-play:focus-visible img { transform: scale(1.02); filter: brightness(0.85); }
+      .trailer-btn {
+        position: absolute; left: 81%; top: 50%; width: 84px; height: 84px; margin: -42px 0 0 -42px; /* in the poster's empty right-hand side */
+        display: grid; place-items: center; border-radius: 50%;
+        background: linear-gradient(135deg, var(--indigo), var(--cyan));
+        box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.08), 0 12px 40px rgba(34, 211, 238, 0.45);
+        transition: transform 0.2s ease;
+      }
+      .trailer-btn svg { margin-left: 4px; }
+      .trailer-play:hover .trailer-btn, .trailer-play:focus-visible .trailer-btn { transform: scale(1.08); }
+      .trailer-label {
+        position: absolute; right: 20px; bottom: 18px; padding: 8px 14px; border-radius: 999px;
+        background: rgba(7, 8, 15, 0.72); border: 1px solid var(--line); font: 600 14px var(--sans);
+      }
+      @media (max-width: 640px) {
+        .trailer-btn { width: 56px; height: 56px; margin: -28px 0 0 -28px; }
+        .trailer-btn svg { width: 22px; height: 22px; }
+        .trailer-label { display: none; }
+      }
+      .trailer-label span { color: var(--muted); font: 500 13px var(--mono); margin-left: 6px; }
 
       .examples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
       .example {
